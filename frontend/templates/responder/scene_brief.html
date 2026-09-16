@@ -58,11 +58,16 @@
       </header>
 
       <main>
+        <!-- 1. MISSION MASTHEAD — Who, where, how long -->
         <section class="mission" aria-label="Mission summary">
           <div class="mission-top">
             <div class="mission-info">
               <p class="eyebrow"><span class="pulse pulse--amber" aria-hidden="true"></span> Unit 14 · En route</p>
-              <h1 class="mission__trauma" style="margin-top:4px">Scene brief <span class="badge badge--teal">RQ-2417</span></h1>
+              <!-- h1 = the incident type, NOT "Scene brief" -->
+              <h1 class="mission__trauma" style="margin-top:4px">
+                Head-on collision, trailer and minibus
+                <span class="badge badge--teal" style="font-size:var(--fs-xs);vertical-align:middle;margin-left:6px">RQ-2417</span>
+              </h1>
               <p class="mission__where">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                 Enugu–Onitsha Expressway, km 42 → ESUTH Parklane
@@ -78,14 +83,15 @@
           <div class="victim-counter-card">
             <div class="victim-big-num">02</div>
             <div class="victim-counter-details">
-              <span class="victim-counter-label">VICTIMS REPORTED</span>
+              <span class="victim-counter-label">Victims reported</span>
               <h2 class="victim-counter-status">Critical scene</h2>
               <span class="victim-counter-sub">1 unresponsive / head trauma · 1 arterial bleed</span>
             </div>
-            <span class="mission__triage">CRITICAL</span>
+            <span class="mission__triage">Critical</span>
           </div>
         </section>
 
+        <!-- 2. SAFETY ALERTS — Highest priority, read first -->
         <section class="alerts" aria-label="Responder safety alerts">
           <article class="alert">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
@@ -103,6 +109,27 @@
           </article>
         </section>
 
+        <!-- 3. ROUTE STEPS — Where to turn right now, before patient detail -->
+        <section class="route" aria-label="Route to scene">
+          <p class="block__label">Route to scene · 6.4 km</p>
+          <p class="route__step">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8M12 8 7 13M12 8l5 5"/></svg>
+            <span>Continue on Enugu–Onitsha Expressway, eastbound</span>
+            <span class="route__dist">4.1 km</span>
+          </p>
+          <p class="route__step route__step--blocked">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <span>Ugwuoba culvert flooded — use service lane detour</span>
+            <span class="route__dist">+600 m</span>
+          </p>
+          <p class="route__step">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20V10a4 4 0 0 1 4-4h5M18 6l-3-3M18 6l-3 3"/></svg>
+            <span>Approach from hard shoulder, stage 30 m short of debris</span>
+            <span class="route__dist">1.7 km</span>
+          </p>
+        </section>
+
+        <!-- 4. PATIENT SUMMARY — Detail once route is known -->
         <section class="blocks" aria-label="Scene detail">
           <article class="block">
             <p class="block__label">Bystander actions completed</p>
@@ -138,6 +165,7 @@
           </article>
         </section>
 
+        <!-- 5. HOSPITAL DESTINATION -->
         <section class="destination" aria-label="Hospital destination">
           <p class="block__label">Pre-routed destination</p>
           <p class="destination__name">ESUTH Parklane</p>
@@ -150,38 +178,24 @@
           <p class="destination__why">
             Overrides Ugwuoba clinic (4 min) — no neurosurgical or transfusion capability for this trauma profile.
           </p>
+          <!-- Acknowledge brief button — SVG arrow, no text character -->
           <button class="ack-btn" id="ackBriefBtn" type="button">
             <svg class="ack-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            <span id="ackBtnText">Acknowledge brief →</span>
+            <span id="ackBtnText">Acknowledge brief</span>
+            <!-- SVG arrow replaces the text → character -->
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </section>
 
-        <section class="route" aria-label="Route to scene">
-          <p class="block__label">Route to scene · 6.4 km</p>
-          <p class="route__step">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8M12 8 7 13M12 8l5 5"/></svg>
-            <span>Continue on Enugu–Onitsha Expressway, eastbound</span>
-            <span class="route__dist">4.1 km</span>
-          </p>
-          <p class="route__step route__step--blocked">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-            <span>Ugwuoba culvert flooded — use service lane detour</span>
-            <span class="route__dist">+600 m</span>
-          </p>
-          <p class="route__step">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20V10a4 4 0 0 1 4-4h5M18 6l-3-3M18 6l-3 3"/></svg>
-            <span>Approach from hard shoulder, stage 30 m short of debris</span>
-            <span class="route__dist">1.7 km</span>
-          </p>
-        </section>
-
+        <!-- 6. STAGE SWITCHER -->
         <section class="stages" aria-label="Unit status">
-          <button class="stage-btn is-active" type="button" data-stage="En route">En route</button>
-          <button class="stage-btn" type="button" data-stage="On scene">On scene</button>
-          <button class="stage-btn" type="button" data-stage="Transporting">Transporting</button>
-          <button class="stage-btn" type="button" data-stage="Clear">Clear</button>
+          <button class="stage-btn is-active" type="button" data-stage="enroute">En route</button>
+          <button class="stage-btn" type="button" data-stage="onscene">On scene</button>
+          <button class="stage-btn" type="button" data-stage="transporting">Transporting</button>
+          <button class="stage-btn" type="button" data-stage="clear">Clear</button>
         </section>
 
+        <!-- 7. STATUS LOG -->
         <section class="statuslog" id="statuslog" aria-label="Telemetry log"></section>
       </main>
 

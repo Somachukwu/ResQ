@@ -19,7 +19,12 @@ const el = {
   reassure: $("#reassure"),
   eta: $("#eta"),
   gps: $("#gps"),
+  gpsBtn: $("#gpsBtn"),
+  gpsPulse: $("#gpsPulse"),
   net: $("#net"),
+  netPulse: $("#netPulse"),
+  netHeaderPulse: $("#netHeaderPulse"),
+  netHeaderText: $("#netHeaderText"),
   liveActions: $("#liveActions"),
   drawer: $("#drawer"),
   drawerList: $("#drawerList"),
@@ -45,6 +50,7 @@ renderOfflineLibrary();
 watchNetwork();
 
 el.sos.addEventListener("click", startSession);
+el.gpsBtn?.addEventListener("click", requestLocation);
 el.form.addEventListener("submit", onSubmit);
 el.field.addEventListener("input", autoGrow);
 el.field.addEventListener("keydown", (e) => {
@@ -221,17 +227,34 @@ function autoGrow() {
 /* ---------------- sensing ---------------- */
 function requestLocation() {
   if (!("geolocation" in navigator)) {
-    el.gps.textContent = "Location unavailable";
+    if (el.gpsBtn) el.gpsBtn.textContent = "Location unavailable";
     return;
+  }
+  if (el.gpsBtn && !state.coords) {
+    el.gpsBtn.textContent = "Locating…";
   }
   navigator.geolocation.watchPosition(
     (pos) => {
       state.coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
-      el.gps.textContent = `Location shared · ±${state.coords.acc} m`;
+      if (el.gpsBtn) {
+        el.gpsBtn.textContent = `Location shared · ±${state.coords.acc} m`;
+        el.gpsBtn.classList.add("is-shared");
+      }
+      if (el.gpsPulse) {
+        el.gpsPulse.classList.remove("pulse--red", "pulse--amber");
+        el.gpsPulse.classList.add("pulse--teal");
+      }
     },
     () => {
-      el.gps.textContent = "Location blocked — describe the landmark you see";
-      say("resq", "I cannot read your location. Tell me the nearest landmark, junction or kilometre marker.");
+      if (el.gpsBtn) {
+        el.gpsBtn.textContent = "Location blocked · Tap to retry";
+        el.gpsBtn.classList.remove("is-shared");
+      }
+      if (el.gpsPulse) {
+        el.gpsPulse.classList.remove("pulse--teal");
+        el.gpsPulse.classList.add("pulse--red");
+      }
+      say("resq", "I cannot read your location. Tap 'Share location' to allow access, or tell me the nearest landmark.");
     },
     { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 }
   );
@@ -291,8 +314,15 @@ function toggleVoice() {
 function watchNetwork() {
   const paint = () => {
     const on = navigator.onLine;
-    el.net.textContent = on ? "Connected" : "Offline — cached first aid active";
-    el.net.previousElementSibling?.classList.toggle("pulse--amber", !on);
+    const text = on ? "Online" : "Offline";
+    if (el.net) el.net.textContent = text;
+    if (el.netHeaderText) el.netHeaderText.textContent = text;
+
+    [el.netPulse, el.netHeaderPulse].forEach((p) => {
+      if (!p) return;
+      p.classList.toggle("pulse--teal", on);
+      p.classList.toggle("pulse--red", !on);
+    });
   };
   window.addEventListener("online", paint);
   window.addEventListener("offline", paint);
@@ -303,7 +333,7 @@ function watchNetwork() {
 function dispatchResponder() {
   if (state.dispatched) return;
   state.dispatched = true;
-  el.reassure.classList.remove("hidden");
+  el.reassure.classList.add("is-visible");
   el.liveActions.classList.add("is-active");
   say("resq", "A unit has been dispatched to you. Keep doing exactly what you are doing.");
   tickEta();

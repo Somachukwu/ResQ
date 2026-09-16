@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>ResQ Dispatch — GIS command center</title>
+    <title>ResQ Dispatch — Tactical GIS Command Center</title>
     <meta
       name="description"
-      content="Tactical GIS command center for emergency dispatch: live incident queue ranked by severity, responder fleet tracking, hospital capability layer and one-tap unit assignment."
+      content="Tactical 3-pane GIS command center for emergency dispatch: live triage queue, geospatial hazard overlays, telemetry fleet tracking, and one-tap capability-matched dispatch."
     />
     <meta name="theme-color" content="#0F1117" />
-    <meta property="og:title" content="ResQ Dispatch — GIS command center" />
+    <meta property="og:title" content="ResQ Dispatch — Tactical GIS Command Center" />
     <meta property="og:description" content="Live incident triage queue, responder fleet and one-tap dispatch on a tactical map." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -36,26 +36,77 @@
 
   <body class="dispatcher">
     <div class="cmd">
+      <!-- TOP COMMAND BAR — Sleek, compact & pro-grade -->
       <header class="topbar">
         <div class="topbar__left">
           <a class="resq-mark" href="/">
             <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
-            <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · dispatch</span></span>
+            <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · CAD</span></span>
           </a>
-          <div class="kpis">
-            <div class="kpi"><span class="kpi__val" id="kpiActive">0</span><span class="kpi__label">Active incidents</span></div>
-            <div class="kpi kpi--alert"><span class="kpi__val" id="kpiCritical">0</span><span class="kpi__label">Critical</span></div>
-            <div class="kpi"><span class="kpi__val" id="kpiUnits">0</span><span class="kpi__label">Units idle</span></div>
-            <div class="kpi"><span class="kpi__val">6:12</span><span class="kpi__label">Median response</span></div>
+
+          <!-- Full KPI strip (desktop) -->
+          <div class="kpis" id="kpisStrip">
+            <div class="kpi"><span class="kpi__val" id="kpiActive">0</span><span class="kpi__label">Active</span></div>
+            <div class="kpi kpi--alert"><span class="kpi__val" id="kpiCritical">0</span><span class="kpi__label">Critical P1</span></div>
+            <div class="kpi"><span class="kpi__val" id="kpiUnits">0</span><span class="kpi__label">Idle</span></div>
+            <div class="kpi"><span class="kpi__val">05:40</span><span class="kpi__label">Transit</span></div>
           </div>
         </div>
-        <div class="topbar__right">
-          <div class="panel-toggles">
-            <button class="btn btn--ghost" id="fleetToggle" type="button" style="min-height:42px;padding:0 16px;font-size:var(--fs-xs);gap:8px">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-              <span>Fleet &amp; Comms</span>
+
+        <!-- Weather intelligence widget on top bar -->
+        <div class="topbar-weather" id="topbarWeatherWrap">
+          <div class="weather-pill" id="weatherWidgetToggle" role="button" aria-expanded="false" title="Click to view weather report">
+            <span class="weather-pill__icon" id="weatherIcon" aria-hidden="true">
+              <svg class="wx-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="8" y1="20" x2="8.01" y2="20"/><line x1="12" y1="18" x2="12.01" y2="18"/><line x1="12" y1="22" x2="12.01" y2="22"/><line x1="16" y1="16" x2="16.01" y2="16"/><line x1="16" y1="20" x2="16.01" y2="20"/></svg>
+            </span>
+            <span class="weather-pill__temp" id="weatherTemp">--°C</span>
+            <span class="weather-pill__cond" id="weatherCondition">Weather</span>
+            <span class="badge badge--escalation badge--steady" id="weatherTrend">STEADY</span>
+            <button class="weather-collapse-btn" id="weatherCollapseBtn" type="button" aria-label="Toggle meteorological report" aria-expanded="false">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
             </button>
           </div>
+
+          <!-- Floating Dropdown Card below topbar weather pill -->
+          <div class="weather-dropdown hidden" id="weatherBody">
+            <div class="weather-dropdown__header">
+              <span class="weather-dropdown__title">Meteorological intelligence</span>
+              <span class="weather-dropdown__region" id="weatherRegionLabel">Enugu Urban</span>
+            </div>
+            <div class="weather-dropdown__metrics">
+              <div class="metric-item">
+                <span class="metric-label">Precipitation</span>
+                <span class="metric-val" id="weatherRain">-- mm/h</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Wind Gusts</span>
+                <span class="metric-val" id="weatherWind">-- km/h</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Visibility</span>
+                <span class="metric-val" id="weatherVis">-- km</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Transit Delay</span>
+                <span class="metric-val" id="weatherDelay">--</span>
+              </div>
+            </div>
+            <div class="weather-dropdown__advisories" id="weatherAdvisories"></div>
+          </div>
+        </div>
+
+        <div class="topbar__right">
+          <button class="btn btn--ghost btn--compact" id="demoInjectBtn" type="button" title="Inject simulated competition scenario">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Simulate</span>
+          </button>
+
+          <!-- Fullscreen View Toggle (Requirement 5) -->
+          <button class="btn btn--ghost btn--compact btn--icon-only" id="fullscreenBtn" type="button" title="Toggle Fullscreen Mode" aria-label="Toggle Fullscreen">
+            <svg class="fs-icon-max" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            <svg class="fs-icon-min hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+          </button>
+
           <button class="theme-toggle" data-theme-toggle type="button" role="switch" aria-checked="true" aria-label="Switch theme">
             <span class="theme-toggle__thumb"></span>
             <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">
@@ -68,106 +119,225 @@
         </div>
       </header>
 
-      <div class="workspace">
-        <!-- Incident queue -->
-        <section class="panel panel--left" id="queuePanel" aria-label="Incident triage queue">
+      <!-- Mobile Command Nav Switcher (≤860px) -->
+      <nav class="mobile-command-nav" id="mobileNav" role="tablist" aria-label="Command view switcher">
+        <button class="mobile-nav-tab is-active" data-view="queue" type="button" role="tab" aria-selected="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></svg>
+          <span>Incidents (<b id="mobileQueueCount">0</b>)</span>
+        </button>
+        <button class="mobile-nav-tab" data-view="map" type="button" role="tab" aria-selected="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+          <span>Tactical Map</span>
+        </button>
+        <button class="mobile-nav-tab" data-view="console" type="button" role="tab" aria-selected="false">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+          <span>Mission Brief</span>
+        </button>
+      </nav>
+
+      <!-- 3-PANE TACTICAL COCKPIT WORKSPACE WITH RESIZABLE SPLITTERS -->
+      <div class="workspace" id="workspace">
+        <!-- PANE 1: INCIDENT TRIAGE QUEUE -->
+        <section class="panel panel--left" id="queuePanel" aria-label="Incidents list">
           <header class="panel__head" id="queueHead">
-            <div class="row">
-              <span class="pulse pulse--amber" aria-hidden="true"></span>
-              <h2 class="panel__title">Incident queue · by severity</h2>
+            <div class="panel__head-left">
+              <h2 class="panel__title">Incidents</h2>
+              <span class="badge badge--teal" id="queueCount">0</span>
             </div>
-            <span class="badge">RSI ranked</span>
+            <div class="panel__head-center">
+              <select class="queue-filter-select" id="queueFilterSelect" aria-label="Filter incidents by priority">
+                <option value="all">All Priorities</option>
+                <option value="red">Critical (P1)</option>
+                <option value="yellow">Urgent (P2)</option>
+                <option value="green">Stable (P3)</option>
+              </select>
+            </div>
+            <div class="panel__head-right">
+              <button class="panel-collapse-btn" id="collapseQueueBtn" type="button" title="Toggle compact rail" aria-label="Toggle compact rail">
+                <svg class="collapse-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+            </div>
           </header>
           <div class="panel__body" id="queue"></div>
         </section>
 
-        <!-- Map -->
-        <section class="mapwrap" aria-label="Tactical map">
+        <!-- RESIZER 1 (Left pane resizer) -->
+        <div class="pane-resizer pane-resizer--left" id="resizerLeft" role="separator" aria-orientation="vertical" title="Drag to resize Incidents panel"></div>
+
+        <!-- PANE 2: TACTICAL GIS MAP -->
+        <section class="mapwrap" id="mapWrap" aria-label="Tactical GIS map">
           <div id="map"></div>
 
+          <!-- Map layer toggles — top-left -->
           <div class="layers" role="group" aria-label="Map layers">
             <label class="layer-toggle is-on" data-layer="incidents" data-tone="incident">
               <input type="checkbox" checked /><span class="dot"></span> Incidents
             </label>
             <label class="layer-toggle is-on" data-layer="responders" data-tone="responder">
-              <input type="checkbox" checked /><span class="dot"></span> Responders
+              <input type="checkbox" checked /><span class="dot"></span> Responders (AVL)
             </label>
             <label class="layer-toggle is-on" data-layer="hospitals" data-tone="hospital">
               <input type="checkbox" checked /><span class="dot"></span> Hospital capability
             </label>
             <label class="layer-toggle is-on" data-layer="flood" data-tone="flood">
-              <input type="checkbox" checked /><span class="dot"></span> Flood &amp; blackspots
+              <input type="checkbox" checked /><span class="dot"></span> Flood blackspots
             </label>
             <label class="layer-toggle" data-layer="satellite">
               <input type="checkbox" /><span class="dot"></span> Satellite imagery
             </label>
           </div>
 
+          <!-- Mandatory IEEE Region Selector (S/N 14) — BOTTOM-CENTER of map -->
+          <div class="region-selector" role="radiogroup" aria-label="Geographic region scale filter">
+            <button class="region-btn is-active" data-region="community" type="button" title="View Community Level (Enugu Urban)">
+              <span class="region-btn__tag">Community</span>
+              <span>Enugu Urban</span>
+            </button>
+            <button class="region-btn" data-region="state" type="button" title="View State Level (Enugu State Corridor)">
+              <span class="region-btn__tag">State</span>
+              <span>Enugu State</span>
+            </button>
+            <button class="region-btn" data-region="country" type="button" title="View National Macro Scale (Nigeria)">
+              <span class="region-btn__tag">National</span>
+              <span>Nigeria Macro</span>
+            </button>
+          </div>
+
+          <!-- Map Legend — bottom-left -->
           <div class="map-legend">
-            <span><i style="background: var(--amber)"></i>Critical ≥ 4.0</span>
-            <span><i style="background: var(--triage-yellow)"></i>Urgent</span>
-            <span><i style="background: var(--triage-green)"></i>Minor</span>
+            <span><i style="background: var(--triage-red)"></i>Critical (P1)</span>
+            <span><i style="background: var(--triage-orange)"></i>Urgent (P2)</span>
+            <span><i style="background: var(--triage-green)"></i>Stable (P3)</span>
             <span><i style="background: var(--teal-bright)"></i>Responder</span>
-            <span><i style="background: var(--purple)"></i>Hospital</span>
+            <span><i style="background: var(--hospital)"></i>Hospital</span>
           </div>
         </section>
 
-        <!-- Fleet + comms -->
-        <aside class="panel panel--right" id="fleetPanel" aria-label="Responder fleet and communications">
-          <header class="panel__head">
-            <h2 class="panel__title">Responder fleet</h2>
-            <button class="btn btn--quiet" id="fleetClose" type="button" style="min-height:36px;padding:0 10px;font-size:var(--fs-xs)">Close</button>
-          </header>
-          <div class="panel__body" id="fleet"></div>
+        <!-- RESIZER 2 (Right pane resizer) -->
+        <div class="pane-resizer pane-resizer--right" id="resizerRight" role="separator" aria-orientation="vertical" title="Drag to resize Mission Console"></div>
 
-          <section class="comms" aria-label="Communications console">
-            <div class="comms__tabs">
-              <button class="comms__tab is-active" type="button" data-channel="civilian">Scene / civilian</button>
-              <button class="comms__tab" type="button" data-channel="responder">Responder net</button>
+        <!-- PANE 3: TACTICAL MISSION & DISPATCH CONSOLE -->
+        <aside class="panel panel--right" id="consolePanel" aria-label="Tactical Mission Console">
+          <header class="console-tabs">
+            <button class="console-tab is-active" id="tabMission" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+              <span>Incident Brief</span>
+            </button>
+            <button class="console-tab" id="tabFleet" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+              <span>Fleet</span>
+            </button>
+          </header>
+
+          <!-- TAB CONTENT 1: INCIDENT INTELLIGENCE & DISPATCH -->
+          <div class="console-body" id="missionTabContent">
+            <!-- Active incident header -->
+            <div class="mission-brief-card" id="missionBriefCard">
+              <div class="brief-card__top">
+                <span class="badge badge--triage" id="detailTriage">CRITICAL</span>
+                <span class="brief-card__rsi" id="detailRsi">RSI 4.6</span>
+                <span class="brief-card__time" id="detailElapsed">--:-- ago</span>
+              </div>
+              <h3 class="brief-card__title" id="detailTitle">Select an incident from the queue</h3>
+              <p class="brief-card__place" id="detailPlace">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span id="detailCoordsText">–</span>
+              </p>
             </div>
-            <div class="comms__log" id="commsLog"></div>
-            <form class="comms__input" id="commsForm">
-              <label class="sr-only" for="commsInput">Message</label>
-              <input id="commsInput" type="text" placeholder="Send to channel…" autocomplete="off" />
-              <button class="btn btn--primary" type="submit" style="min-height:44px;padding:0 16px;font-size:var(--fs-xs)">Send</button>
-            </form>
-          </section>
+
+            <!-- Casualty breakdown -->
+            <div class="console-section">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                  Casualties &amp; Triage
+                </span>
+                <span class="badge" id="detailVictimCount">–</span>
+              </div>
+              <div class="casualty-box" id="detailInjuries">–</div>
+            </div>
+
+            <!-- Scene Hazards -->
+            <div class="console-section">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Scene Hazards
+                </span>
+              </div>
+              <div class="hazard-pills" id="detailHazards">
+                <span style="font-size:10px;color:var(--text-3)">No active hazards flagged</span>
+              </div>
+            </div>
+
+            <!-- Recommended Hospital -->
+            <div class="console-section">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M12 6v4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+                  Capability-Matched Hospital
+                </span>
+              </div>
+              <div class="facility-card">
+                <div class="facility-card__main">
+                  <div class="facility-card__name" id="detailHospital">ESUTH Parklane</div>
+                  <div class="facility-card__caps" id="detailHospitalCaps">
+                    <span class="facility-cap-tag">Level 1 trauma</span>
+                    <span class="facility-cap-tag">ICU</span>
+                    <span class="facility-cap-tag">Blood bank</span>
+                  </div>
+                </div>
+                <div class="facility-card__eta" id="detailHospitalEta">8.4 mins</div>
+              </div>
+            </div>
+
+            <!-- Unit Assignment & Dispatch Action -->
+            <div class="dispatch-action-box">
+              <div class="console-section__head" style="margin-bottom:6px">
+                <span class="console-section__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>
+                  Assigned Unit
+                </span>
+                <span class="badge badge--assigned" id="detailAssignedBadge">Unassigned</span>
+              </div>
+              <div class="unit-assign-row">
+                <select class="unit-select" id="unitSelect" aria-label="Select response unit"></select>
+                <button class="btn btn--primary btn--dispatch-action" id="consoleDispatchBtn" type="button">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  <span class="dispatch-label">Dispatch Unit</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Communications Timeline -->
+            <div class="console-section" style="flex:1;display:flex;flex-direction:column;min-height:160px">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Comms Timeline
+                </span>
+                <span class="channel-pill" id="activeChannelBadge">Civilian Net</span>
+              </div>
+              <div class="comms__log" id="commsLog" style="flex:1;min-height:100px"></div>
+              <form class="comms__input" id="commsForm" style="margin-top:6px">
+                <input id="commsInput" type="text" placeholder="Broadcast to responder net..." autocomplete="off" />
+                <button class="btn btn--primary" type="submit" style="min-height:32px;padding:0 10px;font-size:11px">Send</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT 2: FLEET STATUS & TELEMETRY -->
+          <div class="console-body hidden" id="fleetTabContent">
+            <div class="panel__body" id="fleet" style="padding:0"></div>
+          </div>
         </aside>
       </div>
     </div>
 
-    <!-- Dispatch modal -->
-    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal__scrim" data-close-modal></div>
-      <div class="modal__panel">
-        <header>
-          <p class="eyebrow">Recommended assignment</p>
-          <h2 id="modalTitle" style="font-size: var(--fs-lg)"></h2>
-          <p id="modalPlace" style="font-size: var(--fs-sm); color: var(--text-2)"></p>
-        </header>
-
-        <div class="match">
-          <div class="match__grid">
-            <div class="match__cell"><span class="match__k">Closest qualified unit</span><span class="match__v" id="matchUnit"></span></div>
-            <div class="match__cell"><span class="match__k">Travel time</span><span class="match__v" id="matchEta"></span></div>
-            <div class="match__cell"><span class="match__k">Capability match</span><span class="match__v" id="matchCaps"></span></div>
-          </div>
-          <div class="match__cell"><span class="match__k">Receiving facility</span><span class="match__v" id="matchHospital"></span></div>
-        </div>
-
-        <div>
-          <p class="eyebrow" style="margin-bottom: var(--sp-2)">Alternates</p>
-          <div class="stack" id="matchAlt"></div>
-        </div>
-
-        <div class="row" style="gap: var(--sp-2)">
-          <button class="btn btn--ghost" data-close-modal type="button">Cancel</button>
-          <button class="btn btn--primary grow" id="dispatchBtn" type="button">Dispatch unit</button>
-        </div>
-      </div>
-    </div>
-
+    <!-- Leaflet & Real-Time Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/js/resq-socket.js"></script>
     <script type="module" src="/static/js/dispatcher.js"></script>
   </body>
 </html>
