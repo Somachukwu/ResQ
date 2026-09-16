@@ -25,7 +25,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
@@ -35,7 +35,7 @@
 
   <body class="responder">
     <div class="responder-app" id="responderApp">
-      <!-- TOP COMMAND BAR (48px — Clean, uncluttered tactical header) -->
+      <!-- TOP COMMAND BAR (48px — Clean, spacious, uncluttered tactical header) -->
       <header class="r-header">
         <div class="r-header__left">
           <a class="resq-mark" href="/">
@@ -54,22 +54,16 @@
             <span>GPS <b id="beat">--:--:--</b></span>
           </div>
           <div class="r-radio-status">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
             <span id="lastRadioUpdate">Updated just now</span>
           </div>
         </div>
 
         <div class="r-header__right">
-          <!-- Countdown Card Pill -->
-          <div class="header-eta-pill">
-            <span class="eta-pill__label">ETA</span>
-            <strong class="eta-pill__time" id="arrivalCountdown">12:04</strong>
-          </div>
-
-          <!-- Fullscreen Toggle Button (Requirement 3) -->
+          <!-- Fullscreen Toggle Button -->
           <button class="btn btn--ghost btn--compact btn--icon-only" id="fullscreenBtn" type="button" title="Toggle Fullscreen Mode" aria-label="Toggle Fullscreen">
-            <svg class="fs-icon-max" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-            <svg class="fs-icon-min hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+            <svg class="fs-icon-max" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            <svg class="fs-icon-min hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
           </button>
 
           <!-- Theme Toggle -->
@@ -99,7 +93,7 @@
           </div>
         </div>
         <div class="m-strip__alert">
-          <svg class="crit-icon crit-icon--orange" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          <svg class="crit-icon crit-icon--orange" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
           <span>Fuel spill detected at collision site — do not deploy flares.</span>
         </div>
       </div>
@@ -124,20 +118,29 @@
       <main class="responder-workspace" id="responderWorkspace" data-active-tab="route">
         <!-- PANE 1: TACTICAL ROUTE & SCENE SIZING (Left Cockpit Column) -->
         <section class="r-pane r-pane--navigation" id="paneNavigation" aria-label="Navigation and scene alerts">
-          <!-- Incident Header Card -->
+          <!-- Incident Header Card with prominent, well-arranged ETA (Requirement 4) -->
           <div class="r-card r-card--incident">
             <div class="r-card__top">
               <span class="eyebrow"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 · Pre-arrival sizing</span>
               <span class="badge badge--teal" style="font-variant-numeric: tabular-nums;">RQ-2417</span>
             </div>
-            <h1 class="mission__trauma">Head-on collision, trailer and minibus</h1>
-            <p class="mission__where">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <span>Enugu–Onitsha Expressway, km 42 → ESUTH Parklane</span>
-            </p>
+            <div class="incident-main-row">
+              <div class="incident-titles">
+                <h1 class="mission__trauma">Head-on collision, trailer and minibus</h1>
+                <p class="mission__where">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span>Enugu–Onitsha Expressway, km 42 → ESUTH Parklane</span>
+                </p>
+              </div>
+              <div class="countdown-card" aria-label="Estimated arrival time">
+                <span class="countdown-label">Arriving in</span>
+                <strong class="countdown-val" id="arrivalCountdown">12:04</strong>
+                <span class="countdown-unit">Minutes</span>
+              </div>
+            </div>
           </div>
 
-          <!-- Victim Triage Matrix (Neutral card with critical icon indicator) -->
+          <!-- Victim Triage Matrix (Neutral card with condition dot) -->
           <div class="victim-counter-card">
             <div class="victim-big-num">02</div>
             <div class="victim-counter-details">
@@ -156,14 +159,14 @@
           <!-- Safety Alerts (Clean neutral cards with dedicated colored critical icons) -->
           <div class="alerts-group" aria-label="Responder safety alerts">
             <article class="alert">
-              <svg class="crit-icon crit-icon--red" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+              <svg class="crit-icon crit-icon--red" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
               <div>
                 <p class="alert__label">Safety alert · Fuel hazard</p>
                 <p class="alert__text">Fuel spill detected at collision site. Do not deploy flares.</p>
               </div>
             </article>
             <article class="alert">
-              <svg class="crit-icon crit-icon--orange" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
+              <svg class="crit-icon crit-icon--orange" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
               <div>
                 <p class="alert__label">Traffic hazard</p>
                 <p class="alert__text">Live traffic on eastbound lane. FRSC-12 holding lane closure.</p>
@@ -171,29 +174,26 @@
             </article>
           </div>
 
-          <!-- Route Steps (Clean neutral cards with orange detour icon) -->
-          <div class="route" aria-label="Route to scene">
-            <div class="route__head">
-              <span class="block__label">En route navigation · 6.4 km</span>
-              <span class="badge badge--escalation badge--steady">Traffic steady</span>
-            </div>
-            <div class="route__steps">
-              <p class="route__step">
+          <!-- Route Steps: Using the exact same clean listing style as Bystander Actions (Requirement 5 & 6) -->
+          <div class="block" aria-label="Route to scene">
+            <p class="block__label">En route navigation · 6.4 km</p>
+            <ul class="done-list route-list">
+              <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8M12 8 7 13M12 8l5 5"/></svg>
-                <span>Continue on Enugu–Onitsha Expressway, eastbound</span>
-                <span class="route__dist">4.1 km</span>
-              </p>
-              <p class="route__step">
+                <span class="route-list__text">Continue on Enugu–Onitsha Expressway, eastbound</span>
+                <span class="route-list__dist">4.1 km</span>
+              </li>
+              <li>
                 <svg class="crit-icon crit-icon--orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-                <span>Ugwuoba culvert flooded — use service lane detour</span>
-                <span class="route__dist">+600 m</span>
-              </p>
-              <p class="route__step">
+                <span class="route-list__text">Ugwuoba culvert flooded — use service lane detour</span>
+                <span class="route-list__dist">+600 m</span>
+              </li>
+              <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20V10a4 4 0 0 1 4-4h5M18 6l-3-3M18 6l-3 3"/></svg>
-                <span>Approach from hard shoulder, stage 30 m short of debris</span>
-                <span class="route__dist">1.7 km</span>
-              </p>
-            </div>
+                <span class="route-list__text">Approach from hard shoulder, stage 30 m short of debris</span>
+                <span class="route-list__dist">1.7 km</span>
+              </li>
+            </ul>
           </div>
         </section>
 
@@ -245,12 +245,9 @@
             </article>
           </div>
 
-          <!-- Scene Contact Card -->
+          <!-- Scene Contact Card (Requirement 6: Ground eye text removed) -->
           <div class="block block--contact" aria-label="Bystander contact">
-            <div class="block__head-row">
-              <p class="block__label">Scene contact &amp; reporting bystander</p>
-              <span class="badge badge--teal">Ground eye</span>
-            </div>
+            <p class="block__label">Scene contact &amp; reporting bystander</p>
             <p class="block__value">Bystander on scene (English / Igbo)</p>
             <p class="block__note">Reporting via ResQ civilian portal since 11:04. Standing 6 m off the carriageway with both victims in view.</p>
           </div>
@@ -258,7 +255,7 @@
 
         <!-- PANE 3: DESTINATION HOSPITAL, MISSION STAGES & ACTIONS (Right Column) -->
         <section class="r-pane r-pane--hospital" id="paneHospital" aria-label="Destination hospital and status controls">
-          <!-- Hospital Destination Card (Unified under brand teal) -->
+          <!-- Hospital Destination Card (Unified under brand Teal) -->
           <div class="destination" aria-label="Hospital destination">
             <div class="destination__header">
               <div>
@@ -292,7 +289,7 @@
             </div>
           </div>
 
-          <!-- Quick Action Buttons (Requirement 3: Navigate & Call Scene with enhanced text size) -->
+          <!-- Quick Action Buttons (Requirement 3: Navigate & Call Scene) -->
           <div class="cockpit-actions">
             <button class="btn btn--primary btn--action-nav" id="navigate" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>

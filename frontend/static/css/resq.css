@@ -81,8 +81,8 @@
   --shadow-2: 0 12px 40px rgba(26, 26, 26, 0.12);
   --glow-amber: 0 0 0 0 rgba(240, 146, 10, 0.5);
   --map-filter: none;
-  --select-accent: #0f172a;
-  --select-accent-bg: rgba(15, 23, 42, 0.05);
+  --select-accent: var(--teal);
+  --select-accent-bg: color-mix(in srgb, var(--teal) 10%, var(--surface-2));
   color-scheme: light;
 }
 
@@ -107,8 +107,8 @@
   --triage-green: #22c55e;
   --hospital: #a78bfa;
   --hospital-bright: #c4b5fd;
-  --select-accent: #ffffff;
-  --select-accent-bg: rgba(255, 255, 255, 0.08);
+  --select-accent: var(--teal-bright);
+  --select-accent-bg: color-mix(in srgb, var(--teal) 14%, var(--surface-2));
   color-scheme: dark;
 }
 
