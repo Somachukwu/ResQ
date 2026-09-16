@@ -297,11 +297,14 @@ body.dispatcher {
   overflow-x: hidden;
 }
 
-/* In collapsed view, remove container of left pane elements (Requirement 2) */
-.workspace.left-collapsed .incident {
+/* In collapsed view, remove container of left pane elements completely (Requirement 2) */
+.workspace.left-collapsed .incident,
+.workspace.left-collapsed .incident:hover,
+.workspace.left-collapsed .incident.is-selected {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  outline: none !important;
   border-radius: 0 !important;
   padding: 3px 0 !important;
   margin: 0 !important;
@@ -346,23 +349,16 @@ body.dispatcher {
 .incident-rail-text:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 8%, transparent);
-  text-decoration: underline;
 }
 
-/* Selected element in left pane — ROYAL / COBALT BLUE, NOT GREEN (Requirement 3) */
-.incident.is-selected .incident-rail-text {
-  color: #2563eb !important;
+/* Collapsed selection: NO rectangle; only indicator circle around severity dot and changed text color (Requirement 2) */
+.workspace.left-collapsed .incident.is-selected .incident-rail-text {
+  color: var(--select-accent) !important;
   font-weight: 700 !important;
-  text-decoration: underline !important;
-}
-[data-theme="dark"] .incident.is-selected .incident-rail-text {
-  color: #60a5fa !important;
+  text-decoration: none !important;
 }
 .workspace.left-collapsed .incident.is-selected .incident-rail-dot {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px #2563eb !important;
-}
-[data-theme="dark"] .workspace.left-collapsed .incident.is-selected .incident-rail-dot {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px #3b82f6 !important;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4.5px var(--select-accent) !important;
 }
 
 .workspace.left-collapsed .queue-empty {
@@ -514,23 +510,15 @@ body.dispatcher {
 }
 .incident:hover { transform: translateX(2px); box-shadow: var(--shadow-1); }
 
-/* Selected element in left pane — ROYAL / COBALT BLUE, NOT GREEN (Requirement 3) */
+/* Selected element in left pane — high contrast, authoritative, non-blue, non-green (Requirement 1) */
 .incident.is-selected {
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 1.5px #2563eb, 0 4px 14px rgba(37, 99, 235, 0.18) !important;
-  background: color-mix(in srgb, #2563eb 8%, var(--surface-2)) !important;
-}
-[data-theme="dark"] .incident.is-selected {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 1.5px #3b82f6, 0 4px 14px rgba(59, 130, 246, 0.28) !important;
-  background: color-mix(in srgb, #3b82f6 12%, var(--surface-2)) !important;
+  border-color: var(--select-accent) !important;
+  box-shadow: 0 0 0 1.5px var(--select-accent), 0 4px 14px rgba(0, 0, 0, 0.22) !important;
+  background: var(--select-accent-bg) !important;
 }
 .incident.is-selected .incident__id {
-  color: #2563eb !important;
+  color: var(--select-accent) !important;
   font-weight: 700 !important;
-}
-[data-theme="dark"] .incident.is-selected .incident__id {
-  color: #60a5fa !important;
 }
 
 /* Triage Semantics — Critical = RED, Urgent = ORANGE (Requirement 4) */
