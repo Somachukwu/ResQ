@@ -48,6 +48,7 @@ const icons = {
 cacheProtocols();
 renderOfflineLibrary();
 watchNetwork();
+wireKeyboardAccommodation();
 
 el.sos.addEventListener("click", startSession);
 el.gpsBtn?.addEventListener("click", requestLocation);
@@ -364,3 +365,30 @@ function renderOfflineLibrary() {
     )
     .join("");
 }
+
+/* ---------------- mobile viewport & keyboard accommodation ---------------- */
+function wireKeyboardAccommodation() {
+  const updateViewport = () => {
+    if (!window.visualViewport) return;
+    const h = window.visualViewport.height;
+    document.documentElement.style.setProperty("--visual-viewport-h", `${h}px`);
+    if (el.stream && state.started) {
+      el.stream.scrollTop = el.stream.scrollHeight;
+    }
+  };
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateViewport);
+    window.visualViewport.addEventListener("scroll", updateViewport);
+    updateViewport();
+  }
+
+  el.field.addEventListener("focus", () => {
+    setTimeout(() => {
+      updateViewport();
+      el.field.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      if (el.stream) el.stream.scrollTop = el.stream.scrollHeight;
+    }, 250);
+  });
+}
+

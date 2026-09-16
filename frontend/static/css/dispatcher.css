@@ -1077,101 +1077,235 @@ body.dispatcher {
 
 /* ---------- MOBILE VIEW OVERHAUL (<= 860px) ---------- */
 @media (max-width: 860px) {
+  html,
+  body.dispatcher,
+  .cmd {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
   .cmd {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
 
+  /* Ultra-sleek, zero-overflow topbar on mobile */
   .topbar {
-    padding: 0 10px;
-    gap: 8px;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
   }
-  .topbar__left { gap: 8px; }
-  .kpis { display: none !important; }
-  .weather-pill__cond { display: none; }
+  .topbar__left {
+    gap: 6px !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+  }
+  .topbar .resq-mark__sub {
+    display: none !important;
+  }
+  .kpis {
+    display: none !important;
+  }
+
+  .topbar-weather {
+    flex-shrink: 0 !important;
+  }
+  .weather-pill {
+    height: 28px !important;
+    padding: 2px 7px !important;
+    gap: 5px !important;
+  }
+  .weather-pill__cond,
+  #weatherTrend {
+    display: none !important;
+  }
   .weather-dropdown {
     right: auto;
     left: 50%;
     transform: translateX(-50%);
     width: 270px;
+    max-width: 90vw;
+  }
+
+  .topbar__right {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  #demoInjectBtn {
+    width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+  #demoInjectBtn span {
+    display: none !important;
+  }
+  #fullscreenBtn {
+    display: none !important;
+  }
+  .topbar .theme-toggle {
+    width: 40px !important;
+    height: 24px !important;
+  }
+  .topbar .theme-toggle__thumb {
+    width: 18px !important;
+    height: 18px !important;
+    top: 2px !important;
+    left: 2px !important;
+  }
+  [data-theme="dark"] .topbar .theme-toggle__thumb {
+    transform: translateX(16px) !important;
   }
 
   /* Show mobile command tab switcher */
   .mobile-command-nav {
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid var(--line);
-    background: var(--surface);
-    height: 38px;
-    min-height: 38px;
-    padding: 0 6px;
-    gap: 4px;
-    box-sizing: border-box;
-    z-index: 90;
+    display: flex !important;
+    align-items: center !important;
+    border-bottom: 1px solid var(--line) !important;
+    background: var(--surface) !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    z-index: 90 !important;
   }
   .mobile-nav-tab {
-    flex: 1;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    border: 1px solid transparent;
-    border-radius: var(--r-sm);
-    background: transparent;
-    color: var(--text-3);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 140ms var(--ease);
+    flex: 1 1 0 !important;
+    height: 28px !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0 4px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--r-sm) !important;
+    background: transparent !important;
+    color: var(--text-3) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 140ms var(--ease) !important;
   }
-  .mobile-nav-tab svg { width: 13px; height: 13px; }
-  .mobile-nav-tab:hover { color: var(--text); }
+  .mobile-nav-tab svg { width: 13px !important; height: 13px !important; flex-shrink: 0 !important; }
+  .mobile-nav-tab span {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .mobile-nav-tab:hover { color: var(--text) !important; }
   .mobile-nav-tab.is-active {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+    color: var(--accent) !important;
+    border-color: var(--accent) !important;
   }
 
   /* Workspace single-view mode */
-  .workspace {
-    display: block;
-    height: calc(100dvh - 48px - 38px);
-    overflow: hidden;
-    position: relative;
+  .workspace,
+  .workspace.left-collapsed {
+    display: block !important;
+    grid-template-columns: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: calc(100dvh - 48px - 38px) !important;
+    overflow: hidden !important;
+    position: relative !important;
+    box-sizing: border-box !important;
   }
   .pane-resizer { display: none !important; }
 
   /* Tab switching visibility on mobile */
   .workspace .panel--left,
   .workspace .mapwrap,
-  .workspace .panel--right {
+  .workspace .panel--right,
+  .workspace.left-collapsed #queuePanel,
+  .workspace.left-collapsed .mapwrap,
+  .workspace.left-collapsed #consolePanel {
     display: none !important;
     height: 100% !important;
-    width: 100% !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
     position: static !important;
     transform: none !important;
     box-shadow: none !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   /* Default view or data-view active view */
-  .workspace[data-mobile-view="queue"] .panel--left {
+  .workspace[data-mobile-view="queue"] .panel--left,
+  .workspace.left-collapsed[data-mobile-view="queue"] #queuePanel {
     display: flex !important;
   }
-  .workspace[data-mobile-view="map"] .mapwrap {
+  .workspace[data-mobile-view="map"] .mapwrap,
+  .workspace.left-collapsed[data-mobile-view="map"] .mapwrap {
     display: block !important;
   }
-  .workspace[data-mobile-view="console"] .panel--right {
+  .workspace[data-mobile-view="console"] .panel--right,
+  .workspace.left-collapsed[data-mobile-view="console"] #consolePanel {
     display: flex !important;
   }
 
   /* If no attribute is set yet, show queue */
-  .workspace:not([data-mobile-view]) .panel--left {
+  .workspace:not([data-mobile-view]) .panel--left,
+  .workspace.left-collapsed:not([data-mobile-view]) #queuePanel {
     display: flex !important;
+  }
+
+  /* Mobile incident queue specific adjustments */
+  #collapseQueueBtn {
+    display: none !important;
+  }
+  .workspace.left-collapsed .panel__head-left,
+  .workspace.left-collapsed .panel__head-center {
+    display: flex !important;
+  }
+  .workspace.left-collapsed .panel__head-right {
+    display: none !important;
+  }
+  .workspace.left-collapsed .incident__rail {
+    display: none !important;
+  }
+  .workspace.left-collapsed .incident__full {
+    display: flex !important;
+  }
+  .workspace.left-collapsed .incident {
+    cursor: pointer !important;
+    width: 100% !important;
+    padding: 9px 10px !important;
+    border: 1px solid var(--line) !important;
+    border-left: 3px solid var(--triage-green) !important;
+    border-radius: var(--r-md) !important;
+    background: var(--surface-2) !important;
+  }
+  .workspace.left-collapsed .incident--red {
+    border-left-color: var(--triage-red) !important;
+  }
+  .workspace.left-collapsed .incident--yellow {
+    border-left-color: var(--triage-orange) !important;
+  }
+  .workspace.left-collapsed .incident--green {
+    border-left-color: var(--triage-green) !important;
+  }
+  .workspace.left-collapsed .incident.is-selected {
+    border-color: var(--select-accent) !important;
+    background: var(--select-accent-bg) !important;
   }
 
   /* Map controls on mobile */
   .layers {
-    max-width: 150px;
+    max-width: 140px;
     padding: 5px;
     top: 8px;
     left: 8px;
