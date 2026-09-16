@@ -35,15 +35,17 @@
 
   <body class="responder">
     <div class="responder-app" id="responderApp">
-      <!-- TOP COMMAND BAR (48px — Matches CAD Tactical Aesthetic) -->
+      <!-- TOP COMMAND BAR (48px — Clean, uncluttered tactical header) -->
       <header class="r-header">
         <div class="r-header__left">
           <a class="resq-mark" href="/">
             <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
             <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · AMB-07</span></span>
           </a>
-          <span class="badge badge--unit-status"><span class="pulse pulse--amber" aria-hidden="true"></span> Unit 14 · En route</span>
-          <span class="badge badge--triage badge--red" id="briefTriageBadge">Critical (P1)</span>
+          <span class="badge badge--unit-status"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 · En route</span>
+          <span class="status-indicator-tag status-indicator-tag--red" id="briefTriageBadge">
+            <span class="cond-dot cond-dot--red"></span> Critical (P1)
+          </span>
         </div>
 
         <div class="r-header__center">
@@ -83,21 +85,22 @@
         </div>
       </header>
 
-      <!-- MOBILE HERO STRIP (≤ 860px) — Instant glanceable tactical banner -->
+      <!-- MOBILE HERO STRIP (≤ 860px) — Clean, uncluttered tactical summary -->
       <div class="mobile-responder-strip">
         <div class="m-strip__main">
           <div class="m-strip__trauma">
-            <span class="m-strip__badge">CRITICAL P1</span>
-            <span class="m-strip__title">Head-on collision · Expressway km 42</span>
+            <span class="m-strip__title">
+              <span class="cond-dot cond-dot--red"></span> Head-on collision · Km 42
+            </span>
           </div>
           <div class="m-strip__metrics">
             <div class="m-metric"><span class="m-metric__val" id="mobileEta">12:04</span><span class="m-metric__lbl">ETA</span></div>
-            <div class="m-metric m-metric--alert"><span class="m-metric__val">02</span><span class="m-metric__lbl">Victims</span></div>
+            <div class="m-metric"><span class="m-metric__val">02</span><span class="m-metric__lbl">Victims</span></div>
           </div>
         </div>
         <div class="m-strip__alert">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-          <span>Fuel spill detected at collision site. Do not deploy flares.</span>
+          <svg class="crit-icon crit-icon--orange" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          <span>Fuel spill detected at collision site — do not deploy flares.</span>
         </div>
       </div>
 
@@ -124,7 +127,7 @@
           <!-- Incident Header Card -->
           <div class="r-card r-card--incident">
             <div class="r-card__top">
-              <span class="eyebrow"><span class="pulse pulse--amber" aria-hidden="true"></span> Unit 14 · Pre-arrival sizing</span>
+              <span class="eyebrow"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 · Pre-arrival sizing</span>
               <span class="badge badge--teal" style="font-variant-numeric: tabular-nums;">RQ-2417</span>
             </div>
             <h1 class="mission__trauma">Head-on collision, trailer and minibus</h1>
@@ -134,28 +137,33 @@
             </p>
           </div>
 
-          <!-- Victim Triage Matrix -->
+          <!-- Victim Triage Matrix (Neutral card with critical icon indicator) -->
           <div class="victim-counter-card">
             <div class="victim-big-num">02</div>
             <div class="victim-counter-details">
               <span class="victim-counter-label">Victims reported</span>
-              <h2 class="victim-counter-status">Critical scene (START P1)</h2>
+              <h2 class="victim-counter-status">
+                <span class="cond-dot cond-dot--red"></span> Critical scene (START P1)
+              </h2>
               <span class="victim-counter-sub">1 unresponsive / head trauma · 1 arterial bleed</span>
             </div>
-            <span class="mission__triage">Critical</span>
+            <span class="crit-badge crit-badge--red">
+              <svg class="crit-icon crit-icon--red" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Critical
+            </span>
           </div>
 
-          <!-- Safety Alerts -->
+          <!-- Safety Alerts (Clean neutral cards with dedicated colored critical icons) -->
           <div class="alerts-group" aria-label="Responder safety alerts">
-            <article class="alert alert--danger">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <article class="alert">
+              <svg class="crit-icon crit-icon--red" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
               <div>
                 <p class="alert__label">Safety alert · Fuel hazard</p>
                 <p class="alert__text">Fuel spill detected at collision site. Do not deploy flares.</p>
               </div>
             </article>
-            <article class="alert alert--warning">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
+            <article class="alert">
+              <svg class="crit-icon crit-icon--orange" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
               <div>
                 <p class="alert__label">Traffic hazard</p>
                 <p class="alert__text">Live traffic on eastbound lane. FRSC-12 holding lane closure.</p>
@@ -163,7 +171,7 @@
             </article>
           </div>
 
-          <!-- Route Steps -->
+          <!-- Route Steps (Clean neutral cards with orange detour icon) -->
           <div class="route" aria-label="Route to scene">
             <div class="route__head">
               <span class="block__label">En route navigation · 6.4 km</span>
@@ -175,8 +183,8 @@
                 <span>Continue on Enugu–Onitsha Expressway, eastbound</span>
                 <span class="route__dist">4.1 km</span>
               </p>
-              <p class="route__step route__step--blocked">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+              <p class="route__step">
+                <svg class="crit-icon crit-icon--orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
                 <span>Ugwuoba culvert flooded — use service lane detour</span>
                 <span class="route__dist">+600 m</span>
               </p>
@@ -210,20 +218,26 @@
             </ul>
           </div>
 
-          <!-- Victim Profile Cards -->
+          <!-- Victim Profile Cards (Neutral surfaces with condition icon dots) -->
           <div class="victim-profiles-grid">
-            <article class="victim-card victim-card--p1">
+            <article class="victim-card">
               <div class="victim-card__top">
-                <span class="badge badge--triage badge--red">Victim 1 · P1 Red</span>
+                <span class="victim-condition-title">
+                  <span class="cond-dot cond-dot--red"></span>
+                  Victim 1 · Priority Red
+                </span>
                 <span class="victim-card__eta">Airway managed</span>
               </div>
               <p class="victim-card__demo">Male, ~35. Unresponsive, breathing.</p>
               <p class="victim-card__clinical">Head laceration, suspected closed head injury. Airway maintained on left lateral side.</p>
             </article>
 
-            <article class="victim-card victim-card--p2">
+            <article class="victim-card">
               <div class="victim-card__top">
-                <span class="badge badge--triage badge--yellow">Victim 2 · P2 Yellow</span>
+                <span class="victim-condition-title">
+                  <span class="cond-dot cond-dot--orange"></span>
+                  Victim 2 · Priority Yellow
+                </span>
                 <span class="victim-card__eta">Pressure held 9m</span>
               </div>
               <p class="victim-card__demo">Female, ~28. Conscious.</p>
@@ -244,7 +258,7 @@
 
         <!-- PANE 3: DESTINATION HOSPITAL, MISSION STAGES & ACTIONS (Right Column) -->
         <section class="r-pane r-pane--hospital" id="paneHospital" aria-label="Destination hospital and status controls">
-          <!-- Hospital Destination Card -->
+          <!-- Hospital Destination Card (Unified under brand teal) -->
           <div class="destination" aria-label="Hospital destination">
             <div class="destination__header">
               <div>
@@ -262,9 +276,8 @@
               Overrides Ugwuoba clinic (4 min) — no neurosurgical or transfusion capability for this trauma profile.
             </p>
             <button class="ack-btn" id="ackBriefBtn" type="button">
-              <svg class="ack-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <svg class="ack-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               <span id="ackBtnText">Acknowledge brief</span>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
           </div>
 
@@ -279,15 +292,15 @@
             </div>
           </div>
 
-          <!-- Quick Action Buttons -->
+          <!-- Quick Action Buttons (Requirement 3: Navigate & Call Scene with enhanced text size) -->
           <div class="cockpit-actions">
             <button class="btn btn--primary btn--action-nav" id="navigate" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-              <span>Turn-by-turn Navigation</span>
+              <span>Navigate</span>
             </button>
             <button class="btn btn--urgent btn--action-call" id="callCivilian" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11.4 11.4 0 0 0 3.6.58 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.4 11.4 0 0 0 .58 3.6 1 1 0 0 1-.25 1Z"/></svg>
-              <span>Call scene line</span>
+              <span>Call scene</span>
             </button>
           </div>
 

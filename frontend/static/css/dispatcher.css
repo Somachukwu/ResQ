@@ -829,21 +829,21 @@ body.dispatcher {
 }
 .mission-brief-card[data-triage="red"] {
   border-left-color: var(--triage-red) !important;
-  background: color-mix(in srgb, var(--triage-red) 7%, var(--surface-2)) !important;
+  background: var(--surface-2) !important;
 }
 .mission-brief-card[data-triage="red"] .brief-card__rsi {
   color: var(--triage-red) !important;
 }
 .mission-brief-card[data-triage="yellow"] {
   border-left-color: var(--triage-orange) !important;
-  background: color-mix(in srgb, var(--triage-orange) 7%, var(--surface-2)) !important;
+  background: var(--surface-2) !important;
 }
 .mission-brief-card[data-triage="yellow"] .brief-card__rsi {
   color: var(--triage-orange) !important;
 }
 .mission-brief-card[data-triage="green"] {
   border-left-color: var(--triage-green) !important;
-  background: color-mix(in srgb, var(--triage-green) 7%, var(--surface-2)) !important;
+  background: var(--surface-2) !important;
 }
 .mission-brief-card[data-triage="green"] .brief-card__rsi {
   color: var(--triage-green) !important;
@@ -918,8 +918,8 @@ body.dispatcher {
 .casualty-box {
   padding: 8px 10px;
   border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 7%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 22%, transparent);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   font-size: 11px;
   line-height: 1.45;
   color: var(--text);

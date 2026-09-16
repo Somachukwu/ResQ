@@ -1,4 +1,4 @@
-/* Responder tactical cockpit brief — sunlight legible, pro CAD aesthetic */
+/* Responder tactical cockpit brief — restrained brand colors, critical icons, pro CAD aesthetic */
 
 body.responder {
   margin: 0;
@@ -19,7 +19,81 @@ body.responder {
 }
 
 /* ==========================================================================
-   1. TOP COMMAND BAR (48px Sleek Tactical Header)
+   1. CONDITION DOTS & CRITICAL ICONS (Requirement 1 & 2)
+   ========================================================================== */
+.cond-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.cond-dot--red {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+.cond-dot--orange {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+}
+.cond-dot--green {
+  background: var(--teal-bright);
+}
+
+.crit-icon {
+  flex-shrink: 0;
+  transition: transform 140ms var(--ease);
+}
+.crit-icon--red {
+  color: #ef4444 !important;
+}
+.crit-icon--orange {
+  color: #f97316 !important;
+}
+.crit-icon--teal {
+  color: var(--teal-bright) !important;
+}
+
+.status-indicator-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.status-indicator-tag--red {
+  border-color: color-mix(in srgb, #ef4444 35%, var(--line));
+}
+
+.crit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.crit-badge--red {
+  color: #ef4444;
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
+}
+
+/* ==========================================================================
+   2. TOP COMMAND BAR (48px Sleek Tactical Header)
    ========================================================================== */
 .r-header {
   height: 48px;
@@ -54,28 +128,9 @@ body.responder {
   font-weight: 500;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
-  color: var(--amber);
-}
-
-.badge--triage {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: var(--r-pill);
-}
-.badge--triage.badge--red {
-  background: color-mix(in srgb, var(--triage-red) 15%, transparent);
-  color: var(--triage-red);
-  border: 1px solid var(--triage-red);
-}
-.badge--triage.badge--yellow {
-  background: color-mix(in srgb, var(--triage-orange) 15%, transparent);
-  color: var(--triage-orange);
-  border: 1px solid var(--triage-orange);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  color: var(--teal-bright);
 }
 
 .r-header__center {
@@ -99,7 +154,7 @@ body.responder {
   box-sizing: border-box;
 }
 .telemetry.is-live {
-  border-color: color-mix(in srgb, var(--teal-bright) 35%, transparent);
+  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
   color: var(--text);
 }
 
@@ -125,8 +180,8 @@ body.responder {
   gap: 6px;
   padding: 3px 10px;
   border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-sunk));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--teal) 10%, var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
   height: 30px;
   box-sizing: border-box;
 }
@@ -141,7 +196,7 @@ body.responder {
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--teal-bright);
   line-height: 1;
 }
 
@@ -169,7 +224,7 @@ body.responder {
   transition: all 140ms var(--ease);
 }
 .btn--icon-only:hover {
-  border-color: var(--accent);
+  border-color: var(--teal);
   color: var(--text);
 }
 .btn--icon-only svg { width: 13px; height: 13px; }
@@ -191,7 +246,6 @@ body.responder {
 .r-header .theme-toggle__icon { width: 20px; height: 20px; }
 .r-header .theme-toggle__icon svg { width: 12px; height: 12px; }
 
-/* Hidden helper */
 .hidden { display: none !important; }
 
 /* Mobile elements hidden on desktop */
@@ -202,7 +256,7 @@ body.responder {
 }
 
 /* ==========================================================================
-   2. DESKTOP COCKPIT WORKSPACE (100vh Multi-Pane Grid — Requirement 1 & 2)
+   3. DESKTOP COCKPIT WORKSPACE (100vh Multi-Pane Grid — Requirement 1)
    ========================================================================== */
 .responder-workspace {
   display: grid;
@@ -229,17 +283,18 @@ body.responder {
   border-right: 1px solid var(--line);
 }
 
-/* Common Card Styles (CAD Aesthetic) */
+/* Neutral Surfaces for All Cards (Requirement 1 & 2: No loud red/amber fills) */
 .r-card,
 .block,
 .victim-counter-card,
 .destination,
 .stage-control-card,
 .statuslog-card,
-.route {
+.route,
+.alert {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--surface);
+  background: var(--surface-2);
   box-sizing: border-box;
   transition: border-color 140ms var(--ease);
 }
@@ -260,8 +315,6 @@ body.responder {
 /* --- Incident Header Card --- */
 .r-card--incident {
   padding: 10px 12px;
-  background: var(--surface-2);
-  border-left: 3px solid var(--triage-red);
 }
 .r-card__top {
   display: flex;
@@ -292,14 +345,13 @@ body.responder {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: var(--surface-2);
 }
 .victim-big-num {
   font-size: 32px;
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--triage-red);
+  color: var(--text);
   padding-right: 12px;
   border-right: 1px solid var(--line);
 }
@@ -312,6 +364,9 @@ body.responder {
   font-weight: 600;
   color: var(--text);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .victim-counter-sub {
   font-size: 10px;
@@ -319,20 +374,8 @@ body.responder {
   margin-top: 2px;
   line-height: 1.35;
 }
-.mission__triage {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--triage-red) 15%, transparent);
-  border: 1px solid var(--triage-red);
-  color: var(--triage-red);
-  white-space: nowrap;
-}
 
-/* --- Safety Alerts --- */
+/* --- Safety Alerts (Clean neutral surface + critical colored icons) --- */
 .alerts-group {
   display: flex;
   flex-direction: column;
@@ -343,17 +386,13 @@ body.responder {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  padding: 8px 10px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--amber);
-  background: color-mix(in srgb, var(--amber) 12%, var(--surface));
+  padding: 9px 11px;
 }
-.alert svg { width: 18px; height: 18px; color: var(--amber); flex-shrink: 0; margin-top: 1px; }
 .alert__label {
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--amber);
+  color: var(--text-3);
   font-weight: 600;
   margin: 0 0 2px 0;
 }
@@ -364,12 +403,6 @@ body.responder {
   color: var(--text);
   margin: 0;
 }
-.alert--danger {
-  border-color: var(--triage-red);
-  background: color-mix(in srgb, var(--triage-red) 10%, var(--surface));
-}
-.alert--danger svg,
-.alert--danger .alert__label { color: var(--triage-red); }
 
 /* --- Route Guidance --- */
 .route {
@@ -407,20 +440,15 @@ body.responder {
   align-items: center;
   padding: 6px 8px;
   border-radius: var(--r-sm);
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--line);
   font-size: 11px;
   color: var(--text);
   line-height: 1.35;
   margin: 0;
 }
-.route__step svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+.route__step svg { width: 15px; height: 15px; color: var(--teal-bright); flex-shrink: 0; }
 .route__dist { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.route__step--blocked {
-  border-color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 10%, var(--surface-2));
-}
-.route__step--blocked svg { color: var(--amber); }
 
 /* --- Clinical & Bystander Block --- */
 .block {
@@ -441,7 +469,7 @@ body.responder {
   font-size: 11px;
   color: var(--text);
 }
-.done-list svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+.done-list svg { width: 14px; height: 14px; color: var(--teal-bright); flex-shrink: 0; }
 
 /* Victim Profiles Grid */
 .victim-profiles-grid {
@@ -453,21 +481,22 @@ body.responder {
   border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--triage-green);
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-.victim-card--p1 {
-  border-left-color: var(--triage-red);
-}
-.victim-card--p2 {
-  border-left-color: var(--triage-orange);
 }
 .victim-card__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.victim-condition-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .victim-card__eta {
   font-size: 10px;
@@ -509,12 +538,9 @@ body.responder {
   margin: 0;
 }
 
-/* --- Hospital Destination (Pane 3) --- */
+/* --- Hospital Destination (Pane 3 — Unified under brand Teal) --- */
 .destination {
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--hospital) 8%, var(--surface-2));
-  border-color: color-mix(in srgb, var(--hospital) 35%, transparent);
-  border-left: 3px solid var(--hospital);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -534,7 +560,7 @@ body.responder {
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--teal-bright);
 }
 .destination__caps {
   display: flex;
@@ -546,11 +572,11 @@ body.responder {
   align-items: center;
   font-size: 10px;
   font-weight: 500;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--hospital) 16%, transparent);
-  color: color-mix(in srgb, var(--hospital) 75%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--hospital) 35%, transparent);
+  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  color: var(--teal-bright);
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
 }
 .destination__why {
   font-size: 11px;
@@ -565,11 +591,11 @@ body.responder {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 36px;
-  height: 36px;
+  min-height: 34px;
+  height: 34px;
   padding: 0 12px;
   border-radius: var(--r-sm);
-  border: 1px solid color-mix(in srgb, var(--hospital) 40%, transparent);
+  border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--text);
   font-size: 11px;
@@ -579,13 +605,13 @@ body.responder {
   margin-top: 4px;
 }
 .ack-btn:hover {
-  border-color: var(--hospital);
-  background: color-mix(in srgb, var(--hospital) 15%, var(--surface));
+  border-color: var(--teal);
+  color: var(--teal-bright);
 }
 .ack-btn.is-acked {
-  background: color-mix(in srgb, var(--hospital) 25%, var(--surface));
-  border-color: var(--hospital);
-  color: color-mix(in srgb, var(--hospital) 80%, #ffffff);
+  background: color-mix(in srgb, var(--teal) 18%, var(--surface));
+  border-color: var(--teal);
+  color: var(--teal-bright);
 }
 .ack-btn svg { flex-shrink: 0; }
 
@@ -602,11 +628,11 @@ body.responder {
   gap: 6px;
 }
 .stage-btn {
-  height: 32px;
-  min-height: 32px;
+  height: 30px;
+  min-height: 30px;
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
-  background: var(--surface-2);
+  background: var(--surface);
   font-size: 11px;
   font-weight: 500;
   color: var(--text-2);
@@ -617,47 +643,65 @@ body.responder {
   padding: 0 4px;
 }
 .stage-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--teal);
   color: var(--text);
 }
 .stage-btn.is-active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #ffffff;
   font-weight: 600;
 }
 
-/* Cockpit Action Buttons */
+/* Cockpit Action Buttons (Requirement 3: Navigate & Call Scene enhanced in web view) */
 .cockpit-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 .cockpit-actions .btn {
-  height: 38px;
-  min-height: 38px;
-  font-size: 11px;
-  font-weight: 500;
+  height: 42px;
+  min-height: 42px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border-radius: var(--r-sm);
+  gap: 8px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
 }
-.cockpit-actions .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.cockpit-actions .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn--action-nav {
+  background: var(--teal);
+  color: #ffffff;
+  border: 1px solid var(--teal);
+}
+.btn--action-nav:hover {
+  background: color-mix(in srgb, var(--teal) 85%, #ffffff);
+}
+.btn--action-call {
+  background: var(--amber);
+  color: #1a1a1a;
+  border: 1px solid var(--amber);
+}
+.btn--action-call:hover {
+  background: color-mix(in srgb, var(--amber) 85%, #ffffff);
+}
 
 /* Status Log */
 .statuslog-card {
   padding: 10px 12px;
   flex: 1;
-  min-height: 120px;
+  min-height: 110px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 .statuslog {
   flex: 1;
-  min-height: 80px;
+  min-height: 70px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -681,7 +725,7 @@ body.responder {
 .statuslog__row b { color: var(--text-2); font-weight: 500; }
 
 /* ==========================================================================
-   3. MOBILE COCKPIT OVERHAUL (≤ 860px — Zero/Minimal Scrolling — Req 4 & 5)
+   4. MOBILE COCKPIT OVERHAUL (≤ 860px — Uncluttered & Clean Topbar — Req 4)
    ========================================================================== */
 @media (max-width: 860px) {
   .responder-app {
@@ -690,25 +734,37 @@ body.responder {
     overflow: hidden;
   }
 
+  /* Clean, decluttered topbar on mobile */
   .r-header {
     height: 44px;
     min-height: 44px;
     padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-  .r-header__left { gap: 6px; }
+  .r-header__left {
+    gap: 8px;
+    min-width: 0;
+  }
+  .r-header .resq-mark__sub {
+    display: none;
+  }
   .badge--unit-status,
-  .r-radio-status {
+  .status-indicator-tag,
+  .r-header__center,
+  .header-eta-pill {
     display: none !important;
   }
-  .r-header__center { gap: 6px; }
-  .telemetry { height: 26px; padding: 2px 7px; font-size: 10px; }
-  .header-eta-pill { display: none; }
+  .r-header__right {
+    gap: 6px;
+  }
 
-  /* Mobile Hero Summary Strip (Instant glanceable metrics) */
+  /* Mobile Hero Summary Strip (Clean single-glance banner) */
   .mobile-responder-strip {
     display: flex;
     flex-direction: column;
-    padding: 6px 10px;
+    padding: 5px 10px;
     background: var(--surface);
     border-bottom: 1px solid var(--line);
     gap: 4px;
@@ -722,29 +778,25 @@ body.responder {
   }
   .m-strip__trauma {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
   }
-  .m-strip__badge {
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--triage-red);
-    text-transform: uppercase;
-  }
   .m-strip__title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
   .m-strip__metrics {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-shrink: 0;
   }
   .m-metric {
@@ -752,17 +804,17 @@ body.responder {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: var(--r-sm);
     background: var(--surface-2);
     border: 1px solid var(--line);
-    min-width: 44px;
+    min-width: 40px;
   }
   .m-metric__val {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: var(--accent);
+    color: var(--teal-bright);
     line-height: 1.1;
   }
   .m-metric__lbl {
@@ -771,27 +823,27 @@ body.responder {
     letter-spacing: 0.06em;
     color: var(--text-3);
   }
-  .m-metric--alert .m-metric__val { color: var(--triage-red); }
 
   .m-strip__alert {
     display: flex;
     align-items: center;
     gap: 5px;
     font-size: 10px;
-    color: var(--amber);
-    background: color-mix(in srgb, var(--amber) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
-    padding: 3px 6px;
+    color: var(--text-2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 3px 7px;
     border-radius: var(--r-sm);
+    line-height: 1.35;
   }
-  .m-strip__alert svg { flex-shrink: 0; color: var(--amber); }
+  .m-strip__alert svg { flex-shrink: 0; }
 
   /* Mobile Segmented Tab Navigation */
   .mobile-responder-nav {
     display: flex;
     align-items: center;
-    height: 36px;
-    min-height: 36px;
+    height: 34px;
+    min-height: 34px;
     padding: 0 6px;
     gap: 4px;
     background: var(--surface);
@@ -801,7 +853,7 @@ body.responder {
   }
   .m-nav-tab {
     flex: 1;
-    height: 28px;
+    height: 26px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -818,12 +870,12 @@ body.responder {
   }
   .m-nav-tab svg { width: 12px; height: 12px; flex-shrink: 0; }
   .m-nav-tab.is-active {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-    border-color: var(--accent);
+    background: color-mix(in srgb, var(--teal) 15%, transparent);
+    color: var(--teal-bright);
+    border-color: var(--teal);
   }
 
-  /* Single Pane Mode on Mobile (Switch without vertical scroll sprawl) */
+  /* Single Pane Mode on Mobile */
   .responder-workspace {
     display: block !important;
     height: 100% !important;
@@ -833,7 +885,7 @@ body.responder {
     display: none !important;
     height: 100% !important;
     overflow-y: auto !important;
-    padding: 10px 10px 20px !important;
+    padding: 8px 10px 16px !important;
     border-right: none !important;
     -webkit-overflow-scrolling: touch;
   }
@@ -869,10 +921,20 @@ body.responder {
     justify-content: center;
     gap: 6px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     border-radius: var(--r-pill);
   }
   .mobile-dock .btn svg { width: 14px; height: 14px; }
+  .mobile-dock #mobileNavBtn {
+    background: var(--teal);
+    color: #ffffff;
+    border: 1px solid var(--teal);
+  }
+  .mobile-dock #mobileCallBtn {
+    background: var(--amber);
+    color: #1a1a1a;
+    border: 1px solid var(--amber);
+  }
 
   /* In mobile, hide the desktop-only cockpit actions in Pane 3 */
   #paneHospital .cockpit-actions {
