@@ -507,7 +507,7 @@ body.civilian {
 }
 .net-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
 
-/* ---------- Offline protocol drawer ---------- */
+/* ---------- First aid protocol drawer ---------- */
 .drawer {
   position: fixed;
   inset: 0;
@@ -519,10 +519,11 @@ body.civilian {
   position: absolute;
   inset: 0;
   background: rgba(10, 12, 16, 0.55);
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
   animation: fade 200ms var(--ease);
 }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
 .drawer__panel {
   position: absolute;
   left: 50%;
@@ -530,41 +531,189 @@ body.civilian {
   transform: translateX(-50%);
   width: min(var(--reading), 100%);
   max-height: 86dvh;
-  overflow-y: auto;
+  height: 86dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   border: 1px solid var(--line);
-  padding: var(--sp-4) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 38px rgba(0, 0, 0, 0.45);
+  padding: 0;
+  overflow: hidden;
   animation: sheet-up 300ms var(--ease);
 }
-@keyframes sheet-up { from { transform: translate(-50%, 14%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes sheet-up {
+  from { transform: translate(-50%, 14%); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
 .drawer__grip {
-  width: 40px; height: 4px; border-radius: 99px;
+  width: 36px;
+  height: 4px;
+  border-radius: 99px;
   background: var(--line-strong);
-  margin: 0 auto var(--sp-4);
+  margin: 8px auto 0;
+  flex-shrink: 0;
 }
-.proto-list { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
-.proto-item {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  overflow: hidden;
-}
-.proto-item > summary {
-  list-style: none;
-  cursor: pointer;
-  min-height: 52px;
+
+/* Pinned top bar - remains on top while scrolling (Requirement 4) */
+.drawer__head {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  font-size: var(--fs-sm);
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
 }
-.proto-item > summary::-webkit-details-marker { display: none; }
-.proto-item[open] > summary { border-bottom: 1px solid var(--line); }
-.proto-item ol { padding: var(--sp-3) var(--sp-5) var(--sp-4); display: grid; gap: var(--sp-2); }
-.proto-item li { font-size: var(--fs-xs); color: var(--text-2); line-height: 1.6; }
+
+.drawer__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.drawer__close {
+  min-height: 30px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 140ms var(--ease);
+}
+.drawer__close:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+}
+
+.drawer__scrollable {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.proto-list { display: grid; gap: 10px; margin: 0; }
+
+/* Protocol cards with rich interactive visual feedback (Requirement 5) */
+.proto-item {
+  border: 1px solid var(--line);
+  border-left: 3px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  overflow: hidden;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), background-color 160ms var(--ease);
+}
+.proto-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-left-color: var(--accent);
+  box-shadow: var(--shadow-1);
+}
+.proto-item[open] {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  border-left-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.proto-summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  background: transparent;
+  border-radius: inherit;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 140ms var(--ease), color 140ms var(--ease), transform 100ms var(--ease);
+}
+.proto-summary::-webkit-details-marker { display: none; }
+
+/* Interactive click visual cues */
+.proto-summary:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+}
+.proto-summary:active {
+  transform: scale(0.99);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-2));
+}
+.proto-summary:hover .proto-title {
+  color: var(--accent);
+}
+
+.proto-title {
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  transition: color 140ms var(--ease);
+}
+.proto-item[open] .proto-title {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Cue & Animated chevron indicator */
+.proto-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: color 140ms var(--ease);
+}
+.proto-summary:hover .proto-cue {
+  color: var(--accent);
+}
+
+.proto-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+  transition: transform 220ms var(--ease), color 140ms var(--ease);
+}
+.proto-summary:hover .proto-chevron {
+  color: var(--accent);
+}
+.proto-item[open] .proto-chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.proto-item[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+}
+
+.proto-steps {
+  padding: 12px 16px 14px 28px;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  background: color-mix(in srgb, var(--canvas) 60%, var(--surface-2));
+}
+.proto-steps li {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  line-height: 1.55;
+}
 
 /* ---------- SOS connecting state ---------- */
 .sos--connecting {

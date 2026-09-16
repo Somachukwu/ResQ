@@ -1090,11 +1090,11 @@ body.dispatcher {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
 
-  /* Ultra-sleek, zero-overflow topbar on mobile */
+  /* Ultra-sleek topbar on mobile */
   .topbar {
     width: 100vw !important;
     max-width: 100vw !important;
-    overflow-x: hidden !important;
+    overflow: visible !important;
     box-sizing: border-box !important;
     padding: 0 8px !important;
     gap: 6px !important;
@@ -1113,22 +1113,28 @@ body.dispatcher {
 
   .topbar-weather {
     flex-shrink: 0 !important;
+    position: static;
   }
   .weather-pill {
     height: 28px !important;
     padding: 2px 7px !important;
     gap: 5px !important;
+    -webkit-tap-highlight-color: transparent;
   }
   .weather-pill__cond,
   #weatherTrend {
     display: none !important;
   }
   .weather-dropdown {
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 270px;
-    max-width: 90vw;
+    position: fixed !important;
+    top: 52px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(320px, calc(100vw - 20px)) !important;
+    max-width: calc(100vw - 20px) !important;
+    z-index: 99999 !important;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55) !important;
   }
 
   .topbar__right {

@@ -155,19 +155,18 @@
       </section>
     </div>
 
-    <!-- Offline protocol drawer -->
-    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Offline first aid library">
+    <!-- First aid protocol drawer -->
+    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="First aid library">
       <div class="drawer__scrim" data-close-drawer></div>
       <div class="drawer__panel">
         <div class="drawer__grip"></div>
-        <div class="row row--between">
-          <div>
-            <p class="eyebrow">Saved on this phone</p>
-            <h2 style="font-size: var(--fs-lg)">First aid without network</h2>
-          </div>
-          <button class="btn btn--quiet" data-close-drawer type="button">Close</button>
+        <header class="drawer__head">
+          <h2 class="drawer__title">First aid</h2>
+          <button class="btn btn--quiet drawer__close" data-close-drawer type="button">Close</button>
+        </header>
+        <div class="drawer__scrollable">
+          <div class="proto-list" id="drawerList"></div>
         </div>
-        <div class="proto-list" id="drawerList"></div>
       </div>
     </div>
 

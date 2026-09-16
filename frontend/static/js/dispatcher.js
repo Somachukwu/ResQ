@@ -697,6 +697,12 @@ function wireWeatherTopBar() {
   };
 
   toggle.addEventListener("click", toggleDropdown);
+  if (collapseBtn) {
+    collapseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleDropdown(e);
+    });
+  }
   dropdown.addEventListener("click", (e) => e.stopPropagation());
 
   document.addEventListener("click", (e) => {

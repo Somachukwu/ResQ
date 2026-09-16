@@ -353,14 +353,19 @@ function tickEta() {
   }, 1000);
 }
 
-/* ---------------- offline library ---------------- */
+/* ---------------- first-aid library ---------------- */
 function renderOfflineLibrary() {
   const data = readCachedProtocols() || PROTOCOLS;
   el.drawerList.innerHTML = Object.values(data)
     .map(
       (p) => `<details class="proto-item">
-        <summary><span>${p.title}</span><span class="badge">Offline</span></summary>
-        <ol>${p.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
+        <summary class="proto-summary">
+          <span class="proto-title">${p.title}</span>
+          <span class="proto-cue" aria-hidden="true">
+            <svg class="proto-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <ol class="proto-steps">${p.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
       </details>`
     )
     .join("");
