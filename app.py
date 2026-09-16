@@ -1,11 +1,27 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import requests
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder="frontend",
+    static_folder="frontend/static",
+    static_url_path="/static"
+)
+
+
+@app.route("/resources/<path:filename>")
+@app.route("/Resources/<path:filename>")
+def serve_resources(filename):
+    return send_from_directory(os.path.join(app.root_path, "frontend", "Resources"), filename)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, "frontend"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 ORS_API_KEY = os.getenv("ORS_API_KEY")
 
@@ -44,6 +60,24 @@ HOSPITALS = [
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/civilian")
+@app.route("/templates/civilian/index.html")
+def civilian():
+    return render_template("templates/civilian/index.html")
+
+
+@app.route("/dispatcher")
+@app.route("/templates/dispatcher/dashboard.html")
+def dispatcher():
+    return render_template("templates/dispatcher/dashboard.html")
+
+
+@app.route("/responder")
+@app.route("/templates/responder/scene_brief.html")
+def responder():
+    return render_template("templates/responder/scene_brief.html")
 
 
 @app.route("/api/nearest-hospital", methods=["POST"])
@@ -153,4 +187,4 @@ def get_route(start_lng, start_lat, end_lng, end_lat):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

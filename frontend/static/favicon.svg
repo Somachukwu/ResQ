@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="7" fill="#0D6E6E"/>
+  <!-- Q-Ring -->
+  <circle cx="15" cy="15" r="9.5" stroke="#F7F5F0" stroke-width="2" stroke-dasharray="52 10" stroke-dashoffset="4" stroke-linecap="round"/>
+  <!-- EKG Pulse Line -->
+  <path d="M 3 15 H 9 L 11 17 L 14 6 L 17 22 L 19.5 11 L 21.5 15 H 29" stroke="#F7F5F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Amber GPS Coordinate Dot & Crosshair -->
+  <line x1="18" y1="23" x2="28" y2="23" stroke="#F0920A" stroke-width="1" stroke-linecap="round"/>
+  <line x1="23" y1="18" x2="23" y2="28" stroke="#F0920A" stroke-width="1" stroke-linecap="round"/>
+  <circle cx="23" cy="23" r="2.5" fill="#F0920A"/>
+</svg>
+

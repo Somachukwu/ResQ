@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ResQ Dispatch — GIS command center</title>
+    <meta
+      name="description"
+      content="Tactical GIS command center for emergency dispatch: live incident queue ranked by severity, responder fleet tracking, hospital capability layer and one-tap unit assignment."
+    />
+    <meta name="theme-color" content="#0F1117" />
+    <meta property="og:title" content="ResQ Dispatch — GIS command center" />
+    <meta property="og:description" content="Live incident triage queue, responder fleet and one-tap dispatch on a tactical map." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem("resq-theme");
+          document.documentElement.setAttribute("data-theme", s || "dark");
+        } catch (e) {}
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/css/resq.css" />
+    <link rel="stylesheet" href="/static/css/dispatcher.css" />
+  </head>
+
+  <body class="dispatcher">
+    <div class="cmd">
+      <header class="topbar">
+        <div class="topbar__left">
+          <a class="resq-mark" href="/">
+            <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
+            <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · dispatch</span></span>
+          </a>
+          <div class="kpis">
+            <div class="kpi"><span class="kpi__val" id="kpiActive">0</span><span class="kpi__label">Active incidents</span></div>
+            <div class="kpi kpi--alert"><span class="kpi__val" id="kpiCritical">0</span><span class="kpi__label">Critical</span></div>
+            <div class="kpi"><span class="kpi__val" id="kpiUnits">0</span><span class="kpi__label">Units idle</span></div>
+            <div class="kpi"><span class="kpi__val">6:12</span><span class="kpi__label">Median response</span></div>
+          </div>
+        </div>
+        <div class="topbar__right">
+          <div class="panel-toggles">
+            <button class="btn btn--ghost" id="fleetToggle" type="button" style="min-height:42px;padding:0 16px;font-size:var(--fs-xs);gap:8px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+              <span>Fleet &amp; Comms</span>
+            </button>
+          </div>
+          <button class="theme-toggle" data-theme-toggle type="button" role="switch" aria-checked="true" aria-label="Switch theme">
+            <span class="theme-toggle__thumb"></span>
+            <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </span>
+            <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <!-- Incident queue -->
+        <section class="panel panel--left" id="queuePanel" aria-label="Incident triage queue">
+          <header class="panel__head" id="queueHead">
+            <div class="row">
+              <span class="pulse pulse--amber" aria-hidden="true"></span>
+              <h2 class="panel__title">Incident queue · by severity</h2>
+            </div>
+            <span class="badge">RSI ranked</span>
+          </header>
+          <div class="panel__body" id="queue"></div>
+        </section>
+
+        <!-- Map -->
+        <section class="mapwrap" aria-label="Tactical map">
+          <div id="map"></div>
+
+          <div class="layers" role="group" aria-label="Map layers">
+            <label class="layer-toggle is-on" data-layer="incidents" data-tone="incident">
+              <input type="checkbox" checked /><span class="dot"></span> Incidents
+            </label>
+            <label class="layer-toggle is-on" data-layer="responders" data-tone="responder">
+              <input type="checkbox" checked /><span class="dot"></span> Responders
+            </label>
+            <label class="layer-toggle is-on" data-layer="hospitals" data-tone="hospital">
+              <input type="checkbox" checked /><span class="dot"></span> Hospital capability
+            </label>
+            <label class="layer-toggle is-on" data-layer="flood" data-tone="flood">
+              <input type="checkbox" checked /><span class="dot"></span> Flood &amp; blackspots
+            </label>
+            <label class="layer-toggle" data-layer="satellite">
+              <input type="checkbox" /><span class="dot"></span> Satellite imagery
+            </label>
+          </div>
+
+          <div class="map-legend">
+            <span><i style="background: var(--amber)"></i>Critical ≥ 4.0</span>
+            <span><i style="background: var(--triage-yellow)"></i>Urgent</span>
+            <span><i style="background: var(--triage-green)"></i>Minor</span>
+            <span><i style="background: var(--teal-bright)"></i>Responder</span>
+            <span><i style="background: var(--purple)"></i>Hospital</span>
+          </div>
+        </section>
+
+        <!-- Fleet + comms -->
+        <aside class="panel panel--right" id="fleetPanel" aria-label="Responder fleet and communications">
+          <header class="panel__head">
+            <h2 class="panel__title">Responder fleet</h2>
+            <button class="btn btn--quiet" id="fleetClose" type="button" style="min-height:36px;padding:0 10px;font-size:var(--fs-xs)">Close</button>
+          </header>
+          <div class="panel__body" id="fleet"></div>
+
+          <section class="comms" aria-label="Communications console">
+            <div class="comms__tabs">
+              <button class="comms__tab is-active" type="button" data-channel="civilian">Scene / civilian</button>
+              <button class="comms__tab" type="button" data-channel="responder">Responder net</button>
+            </div>
+            <div class="comms__log" id="commsLog"></div>
+            <form class="comms__input" id="commsForm">
+              <label class="sr-only" for="commsInput">Message</label>
+              <input id="commsInput" type="text" placeholder="Send to channel…" autocomplete="off" />
+              <button class="btn btn--primary" type="submit" style="min-height:44px;padding:0 16px;font-size:var(--fs-xs)">Send</button>
+            </form>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Dispatch modal -->
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal__scrim" data-close-modal></div>
+      <div class="modal__panel">
+        <header>
+          <p class="eyebrow">Recommended assignment</p>
+          <h2 id="modalTitle" style="font-size: var(--fs-lg)"></h2>
+          <p id="modalPlace" style="font-size: var(--fs-sm); color: var(--text-2)"></p>
+        </header>
+
+        <div class="match">
+          <div class="match__grid">
+            <div class="match__cell"><span class="match__k">Closest qualified unit</span><span class="match__v" id="matchUnit"></span></div>
+            <div class="match__cell"><span class="match__k">Travel time</span><span class="match__v" id="matchEta"></span></div>
+            <div class="match__cell"><span class="match__k">Capability match</span><span class="match__v" id="matchCaps"></span></div>
+          </div>
+          <div class="match__cell"><span class="match__k">Receiving facility</span><span class="match__v" id="matchHospital"></span></div>
+        </div>
+
+        <div>
+          <p class="eyebrow" style="margin-bottom: var(--sp-2)">Alternates</p>
+          <div class="stack" id="matchAlt"></div>
+        </div>
+
+        <div class="row" style="gap: var(--sp-2)">
+          <button class="btn btn--ghost" data-close-modal type="button">Cancel</button>
+          <button class="btn btn--primary grow" id="dispatchBtn" type="button">Dispatch unit</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="/static/js/dispatcher.js"></script>
+  </body>
+</html>

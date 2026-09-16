@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ResQ Scene Brief — RQ-2417 Critical</title>
+    <meta
+      name="description"
+      content="Ten-second pre-arrival mission brief for responders: victim count, triage level, hazards, bystander actions and the pre-routed trauma hospital."
+    />
+    <meta name="theme-color" content="#0F1117" />
+    <meta property="og:title" content="ResQ Scene Brief — RQ-2417 Critical" />
+    <meta property="og:description" content="Victim count, triage level, hazards and pre-routed hospital in one glance." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem("resq-theme");
+          document.documentElement.setAttribute("data-theme", s || "dark");
+        } catch (e) {}
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
+    <link rel="stylesheet" href="/static/css/resq.css" />
+    <link rel="stylesheet" href="/static/css/responder.css" />
+  </head>
+
+  <body class="responder">
+    <div class="brief">
+      <header class="r-header">
+        <a class="resq-mark" href="/">
+          <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
+          <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · AMB-07</span></span>
+        </a>
+        <div class="row">
+          <span class="telemetry" id="telemetry">
+            <span class="pulse" aria-hidden="true"></span>
+            GPS <span id="beat">--:--:--</span>
+          </span>
+          <button class="theme-toggle" data-theme-toggle type="button" role="switch" aria-checked="true" aria-label="Switch theme">
+            <span class="theme-toggle__thumb"></span>
+            <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </span>
+            <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="mission" aria-label="Mission summary">
+          <div class="mission-top">
+            <div class="mission-info">
+              <p class="eyebrow"><span class="pulse pulse--amber" aria-hidden="true"></span> Unit 14 · En route</p>
+              <h1 class="mission__trauma" style="margin-top:4px">Scene brief <span class="badge badge--teal">RQ-2417</span></h1>
+              <p class="mission__where">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                Enugu–Onitsha Expressway, km 42 → ESUTH Parklane
+              </p>
+            </div>
+            <div class="countdown-card" aria-label="Estimated arrival time">
+              <small>Arriving in</small>
+              <strong id="arrivalCountdown">12:04</strong>
+              <span>minutes</span>
+            </div>
+          </div>
+
+          <div class="victim-counter-card">
+            <div class="victim-big-num">02</div>
+            <div class="victim-counter-details">
+              <span class="victim-counter-label">VICTIMS REPORTED</span>
+              <h2 class="victim-counter-status">Critical scene</h2>
+              <span class="victim-counter-sub">1 unresponsive / head trauma · 1 arterial bleed</span>
+            </div>
+            <span class="mission__triage">CRITICAL</span>
+          </div>
+        </section>
+
+        <section class="alerts" aria-label="Responder safety alerts">
+          <article class="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <div>
+              <p class="alert__label">Safety alert</p>
+              <p class="alert__text">Fuel spill detected at collision site. Do not deploy flares.</p>
+            </div>
+          </article>
+          <article class="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
+            <div>
+              <p class="alert__label">Hazard</p>
+              <p class="alert__text">Live traffic on eastbound lane. FRSC-12 holding lane closure.</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="blocks" aria-label="Scene detail">
+          <article class="block">
+            <p class="block__label">Bystander actions completed</p>
+            <ul class="done-list">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+                Recovery position administered
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+                Direct pressure held on arm bleed
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+                Victims kept warm, no fluids given
+              </li>
+            </ul>
+          </article>
+
+          <article class="block">
+            <p class="block__label">Victim 1 · priority red</p>
+            <p class="block__value">Male, ~35. Unresponsive, breathing.</p>
+            <p class="block__note">Head laceration, suspected closed head injury. Airway maintained on left side.</p>
+            <p class="block__label" style="margin-top: var(--sp-3)">Victim 2 · priority yellow</p>
+            <p class="block__value">Female, ~28. Conscious.</p>
+            <p class="block__note">Arterial bleed, right forearm. Pressure held for 9 minutes.</p>
+          </article>
+
+          <article class="block block--wide">
+            <p class="block__label">Scene contact</p>
+            <p class="block__value">Bystander on scene, English / Igbo</p>
+            <p class="block__note">Reporting since 11:04. Standing 6 m off the carriageway with both victims in view.</p>
+          </article>
+        </section>
+
+        <section class="destination" aria-label="Hospital destination">
+          <p class="block__label">Pre-routed destination</p>
+          <p class="destination__name">ESUTH Parklane</p>
+          <div class="destination__caps">
+            <span class="badge badge--teal">Level 1 trauma</span>
+            <span class="badge badge--teal">ICU bed held</span>
+            <span class="badge badge--teal">Blood bank</span>
+          </div>
+          <p class="destination__eta">8 min from scene</p>
+          <p class="destination__why">
+            Overrides Ugwuoba clinic (4 min) — no neurosurgical or transfusion capability for this trauma profile.
+          </p>
+          <button class="ack-btn" id="ackBriefBtn" type="button">
+            <svg class="ack-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span id="ackBtnText">Acknowledge brief →</span>
+          </button>
+        </section>
+
+        <section class="route" aria-label="Route to scene">
+          <p class="block__label">Route to scene · 6.4 km</p>
+          <p class="route__step">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8M12 8 7 13M12 8l5 5"/></svg>
+            <span>Continue on Enugu–Onitsha Expressway, eastbound</span>
+            <span class="route__dist">4.1 km</span>
+          </p>
+          <p class="route__step route__step--blocked">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            <span>Ugwuoba culvert flooded — use service lane detour</span>
+            <span class="route__dist">+600 m</span>
+          </p>
+          <p class="route__step">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20V10a4 4 0 0 1 4-4h5M18 6l-3-3M18 6l-3 3"/></svg>
+            <span>Approach from hard shoulder, stage 30 m short of debris</span>
+            <span class="route__dist">1.7 km</span>
+          </p>
+        </section>
+
+        <section class="stages" aria-label="Unit status">
+          <button class="stage-btn is-active" type="button" data-stage="En route">En route</button>
+          <button class="stage-btn" type="button" data-stage="On scene">On scene</button>
+          <button class="stage-btn" type="button" data-stage="Transporting">Transporting</button>
+          <button class="stage-btn" type="button" data-stage="Clear">Clear</button>
+        </section>
+
+        <section class="statuslog" id="statuslog" aria-label="Telemetry log"></section>
+      </main>
+
+      <footer class="responder-radio-bar">
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg> Dispatch radio open</span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Audio live</span>
+        <span id="lastRadioUpdate">Updated just now</span>
+      </footer>
+
+      <div class="dock">
+        <button class="btn btn--primary" id="navigate" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 21 3l-8 18-2-7-8-3Z"/></svg>
+          Navigate
+        </button>
+        <button class="btn btn--urgent" id="callCivilian" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11.4 11.4 0 0 0 3.6.58 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.4 11.4 0 0 0 .58 3.6 1 1 0 0 1-.25 1Z"/></svg>
+          Call scene
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="/static/js/responder.js"></script>
+  </body>
+</html>
