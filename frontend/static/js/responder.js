@@ -62,7 +62,7 @@ if (el.ackBtn) {
     isAcked = !isAcked;
     if (isAcked) {
       el.ackBtn.classList.add("is-acked");
-      if (el.ackText) el.ackText.textContent = "✓ Brief acknowledged";
+      if (el.ackText) el.ackText.textContent = "Brief acknowledged";
       logLine("Brief acknowledged by Unit 14", "Dispatch notified via telemetry");
       radioElapsed = 0;
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);

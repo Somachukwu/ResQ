@@ -510,6 +510,14 @@ body.dispatcher {
 }
 .incident:hover { transform: translateX(2px); box-shadow: var(--shadow-1); }
 
+/* First incident card fixed on top when scrolling queue (Requirement 4) */
+.workspace:not(.left-collapsed) #queue .incident:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
 /* Selected element in left pane — brand green selector (Requirement 2) */
 .incident.is-selected {
   border-color: var(--teal) !important;

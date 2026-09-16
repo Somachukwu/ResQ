@@ -98,19 +98,19 @@
         </div>
       </div>
 
-      <!-- MOBILE SEGMENTED COCKPIT SWITCHER (≤ 860px) -->
+      <!-- MOBILE SEGMENTED COCKPIT SWITCHER (≤ 860px) — 1-word captions (Requirement 1) -->
       <nav class="mobile-responder-nav" role="tablist" aria-label="Responder cockpit views">
         <button class="m-nav-tab is-active" data-tab="route" type="button" role="tab" aria-selected="true">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-          <span>Route &amp; Hazards</span>
+          <span>Route</span>
         </button>
         <button class="m-nav-tab" data-tab="patients" type="button" role="tab" aria-selected="false">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>Patients &amp; Scene</span>
+          <span>Patients</span>
         </button>
         <button class="m-nav-tab" data-tab="hospital" type="button" role="tab" aria-selected="false">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-          <span>Hospital &amp; Log</span>
+          <span>Hospital</span>
         </button>
       </nav>
 
@@ -118,7 +118,7 @@
       <main class="responder-workspace" id="responderWorkspace" data-active-tab="route">
         <!-- PANE 1: TACTICAL ROUTE & SCENE SIZING (Left Cockpit Column) -->
         <section class="r-pane r-pane--navigation" id="paneNavigation" aria-label="Navigation and scene alerts">
-          <!-- Incident Header Card with prominent, well-arranged ETA (Requirement 4) -->
+          <!-- Incident Header Card with prominent, well-arranged ETA (Fixed on top — Requirement 4) -->
           <div class="r-card r-card--incident">
             <div class="r-card__top">
               <span class="eyebrow"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 · Pre-arrival sizing</span>
@@ -140,20 +140,24 @@
             </div>
           </div>
 
-          <!-- Victim Triage Matrix (Neutral card with condition dot) -->
+          <!-- Victim Triage Matrix / Victim Report Card (Number on top beside caption — Requirement 2) -->
           <div class="victim-counter-card">
-            <div class="victim-big-num">02</div>
+            <div class="victim-counter-top">
+              <div class="victim-caption-row">
+                <span class="victim-counter-label">Victims reported</span>
+                <span class="victim-count-badge">02</span>
+              </div>
+              <span class="crit-badge crit-badge--red">
+                <svg class="crit-icon crit-icon--red" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Critical
+              </span>
+            </div>
             <div class="victim-counter-details">
-              <span class="victim-counter-label">Victims reported</span>
               <h2 class="victim-counter-status">
                 <span class="cond-dot cond-dot--red"></span> Critical scene (START P1)
               </h2>
               <span class="victim-counter-sub">1 unresponsive / head trauma · 1 arterial bleed</span>
             </div>
-            <span class="crit-badge crit-badge--red">
-              <svg class="crit-icon crit-icon--red" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              Critical
-            </span>
           </div>
 
           <!-- Safety Alerts (Clean neutral cards with dedicated colored critical icons) -->
