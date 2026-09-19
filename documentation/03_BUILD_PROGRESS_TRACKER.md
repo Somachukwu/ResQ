@@ -9,10 +9,6 @@
 ## 1. Progress Summary Dashboard
 
 * **Total Planned Deliverables:** 35 Items
-* **Completed (100%):** 4
-* **In Progress (15% - 90%):** 27
-* **Pending / Not Started (0%):** 4
-* **Overall Project Completion:** **~55.8%**
 * **Completed (100%):** 7
 * **In Progress (15% - 95%):** 25
 * **Pending / Not Started (0%):** 3
@@ -29,16 +25,11 @@
 | **3** | Relational MySQL Database & Incident Schema | 75% | In Progress | `backend/schema.sql` (MySQL 8.4/SQLite DDL) and thread-safe repository `backend/database.py` implemented with automated seeding. |
 | **4** | Synthetic Incident Data Injection Engine (Demo Suite) | 85% | In Progress | `backend/synthetic_injector.py` implemented (crash + flood scenarios); `/api/demo/inject` and topbar "Simulate Incident" UI button wired. |
 | **5** | Responsive Cross-Browser UI Shell | 75% | In Progress | 3-pane tactical command cockpit active with responsive drawers across mobile/desktop. |
-| **6** | Secure REST API Endpoints & Data Validation | 85% | In Progress | `/api/incidents`, `/api/incidents/<id>`, `/api/responders`, `/api/hospitals`, `/api/demo/inject`, `/api/nearest-hospital`, `/api/responder-eta`, and `/api/analysis/*` active. |
 | **6** | Secure REST API Endpoints & Data Validation | 95% | In Progress | `/api/incidents`, `/api/civilian/chat`, `/api/civilian/upload-photo`, `/api/analysis/*`, `/api/nearest-hospital`, `/api/responder-eta` active. |
 | **7** | Zero-Friction Emergency Landing & One-Tap SOS Trigger | 60% | In Progress | Landing page (`index.html`) and prominent SOS call-to-action layout implemented. |
-| **8** | Conversational Plain-Language AI First Aid Chat | 30% | In Progress | Client-side protocol structure in `resq-protocols.js`; live LLM API bridge pending. |
-| **9** | Multimodal Bystander Telemetry Extraction | 10% | Pending | Architecture designed; Gemini/Claude structured JSON output integration pending. |
 | **8** | Conversational Plain-Language AI First Aid Chat | 100% | Completed | Implemented in `backend/gemini_triage.py` supporting English & Nigerian Pidgin, constrained strictly to WHO/Nigerian Red Cross bystander protocols. |
 | **9** | Multimodal Bystander Telemetry Extraction | 100% | Completed | Implemented in `backend/gemini_triage.py` extracting structured clinical telemetry (unresponsive, hemorrhage, airway, entrapment) into automatic RSI scoring and live dispatch sync. |
 | **10** | Automatic Device GPS Capture & Reverse Geocoding | 50% | In Progress | Browser HTML5 Geolocation capture implemented in `civilian.js`; reverse geocoding pending. |
-| **11** | Scene Photo Upload & Computer Vision Hazard Flagging | 15% | In Progress | File upload DOM element present; computer vision inference pipeline pending. |
-| **12** | Offline First Aid Guidance Caching | 20% | In Progress | Protocol data in static assets; Service Worker PWA manifest to be configured. |
 | **11** | Scene Photo Upload & Computer Vision Hazard Flagging | 100% | Completed | Implemented in `backend/gemini_triage.py` and `/api/civilian/upload-photo` analyzing scene photos for fire, fuel leaks, power cables, and flood depth with zero medical diagnosis liability. |
 | **12** | Offline First Aid Guidance Caching | 95% | In Progress | Web App Manifest (`manifest.json`), Service Worker (`sw.js`), and cached protocol library active for instant (<1s) offline emergency guidance. |
 | **13** | Interactive Leaflet GIS Command Map | 80% | In Progress | Integrated in 3-pane cockpit with custom dark tactical tiles, floating layers, and region selector. |
