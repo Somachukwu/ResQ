@@ -1,8 +1,12 @@
+import os
+from dotenv import load_dotenv
+
+# Ensure environment variables (.env) are loaded before importing backend modules
+load_dotenv()
+
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO
 import requests
-import os
-from dotenv import load_dotenv
 
 from backend.database import (
     init_db,
@@ -15,13 +19,19 @@ from backend.database import (
     update_incident,
     get_incident_updates,
     get_scene_hazards,
-    add_incident_update
+    add_incident_update,
+    add_scene_hazard
 )
+import uuid
+import base64
 from backend.socket_events import register_socket_events
 from backend.synthetic_injector import inject_expressway_crash, inject_urban_flood
 from backend.weather_service import get_weather_for_coords
-
-load_dotenv()
+from backend.severity_engine import calculate_rsi
+from backend.flood_model import evaluate_basin_flood_risk, get_flood_hazard_geojson
+from backend.corridor_risk import evaluate_all_corridors, calculate_corridor_risk_index
+from backend.survival_optimizer import optimize_trauma_routing, compute_survival_probability
+from backend.gemini_triage import extract_telemetry_and_guidance, analyze_scene_photo
 
 app = Flask(
     __name__,
@@ -33,6 +43,11 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "resq-emergency-intelligence-
 
 # Initialize real-time SocketIO bus
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+_orig_socketio_run = socketio.run
+def _guarded_run(*args, **kwargs):
+    kwargs.setdefault("allow_unsafe_werkzeug", True)
+    return _orig_socketio_run(*args, **kwargs)
+socketio.run = _guarded_run
 register_socket_events(socketio)
 
 # Initialize local database schema and seed data
@@ -48,6 +63,18 @@ def serve_resources(filename):
 @app.route("/favicon.ico")
 def favicon():
     return send_from_directory(os.path.join(app.root_path, "frontend"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
+
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory(os.path.join(app.root_path, "frontend"), "manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/sw.js")
+def service_worker():
+    response = send_from_directory(os.path.join(app.root_path, "frontend"), "sw.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 
 ORS_API_KEY = os.getenv("ORS_API_KEY")
@@ -84,6 +111,17 @@ def responder():
 def incidents_api():
     if request.method == "POST":
         data = request.get_json() or {}
+        if any(k in data for k in ("unresponsive", "severe_hemorrhage", "airway_compromise", "entrapment")):
+            triage = calculate_rsi(
+                unresponsive=data.get("unresponsive", False),
+                severe_hemorrhage=data.get("severe_hemorrhage", False),
+                airway_compromise=data.get("airway_compromise", False),
+                entrapment=data.get("entrapment", False),
+                casualties_count=data.get("casualties_count", 1),
+                scene_hazards=data.get("scene_hazards", [])
+            )
+            data["severity_score"] = triage["rsi_score"]
+            data["severity_level"] = triage["priority_label"]
         incident = create_incident(data)
         # Notify connected dispatchers
         socketio.emit("incident:new", incident, room="dispatchers")
@@ -198,16 +236,93 @@ def nearest_hospital():
             })
 
     results.sort(key=lambda x: x["duration_mins"])
-    nearest = results[0]
+    
+    # Evaluate via Golden Hour Survival Optimization Model
+    survival_eval = optimize_trauma_routing(
+        hospital_candidates=results,
+        incident_type=incident_type,
+        rsi_score=data.get("rsi_score", 4.0)
+    )
 
     return jsonify({
-        "recommended_hospital": nearest["hospital"]["name"],
-        "capability": nearest["hospital"]["capability"],
-        "distance_km": nearest["distance_km"],
-        "duration_mins": nearest["duration_mins"],
-        "geometry": nearest["geometry"],
+        "recommended_hospital": survival_eval["recommended_hospital"],
+        "capability": survival_eval["recommended_facility_tier"],
+        "distance_km": survival_eval["optimal_distance_km"],
+        "duration_mins": survival_eval["optimal_duration_mins"],
+        "geometry": survival_eval["geometry"],
+        "predicted_survival_probability": survival_eval["predicted_survival_probability"],
+        "survival_utility_score": survival_eval["survival_utility_score"],
+        "clinical_tradeoff_active": survival_eval["clinical_tradeoff_active"],
+        "clinical_justification": survival_eval["clinical_justification"],
         "all_options": results
     })
+
+
+# --- Decision Intelligence & Predictive Modeling REST Endpoints ---
+
+@app.route("/api/analysis/severity", methods=["POST"])
+def severity_analysis_api():
+    """Computes ResQ Severity Index (1.0-5.0) and clinical START triage."""
+    data = request.get_json() or {}
+    result = calculate_rsi(
+        unresponsive=data.get("unresponsive", False),
+        severe_hemorrhage=data.get("severe_hemorrhage", False),
+        airway_compromise=data.get("airway_compromise", False),
+        entrapment=data.get("entrapment", False),
+        casualties_count=data.get("casualties_count", 1),
+        scene_hazards=data.get("scene_hazards", []),
+        all_deceased=data.get("all_deceased", False)
+    )
+    return jsonify(result)
+
+
+@app.route("/api/analysis/flood-risk", methods=["GET"])
+def flood_risk_api():
+    """Fulfills IEEE Hydro-Meteorological Inundation & Impassability modeling sub-problem."""
+    rain_rate = request.args.get("rain_rate", type=float)
+    if rain_rate is None:
+        weather = get_weather_for_coords(lat=6.4474, lng=7.5098)
+        rain_rate = weather.get("precipitation_mm", 0.0)
+    basin_filter = request.args.get("basin")
+    result = evaluate_basin_flood_risk(rain_rate_mm_hr=rain_rate, basin_filter=basin_filter)
+    return jsonify(result)
+
+
+@app.route("/api/analysis/flood-geojson", methods=["GET"])
+def flood_geojson_api():
+    """Returns GeoJSON FeatureCollection of flood danger zones for GIS map rendering."""
+    rain_rate = request.args.get("rain_rate", type=float)
+    if rain_rate is None:
+        weather = get_weather_for_coords(lat=6.4474, lng=7.5098)
+        rain_rate = weather.get("precipitation_mm", 0.0)
+    geojson_data = get_flood_hazard_geojson(rain_rate_mm_hr=rain_rate)
+    return jsonify(geojson_data)
+
+
+@app.route("/api/analysis/corridor-risk", methods=["GET"])
+def corridor_risk_api():
+    """Evaluates dynamic CRI_t across FRSC blackspots along arterial corridors."""
+    rain_rate = request.args.get("rain_rate", type=float)
+    if rain_rate is None:
+        weather = get_weather_for_coords(lat=6.4474, lng=7.5098)
+        rain_rate = weather.get("precipitation_mm", 0.0)
+    result = evaluate_all_corridors(rain_rate_mm_hr=rain_rate)
+    return jsonify(result)
+
+
+@app.route("/api/analysis/golden-hour", methods=["POST"])
+def golden_hour_analysis_api():
+    """Evaluates exponential survival decay curves and capability trade-offs for hospital options."""
+    data = request.get_json() or {}
+    candidates = data.get("candidates", [])
+    incident_type = data.get("incident_type", "trauma")
+    rsi_score = data.get("rsi_score", 4.0)
+    result = optimize_trauma_routing(
+        hospital_candidates=candidates,
+        incident_type=incident_type,
+        rsi_score=rsi_score
+    )
+    return jsonify(result)
 
 
 @app.route("/api/responder-eta", methods=["POST"])
@@ -245,6 +360,171 @@ def responder_eta():
     })
 
 
+# --- Multimodal AI & Civilian Emergency Triage Endpoints (Track B) ---
+
+@app.route("/api/civilian/chat", methods=["POST"])
+def civilian_chat_api():
+    """
+    Ingests bystander text or voice transcript, extracts structured clinical
+    telemetry via Gemini 2.0 Flash / local fallback, computes RSI triage score,
+    creates/updates an incident in the database, and emits real-time WebSocket events.
+    """
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    lat = data.get("lat")
+    lng = data.get("lng")
+    incident_uuid = data.get("incident_uuid")
+    photo_b64 = data.get("photo_b64")
+
+    if not message and not photo_b64:
+        return jsonify({"error": "Message or photo required"}), 400
+
+    # 1. Multimodal AI Extraction (English + Nigerian Pidgin)
+    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64)
+
+    # 2. Algorithmic RSI Triage Scoring
+    triage = calculate_rsi(
+        unresponsive=extraction["unresponsive"],
+        severe_hemorrhage=extraction["severe_hemorrhage"],
+        airway_compromise=extraction["airway_compromise"],
+        entrapment=extraction["entrapment"],
+        casualties_count=extraction["casualties_count"],
+        scene_hazards=extraction["scene_hazards"]
+    )
+
+    # 3. Incident Lifecycle Binding
+    is_new = False
+    incident = None
+    if incident_uuid:
+        incident = get_incident_by_uuid(incident_uuid)
+
+    if not incident:
+        is_new = True
+        incident_uuid = incident_uuid or f"INC-CIV-{uuid.uuid4().hex[:6].upper()}"
+        trauma_str = ", ".join(extraction["suspected_trauma"]) or "Medical Emergency"
+        incident_type = "urban_flood" if "flood_water" in extraction["scene_hazards"] else "road_traffic_accident"
+        incident_data = {
+            "incident_uuid": incident_uuid,
+            "title": f"Bystander SOS: {trauma_str}",
+            "type": incident_type,
+            "status": "reported",
+            "severity_level": triage["priority_label"],
+            "severity_score": triage["rsi_score"],
+            "escalation_status": "steady",
+            "lat": lat or 6.4474,
+            "lng": lng or 7.5098,
+            "location_name": data.get("location_name", "Civilian Telemetry Point"),
+            "casualties_count": extraction["casualties_count"],
+            "trapped_count": 1 if extraction["entrapment"] else 0
+        }
+        incident = create_incident(incident_data)
+    else:
+        # Update existing incident with newly reported casualties or hazards
+        new_score = max(float(incident["severity_score"] or 1.0), triage["rsi_score"])
+        new_level = triage["priority_label"] if triage["rsi_score"] >= float(incident["severity_score"] or 1.0) else incident["severity_level"]
+        update_data = {
+            "severity_score": new_score,
+            "severity_level": new_level,
+            "casualties_count": max(int(incident["casualties_count"] or 1), extraction["casualties_count"])
+        }
+        if lat and lng:
+            update_data["lat"] = lat
+            update_data["lng"] = lng
+        incident = update_incident(incident_uuid, update_data)
+
+    # 4. Audit Trail Updates
+    if message:
+        add_incident_update(
+            incident_uuid=incident_uuid,
+            source="civilian",
+            update_type="chat",
+            content=message
+        )
+
+    triage_log = f"ResQ Triage [{triage['triage_tier']} | RSI {triage['rsi_score']}]: {'; '.join(extraction['first_aid_steps'][:2])}"
+    add_incident_update(
+        incident_uuid=incident_uuid,
+        source="ai_system",
+        update_type="triage",
+        content=triage_log,
+        metadata={
+            "rsi": triage["rsi_score"],
+            "tier": triage["triage_tier"],
+            "unit": triage["recommended_unit"],
+            "hazards": extraction["scene_hazards"]
+        }
+    )
+
+    # 5. Scene Hazards Registration
+    for h in extraction["scene_hazards"]:
+        add_scene_hazard(
+            incident_uuid=incident_uuid,
+            hazard_type=h,
+            severity="high" if h in ("fuel_leak", "vehicle_fire", "live_wire") else "moderate",
+            description=f"Hazard detected from bystander message: {h.replace('_', ' ')}"
+        )
+
+    # 6. Real-time WebSocket Dispatch Broadcast
+    socket_payload = dict(incident)
+    socketio.emit("incident:new" if is_new else "incident:update", socket_payload, room="dispatchers")
+
+    return jsonify({
+        "status": "success",
+        "incident_uuid": incident_uuid,
+        "is_new": is_new,
+        "extraction": extraction,
+        "triage": triage,
+        "first_aid_steps": extraction["first_aid_steps"],
+        "reassurance_message": extraction["reassurance_message"]
+    })
+
+
+@app.route("/api/civilian/upload-photo", methods=["POST"])
+def civilian_upload_photo_api():
+    """
+    Ingests scene photo, runs Gemini Vision hazard analysis, logs hazard in database,
+    and alerts dispatchers. Strictly adheres to non-diagnostic boundary.
+    """
+    incident_uuid = request.form.get("incident_uuid")
+    photo_file = request.files.get("photo")
+    
+    if not photo_file:
+        # Check if base64 in JSON
+        data = request.get_json() or {}
+        b64 = data.get("photo_b64")
+        incident_uuid = incident_uuid or data.get("incident_uuid")
+        if b64:
+            photo_bytes = base64.b64decode(b64)
+            mime_type = data.get("mime_type", "image/jpeg")
+        else:
+            return jsonify({"error": "No photo provided"}), 400
+    else:
+        photo_bytes = photo_file.read()
+        mime_type = photo_file.mimetype or "image/jpeg"
+
+    vision_result = analyze_scene_photo(photo_bytes=photo_bytes, mime_type=mime_type)
+
+    # Bind hazard to incident if active
+    if incident_uuid:
+        for h in vision_result.get("hazards_detected", []):
+            add_scene_hazard(
+                incident_uuid=incident_uuid,
+                hazard_type=h,
+                severity=vision_result.get("hazard_severity", "high"),
+                description=vision_result.get("responder_safety_advisory")
+            )
+        socketio.emit("hazard:flagged", {
+            "incident_uuid": incident_uuid,
+            "vision_result": vision_result
+        }, room="dispatchers")
+
+    return jsonify({
+        "status": "success",
+        "incident_uuid": incident_uuid,
+        "vision_result": vision_result
+    })
+
+
 def get_route(start_lng, start_lat, end_lng, end_lat):
     if not ORS_API_KEY:
         return None
@@ -278,4 +558,4 @@ def get_route(start_lng, start_lat, end_lng, end_lat):
 
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

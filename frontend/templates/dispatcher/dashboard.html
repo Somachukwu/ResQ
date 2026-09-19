@@ -180,11 +180,27 @@
               <input type="checkbox" checked /><span class="dot"></span> Hospital capability
             </label>
             <label class="layer-toggle is-on" data-layer="flood" data-tone="flood">
-              <input type="checkbox" checked /><span class="dot"></span> Flood blackspots
+              <input type="checkbox" checked /><span class="dot"></span> Flood risk zones
+            </label>
+            <label class="layer-toggle is-on" data-layer="corridors" data-tone="corridor">
+              <input type="checkbox" checked /><span class="dot"></span> Crash corridors (FRSC)
             </label>
             <label class="layer-toggle" data-layer="satellite">
               <input type="checkbox" /><span class="dot"></span> Satellite imagery
             </label>
+          </div>
+
+          <!-- Floating Tactical Model Alert (CRI_t / Flood warnings) -->
+          <div class="tactical-model-banner hidden" id="tacticalModelBanner">
+            <span class="tactical-banner__icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <div class="tactical-banner__text">
+              <strong id="tacticalBannerTitle">High Corridor Risk Detected</strong>
+              <span id="tacticalBannerDesc">Ugwu Onyeama slope: Rain slickness elevating CRI_t.</span>
+            </div>
+            <button class="tactical-banner__action" id="tacticalBannerActionBtn" type="button">Focus Corridor</button>
+            <button class="tactical-banner__close" id="tacticalBannerCloseBtn" type="button" aria-label="Dismiss alert">&times;</button>
           </div>
 
           <!-- Mandatory IEEE Region Selector (S/N 14) — BOTTOM-CENTER of map -->
@@ -210,6 +226,8 @@
             <span><i style="background: var(--triage-green)"></i>Stable (P3)</span>
             <span><i style="background: var(--teal-bright)"></i>Responder</span>
             <span><i style="background: var(--hospital)"></i>Hospital</span>
+            <span><i style="background: #3B82F6"></i>Flood risk zone</span>
+            <span><i style="background: #EF4444"></i>FRSC crash blackspot</span>
           </div>
         </section>
 

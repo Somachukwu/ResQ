@@ -1,8 +1,9 @@
 import os
 import requests
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+load_dotenv()
 
 # Reference coordinates for regional scopes
 REGIONAL_COORDINATES = {
@@ -16,9 +17,10 @@ def get_weather_for_coords(lat=6.4474, lng=7.5098, region_code="community"):
     Fetches real-time weather from OpenWeatherMap or produces calibrated
     meteorological intelligence with responder operational impact translation.
     """
-    if OPENWEATHER_API_KEY:
+    api_key = os.getenv("OPENWEATHER_API_KEY")
+    if api_key:
         try:
-            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&units=metric&appid={OPENWEATHER_API_KEY}"
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&units=metric&appid={api_key}"
             resp = requests.get(url, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
@@ -42,7 +44,7 @@ def get_weather_for_coords(lat=6.4474, lng=7.5098, region_code="community"):
                 return {
                     "source": "OpenWeatherMap Live API",
                     "region": region_code,
-                    "location_name": data.get("name", REGIONAL_COORDINATES.get(region_code, {}).get("name")),
+                    "location_name": REGIONAL_COORDINATES.get(region_code, {}).get("name") or data.get("name", "Enugu"),
                     "lat": lat,
                     "lng": lng,
                     "temp_c": temp,

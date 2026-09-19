@@ -286,16 +286,8 @@ body.responder {
   gap: 6px;
 }
 
-/* --- Incident Header Card & ETA Layout (Fixed on Top — Requirement 4) --- */
-.r-pane--navigation {
-  position: relative;
-}
-.r-pane--navigation .r-card--incident {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--surface-2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+/* --- Incident Header Card & ETA Layout --- */
+.r-card--incident {
   padding: 12px 14px;
   display: flex;
   flex-direction: column;

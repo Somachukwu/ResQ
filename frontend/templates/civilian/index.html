@@ -31,8 +31,18 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/static/css/resq.css" />
     <link rel="stylesheet" href="/static/css/civilian.css" />
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(function(err) {
+            console.log("ServiceWorker registration note:", err);
+          });
+        });
+      }
+    </script>
   </head>
 
   <body class="civilian">

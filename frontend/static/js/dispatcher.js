@@ -105,6 +105,7 @@ function initMap() {
   layers.responders = L.layerGroup().addTo(map);
   layers.hospitals = L.layerGroup().addTo(map);
   layers.flood = L.layerGroup().addTo(map);
+  layers.corridors = L.layerGroup().addTo(map);
 
   INCIDENTS.forEach((i) => {
     const m = L.marker([i.lat, i.lng], {
@@ -135,18 +136,6 @@ function initMap() {
       .addTo(layers.hospitals);
   });
 
-  FLOODZONES.forEach((f) => {
-    L.circle([f.lat, f.lng], {
-      radius: f.r,
-      color: "#993C1D",
-      weight: 1,
-      fillColor: "#993C1D",
-      fillOpacity: 0.14,
-    })
-      .bindTooltip(f.name, { direction: "top" })
-      .addTo(layers.flood);
-  });
-
   // Safe corridor from staged unit to the critical incident
   L.polyline(
     [
@@ -156,6 +145,186 @@ function initMap() {
     ],
     { color: "#0D6E6E", weight: 3, opacity: 0.85 }
   ).addTo(layers.responders);
+
+  // Dynamic predictive models ingestion from backend APIs
+  loadFloodRiskLayer(0);
+  loadCorridorRiskLayer(0);
+}
+
+/* ---------------- dynamic predictive modeling layers (Track A Integration) ---------------- */
+let activeFloodData = null;
+let activeCorridorData = null;
+
+async function loadFloodRiskLayer(rainRate = 0) {
+  try {
+    const res = await fetch(`/api/analysis/flood-risk?rain_rate=${rainRate}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    activeFloodData = data;
+    layers.flood.clearLayers();
+
+    const basins = data.basins || [];
+    basins.forEach((b) => {
+      const isImpassable = b.status === "IMPASSABLE";
+      const isCaution = b.status === "CAUTION";
+      const radius = isImpassable ? 1700 : (isCaution ? 1300 : 900);
+
+      // Inundation buffer circle
+      L.circle([b.coordinates.lat, b.coordinates.lng], {
+        radius: radius,
+        color: b.status_color,
+        weight: isImpassable ? 2 : 1,
+        dashArray: isImpassable ? "6, 6" : null,
+        fillColor: b.status_color,
+        fillOpacity: isImpassable ? 0.28 : 0.14,
+      }).addTo(layers.flood);
+
+      // Center hazard marker
+      const marker = L.marker([b.coordinates.lat, b.coordinates.lng], {
+        icon: L.divIcon({
+          className: "",
+          html: `<span class="pin pin--flood ${isImpassable ? 'pin--pulse' : ''}" style="background:${b.status_color};color:#fff" title="${b.name}">🌊</span>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        }),
+      });
+
+      marker.bindPopup(`
+        <div class="map-popup-card">
+          <div class="popup-title">${b.name}</div>
+          <div class="popup-sub">${b.affected_road}</div>
+          <div class="popup-grid">
+            <span>Status: <strong style="color:${b.status_color}">${b.status}</strong></span>
+            <span>Impassability Risk: <strong>${(b.impassability_probability * 100).toFixed(1)}%</strong></span>
+            <span>Est. Water Depth: <strong>${b.estimated_water_depth_cm} cm</strong></span>
+            <span>Drainage Basin: <strong>${b.river_system}</strong></span>
+          </div>
+          <div class="popup-advisory">${b.advisory}</div>
+        </div>
+      `);
+
+      marker.bindTooltip(`${b.name} · ${b.status} (${(b.impassability_probability * 100).toFixed(0)}%)`, { direction: "top" });
+      marker.addTo(layers.flood);
+    });
+
+    checkTacticalAlerts();
+  } catch (err) {
+    console.error("[FloodLayer] Failed to load flood model data:", err);
+  }
+}
+
+async function loadCorridorRiskLayer(rainRate = 0) {
+  try {
+    const res = await fetch(`/api/analysis/corridor-risk?rain_rate=${rainRate}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    activeCorridorData = data;
+    layers.corridors.clearLayers();
+
+    const corridors = data.corridors || [];
+    corridors.forEach((c) => {
+      const risk = c.risk_analysis || {};
+      const isCritical = risk.risk_level === "CRITICAL_RISK";
+
+      // Corridor marker with dynamic CRI badge
+      const marker = L.marker([c.coordinates.lat, c.coordinates.lng], {
+        icon: L.divIcon({
+          className: "",
+          html: `
+            <div class="pin pin--corridor ${isCritical ? 'pin--pulse' : ''}" style="border-color:${risk.color_code}">
+              <span class="corridor-badge" style="background:${risk.color_code}">CRI ${risk.cri_score}</span>
+            </div>
+          `,
+          iconSize: [64, 24],
+          iconAnchor: [32, 12]
+        }),
+      });
+
+      marker.bindPopup(`
+        <div class="map-popup-card">
+          <div class="popup-title">${c.name}</div>
+          <div class="popup-sub">${c.corridor_name} · FRSC High-Fatality Blackspot</div>
+          <div class="popup-grid">
+            <span>Corridor Risk Index: <strong style="color:${risk.color_code}">CRI ${risk.cri_score} (${risk.risk_level.replace(/_/g, ' ')})</strong></span>
+            <span>Terrain Grade: <strong>${c.slope_gradient_percent}% Slope</strong></span>
+            <span>Annual Fatalities: <strong>${c.historical_fatalities_annual}</strong></span>
+            <span>Annual Collisions: <strong>${c.historical_crashes_annual}</strong></span>
+          </div>
+          <div class="popup-advisory"><strong>Primary Hazard:</strong> ${c.primary_cause}</div>
+          <div class="popup-patrol"><strong>Patrol Unit:</strong> ${c.recommended_patrol_station}</div>
+        </div>
+      `);
+
+      marker.bindTooltip(`${c.name} · CRI ${risk.cri_score}`, { direction: "top" });
+      marker.addTo(layers.corridors);
+
+      // If Ugwu Onyeama, draw danger corridor polyline along escarpment
+      if (c.corridor_id === "COR-ONYEAMA-01") {
+        L.polyline(
+          [
+            [6.4620, 7.4250],
+            [6.4528, 7.4395],
+            [6.4440, 7.4520]
+          ],
+          {
+            color: risk.color_code,
+            weight: 4,
+            opacity: 0.85,
+            dashArray: "8, 6"
+          }
+        ).bindTooltip("Ugwu Onyeama High-Risk Mountain Descent (8.5% Grade)", { sticky: true }).addTo(layers.corridors);
+      }
+    });
+
+    checkTacticalAlerts();
+  } catch (err) {
+    console.error("[CorridorLayer] Failed to load corridor risk data:", err);
+  }
+}
+
+function checkTacticalAlerts() {
+  const banner = $("#tacticalModelBanner");
+  const title = $("#tacticalBannerTitle");
+  const desc = $("#tacticalBannerDesc");
+  const actionBtn = $("#tacticalBannerActionBtn");
+  if (!banner || !title || !desc || !actionBtn) return;
+
+  // Prioritize critical corridor risk
+  if (activeCorridorData && activeCorridorData.tactical_prepositioning_alerts?.length > 0) {
+    const alert = activeCorridorData.tactical_prepositioning_alerts[0];
+    title.textContent = "High Corridor Crash Risk Detected";
+    desc.textContent = `${alert.corridor} (CRI ${alert.cri_score}). ${alert.action}.`;
+    actionBtn.textContent = "Focus Corridor";
+    actionBtn.onclick = () => {
+      map?.flyTo([6.4528, 7.4395], 13, { duration: 1.2 });
+    };
+    banner.classList.remove("hidden");
+    return;
+  }
+
+  // Next check flood alert
+  if (activeFloodData && activeFloodData.impassable_segments_count > 0) {
+    title.textContent = "Severe Road Submersion Alert";
+    desc.textContent = `${activeFloodData.impassable_segments_count} arterial bridge/culvert segment(s) submerged. Detour active.`;
+    actionBtn.textContent = "Focus Flood Zone";
+    actionBtn.onclick = () => {
+      map?.flyTo([6.4712, 7.5284], 13, { duration: 1.2 });
+    };
+    banner.classList.remove("hidden");
+    return;
+  }
+
+  banner.classList.add("hidden");
+}
+
+function wireTacticalBanner() {
+  const closeBtn = $("#tacticalBannerCloseBtn");
+  const banner = $("#tacticalModelBanner");
+  if (closeBtn && banner) {
+    closeBtn.addEventListener("click", () => {
+      banner.classList.add("hidden");
+    });
+  }
 }
 
 function wireLayerToggles() {
@@ -591,6 +760,13 @@ if (demoBtn) {
     .then(res => res.json())
     .then(data => {
       console.log("[Dispatcher] Injected synthetic demo:", data);
+      if (scenario === "flood") {
+        loadFloodRiskLayer(58.0);
+        loadCorridorRiskLayer(38.0);
+      } else {
+        loadCorridorRiskLayer(45.0);
+        loadFloodRiskLayer(15.0);
+      }
     })
     .catch(err => console.error("Error injecting demo:", err));
   });
@@ -674,6 +850,11 @@ async function updateWeatherWidget(regionCode = "community") {
     // Update region label in weather dropdown
     const regionLabel = $("#weatherRegionLabel");
     if (regionLabel) regionLabel.textContent = view.name || "Enugu Urban";
+
+    // Sync dynamic predictive model layers with live precipitation
+    const currentRain = data.rainfall_mm_hr || 0;
+    loadFloodRiskLayer(currentRain);
+    loadCorridorRiskLayer(currentRain);
   } catch (err) {
     console.error("[WeatherWidget] Failed to update weather:", err);
   }
@@ -865,6 +1046,7 @@ wirePaneResizers();
 wireQueueCollapse();
 wireFullscreen();
 wireMobileNav();
+wireTacticalBanner();
 updateWeatherWidget("community");
 renderQueue();
 renderMissionConsole(selected);

@@ -247,7 +247,7 @@ body.civilian {
 .protocol {
   align-self: stretch;
   max-width: 100%;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--line);
   border-radius: var(--r-xl);
   background: var(--surface-2);
   overflow: hidden;
@@ -259,22 +259,18 @@ body.civilian {
   align-items: center;
   gap: var(--sp-4);
   padding: var(--sp-4) var(--sp-5);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
 .protocol__title { font-size: var(--fs-base); font-weight: 500; }
 .protocol__summary { font-size: var(--fs-xs); color: var(--text-2); margin-top: 2px; }
-.protocol__progress {
-  height: 4px;
-  background: var(--surface-sunk);
+.protocol__progress { display: none; }
+.protocol__bar { display: none; }
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.protocol__bar {
-  height: 100%;
-  width: 0;
-  background: var(--accent);
-  transition: width 320ms var(--ease);
-}
-.steps { list-style: none; }
 .step {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

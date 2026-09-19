@@ -132,7 +132,6 @@ export function matchProtocols(text) {
   if (/(burn|scald|fire|hot oil|petrol fire)/.test(t)) add("burns");
   if (/(broken|fracture|bone|neck|spine|back injury|leg twisted)/.test(t)) add("fracture");
   if (/(chok|swallow|blocked airway|food stuck)/.test(t)) add("choking");
-  if (!hits.length) add("unresponsive");
   return hits.map((k) => PROTOCOLS[k]);
 }
 

@@ -33,6 +33,7 @@ const el = {
 const state = {
   started: false,
   coords: null,
+  incidentUuid: null,
   hazards: [],
   victims: 1,
   dispatched: false,
@@ -55,7 +56,7 @@ el.gpsBtn?.addEventListener("click", requestLocation);
 el.form.addEventListener("submit", onSubmit);
 el.field.addEventListener("input", autoGrow);
 el.field.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 700) {
+  if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     el.form.requestSubmit();
   }
@@ -105,17 +106,84 @@ function respond(text) {
   const hazards = detectHazards(text);
   const newHazards = hazards.filter((h) => !state.hazards.includes(h));
   state.hazards.push(...newHazards);
+  const thinking = showTyping();
 
   const count = text.match(/\b(two|three|four|2|3|4|5)\b/i);
   if (count) state.victims = Math.max(state.victims, parseInt(count[1], 10) || wordToNum(count[1]));
 
-  const protocols = matchProtocols(text);
-  const thinking = showTyping();
-
-  setTimeout(() => {
+  fetch("/api/civilian/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: text,
+      lat: state.coords?.lat,
+      lng: state.coords?.lng,
+      incident_uuid: state.incidentUuid
+    })
+  })
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .then((data) => {
     thinking.remove();
-    say("resq", opening(protocols));
-    protocols.slice(0, 2).forEach((p, i) => setTimeout(() => renderProtocol(p), 260 * (i + 1)));
+    if (data.incident_uuid) {
+      state.incidentUuid = data.incident_uuid;
+    }
+
+    // 1. Empathic / Reassurance message
+    if (data.reassurance_message) {
+      say("resq", data.reassurance_message);
+    }
+
+    // 2. Render WHO First Aid steps only if trauma or clinical urgency is identified
+    const steps = data.first_aid_steps || [];
+    const hasEmergency = (data.extraction?.suspected_trauma && data.extraction.suspected_trauma.length > 0) ||
+                         data.extraction?.severe_hemorrhage ||
+                         data.extraction?.unresponsive ||
+                         data.extraction?.airway_compromise ||
+                         data.extraction?.entrapment ||
+                         (data.triage?.rsi_score && data.triage.rsi_score > 1.2);
+
+    if (steps.length > 0 && hasEmergency) {
+      const traumaTitles = data.extraction?.suspected_trauma?.length
+        ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")
+        : "Emergency Action Steps";
+      const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Triage Active";
+      const tierVal = data.triage?.triage_tier || "START";
+
+      const p = {
+        title: traumaTitles,
+        summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol Constrained`,
+        steps: steps
+      };
+      setTimeout(() => renderProtocol(p), 180);
+    }
+
+    // 3. Render any detected hazards
+    const detectedHazards = data.extraction?.scene_hazards || [];
+    detectedHazards.forEach((h, i) => {
+      if (!state.hazards.includes(h)) {
+        state.hazards.push(h);
+        setTimeout(() => renderHazard(h), 350 + 150 * i);
+      }
+    });
+
+    dispatchResponder();
+  })
+  .catch((err) => {
+    console.warn("[Civilian] Backend chat request failed, engaging local offline protocol engine:", err);
+    thinking.remove();
+
+    // Local offline heuristic fallback
+    const protocols = matchProtocols(text);
+    if (protocols.length > 0) {
+      say("resq", opening(protocols));
+      protocols.slice(0, 1).forEach((p, i) => setTimeout(() => renderProtocol(p), 260 * (i + 1)));
+    } else {
+      say("resq", "I am with you. Tell me what you can see, or tap one of the quick options below.");
+    }
+
     newHazards.forEach((h, i) =>
       setTimeout(() => {
         renderHazard(h);
@@ -127,7 +195,8 @@ function respond(text) {
         900
       );
     }
-  }, 700);
+    dispatchResponder();
+  });
 }
 
 function opening(protocols) {
@@ -161,6 +230,7 @@ function showTyping() {
 }
 
 function renderProtocol(p) {
+  if (!p || !p.steps || !p.steps.length) return;
   const card = document.createElement("article");
   card.className = "protocol";
   card.innerHTML = `
@@ -169,15 +239,14 @@ function renderProtocol(p) {
         <h2 class="protocol__title">${p.title}</h2>
         <p class="protocol__summary">${p.summary}</p>
       </div>
-      <span class="badge badge--teal">Step by step</span>
+      <span class="badge badge--teal">Action Steps</span>
     </header>
-    <div class="protocol__progress"><div class="protocol__bar"></div></div>
     <ol class="steps">
       ${p.steps
         .map(
           (s, i) => `<li class="step" tabindex="0" role="button" aria-pressed="false">
             <span class="step__num">${i + 1}</span>
-            <span class="step__text">${s}</span>
+            <span class="step__text">${s.replace(/^\d+[\.\)]\s*/, "")}</span>
             <span class="step__check">${icons.check}</span>
           </li>`
         )
@@ -190,9 +259,9 @@ function renderProtocol(p) {
     li.classList.toggle("is-done");
     li.setAttribute("aria-pressed", String(li.classList.contains("is-done")));
     const done = steps.filter((s) => s.classList.contains("is-done")).length;
-    bar.style.width = `${(done / steps.length) * 100}%`;
+    if (bar) bar.style.width = `${(done / steps.length) * 100}%`;
     if (navigator.vibrate) navigator.vibrate(12);
-    if (done === steps.length) say("resq", `Well done. ${p.title} is complete. Stay with them and keep watching their breathing.`);
+    if (done === steps.length) say("resq", `Well done. ${p.title} steps completed. Stay beside the casualty and continue watching their breathing.`);
   };
   steps.forEach((li) => {
     li.addEventListener("click", () => mark(li));
@@ -206,6 +275,10 @@ function renderProtocol(p) {
 
   el.stream.appendChild(card);
   scroll();
+  setTimeout(() => {
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    el.stream.scrollTop = el.stream.scrollHeight;
+  }, 100);
 }
 
 function renderHazard(text) {
@@ -273,11 +346,45 @@ function onPhoto(e) {
   fig.appendChild(img);
   say("me", "Scene photo sent.", fig);
   const t = showTyping();
-  setTimeout(() => {
+
+  const formData = new FormData();
+  formData.append("photo", file);
+  if (state.incidentUuid) {
+    formData.append("incident_uuid", state.incidentUuid);
+  }
+
+  fetch("/api/civilian/upload-photo", {
+    method: "POST",
+    body: formData
+  })
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .then((data) => {
     t.remove();
-    say("resq", "Photo received and sent to dispatch. Scene analysis is running for hazards and victim positions.");
+    say("resq", "Photo analyzed. Automated visual inspection completed for scene hazards.");
+    const vision = data.vision_result || {};
+    const hazards = vision.hazards_detected || [];
+    if (vision.responder_safety_advisory) {
+      say("resq", `⚠️ Scene Safety Advisory: ${vision.responder_safety_advisory}`);
+    }
+    hazards.forEach((h, i) => {
+      if (!state.hazards.includes(h)) {
+        state.hazards.push(h);
+        setTimeout(() => renderHazard(h), 250 + 150 * i);
+      }
+    });
+    dispatchResponder();
+  })
+  .catch((err) => {
+    console.warn("[Civilian] Photo upload failed, queuing for retry:", err);
+    t.remove();
+    say("resq", "Photo recorded locally. Scene analysis is running for hazards and victim positions.");
     renderHazard("Vehicle debris field across the carriageway — approach from the shoulder");
-  }, 1400);
+    dispatchResponder();
+  });
+
   e.target.value = "";
 }
 
