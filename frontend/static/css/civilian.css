@@ -34,7 +34,6 @@ body.civilian {
   box-sizing: border-box;
   position: relative;
 }
-@media (min-width: 760px) and (min-height: 700px) {
 @media (min-width: 760px) {
   body.civilian {
     position: static;
@@ -43,8 +42,6 @@ body.civilian {
     min-height: 100dvh;
   }
   .shell {
-    margin-block: clamp(1rem, 2.5vh, 2rem);
-    height: calc(100dvh - clamp(2rem, 5vh, 4rem));
     margin-block: clamp(0.75rem, 2vh, 1.5rem);
     height: calc(100dvh - clamp(1.5rem, 4vh, 3rem));
     border-radius: var(--r-xl);
@@ -80,6 +77,8 @@ body.civilian {
   border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid transparent;
   /* Hidden by default — revealed via max-height transition */
   max-height: 0;
   overflow: hidden;
@@ -99,6 +98,7 @@ body.civilian {
   padding-bottom: 6px;
   margin-top: 4px;
   border-width: 1px;
+  border-width: 0;
   transition: max-height 380ms var(--ease), opacity 300ms var(--ease),
               padding 320ms var(--ease), margin-top 320ms var(--ease);
 }
@@ -193,11 +193,8 @@ body.civilian {
 /* ---------- Conversation Stream (Expanded conversation area) ---------- */
 .session {
   display: none;
-  flex: 1 1 auto;
   flex: 1 1 0;       /* shrink-to-zero so it never overflows the shell */
   flex-direction: column;
-  min-height: 0;
-  height: 100%;
   min-height: 0;     /* required for flex children to scroll correctly */
   overflow: hidden;
 }
@@ -205,9 +202,9 @@ body.civilian {
 .hero.is-hidden { display: none; }
 
 .stream {
-  flex: 1 1 auto;
   flex: 1 1 0;       /* must be 0, not auto — auto uses content-size and blocks scroll */
   min-height: 0;
+  min-height: 120px; /* guarantee visible height even on very small screens */
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px 10px 12px;
@@ -247,9 +244,6 @@ body.civilian {
   text-align: left;
 }
 .msg--resq { align-self: flex-start; }
-.msg--resq .msg__bubble { border-bottom-left-radius: 3px; }
-
-.msg--resq { align-self: flex-start; }
 .msg--resq .msg__bubble { border-bottom-left-radius: 4px; }
 
 /* First-aid step card (Generous Tap Targets) */
@@ -269,7 +263,6 @@ body.civilian {
   gap: var(--sp-4);
   padding: var(--sp-4) var(--sp-5);
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
 }
 .protocol__title { font-size: var(--fs-base); font-weight: 500; }
 .protocol__summary { font-size: var(--fs-xs); color: var(--text-2); margin-top: 2px; }
@@ -288,7 +281,10 @@ body.civilian {
   padding: var(--sp-4) var(--sp-5);
   border-top: 1px solid var(--line);
   min-height: 64px;
+  min-height: 56px;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 160ms var(--ease);
 }
