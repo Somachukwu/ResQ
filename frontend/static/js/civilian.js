@@ -154,11 +154,9 @@ function respond(text) {
 
       const p = {
         title: traumaTitles,
-        summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol Constrained`,
         summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol`,
         steps: steps
       };
-      setTimeout(() => renderProtocol(p), 180);
       renderProtocol(p);
     }
 
@@ -236,8 +234,40 @@ function renderProtocol(p) {
 
   const card = document.createElement("article");
   card.className = "protocol";
+  // Outer card
+  const card = document.createElement("div");
+  card.style.cssText = [
+    "align-self: stretch",
+    "border-radius: 16px",
+    "overflow: hidden",
+    "background: var(--surface-2)",
+    "border: 1px solid var(--line)",
+    "box-shadow: var(--shadow-1)",
+    "margin: 8px 0",
+    "flex-shrink: 0"
+  ].join(";");
 
   const stepsHtml = p.steps.map((s, i) => {
+  // Header
+  const head = document.createElement("div");
+  head.style.cssText = [
+    "display: flex",
+    "align-items: center",
+    "justify-content: space-between",
+    "padding: 12px 16px",
+    "background: var(--surface)",
+    "gap: 12px"
+  ].join(";");
+  head.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:0.93rem;font-weight:600;color:var(--text);">${p.title}</div>
+      <div style="font-size:0.72rem;color:var(--text-3);margin-top:2px;">${p.summary}</div>
+    </div>
+    <span style="font-size:0.7rem;font-weight:600;padding:3px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);white-space:nowrap;border:1px solid var(--accent);">Action Steps</span>`;
+  card.appendChild(head);
+
+  // Steps
+  p.steps.forEach((s, i) => {
     const text = s.replace(/^\d+[\.\)]\s*/, "");
     return `<li class="step" tabindex="0" role="button" aria-pressed="false" data-i="${i}">
       <span class="step__num">${i + 1}</span>
@@ -245,6 +275,17 @@ function renderProtocol(p) {
       <span class="step__check">${icons.check}</span>
     </li>`;
   }).join("");
+    const row = document.createElement("div");
+    row.style.cssText = [
+      "display: flex",
+      "align-items: center",
+      "gap: 12px",
+      "padding: 12px 16px",
+      "border-top: 1px solid var(--line)",
+      "cursor: pointer",
+      "min-height: 52px",
+      "transition: background 160ms"
+    ].join(";");
 
   card.innerHTML = `
     <header class="protocol__head">
@@ -254,31 +295,24 @@ function renderProtocol(p) {
       </div>
       <span class="badge badge--teal">Action Steps</span>
     </header>
-    <ol class="steps">
-      ${p.steps
-        .map(
-          (s, i) => `<li class="step" tabindex="0" role="button" aria-pressed="false">
-            <span class="step__num">${i + 1}</span>
-            <span class="step__text">${s.replace(/^\d+[\.\)]\s*/, "")}</span>
-            <span class="step__check">${icons.check}</span>
-          </li>`
-        )
-        .join("")}
-    </ol>`;
     <ol class="steps">${stepsHtml}</ol>`;
+    const num = document.createElement("span");
+    num.textContent = i + 1;
+    num.style.cssText = [
+      "width: 28px",
+      "height: 28px",
+      "display: flex",
+      "align-items: center",
+      "justify-content: center",
+      "border-radius: 50%",
+      "border: 1.5px solid var(--line-strong)",
+      "font-size: 12px",
+      "font-weight: 600",
+      "color: var(--text-2)",
+      "flex-shrink: 0",
+      "transition: all 200ms"
+    ].join(";");
 
-  const steps = $$(".step", card);
-  const bar = $(".protocol__bar", card);
-  const mark = (li) => {
-    li.classList.toggle("is-done");
-    li.setAttribute("aria-pressed", String(li.classList.contains("is-done")));
-    const done = steps.filter((s) => s.classList.contains("is-done")).length;
-    if (bar) bar.style.width = `${(done / steps.length) * 100}%`;
-    if (navigator.vibrate) navigator.vibrate(12);
-    if (done === steps.length) say("resq", `Well done. ${p.title} steps completed. Stay beside the casualty and continue watching their breathing.`);
-  };
-  steps.forEach((li) => {
-    li.addEventListener("click", () => mark(li));
   const stepEls = card.querySelectorAll(".step");
   stepEls.forEach((li) => {
     const handler = () => {
@@ -288,28 +322,57 @@ function renderProtocol(p) {
       const done = card.querySelectorAll(".step.is-done").length;
       if (done === stepEls.length) {
         say("resq", "Well done. All steps completed. Stay beside the casualty and continue watching their breathing.");
+    const txt = document.createElement("span");
+    txt.textContent = text;
+    txt.style.cssText = "flex:1;font-size:0.875rem;line-height:1.45;color:var(--text);";
+
+    const chk = document.createElement("span");
+    chk.innerHTML = icons.check;
+    chk.style.cssText = "width:18px;height:18px;opacity:0;color:var(--accent);transition:opacity 200ms;flex-shrink:0;";
+
+    row.appendChild(num);
+    row.appendChild(txt);
+    row.appendChild(chk);
+    card.appendChild(row);
+
+    row.addEventListener("click", () => {
+      const done = row.dataset.done === "1";
+      row.dataset.done = done ? "0" : "1";
+      if (!done) {
+        num.style.background = "var(--accent)";
+        num.style.borderColor = "var(--accent)";
+        num.style.color = "var(--accent-ink)";
+        txt.style.opacity = "0.45";
+        txt.style.textDecoration = "line-through";
+        chk.style.opacity = "1";
+        row.style.background = "color-mix(in srgb,var(--accent) 5%,transparent)";
+        if (navigator.vibrate) navigator.vibrate(12);
+      } else {
+        num.style.background = "";
+        num.style.borderColor = "var(--line-strong)";
+        num.style.color = "var(--text-2)";
+        txt.style.opacity = "1";
+        txt.style.textDecoration = "none";
+        chk.style.opacity = "0";
+        row.style.background = "";
       }
     };
     li.addEventListener("click", handler);
     li.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        mark(li);
-      }
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handler(); }
+      const allDone = card.querySelectorAll("[data-done='1']").length === p.steps.length;
+      if (allDone) {
+        say("resq", "Well done — all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until the responders arrive.");
+      }
     });
   });
 
   el.stream.appendChild(card);
-  scroll();
-  setTimeout(() => {
-    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
   // Force scroll to bottom — works on mobile fixed layout
   el.stream.scrollTop = el.stream.scrollHeight;
   requestAnimationFrame(() => {
     el.stream.scrollTop = el.stream.scrollHeight;
-  }, 100);
     card.scrollIntoView({ block: "end" });
   });
 }
