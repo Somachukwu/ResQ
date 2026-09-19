@@ -75,8 +75,6 @@ body.civilian {
   margin: 4px 10px 0;
   padding: 6px 12px;
   border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   border: 1px solid transparent;
   /* Hidden by default — revealed via max-height transition */
@@ -97,7 +95,6 @@ body.civilian {
   padding-top: 6px;
   padding-bottom: 6px;
   margin-top: 4px;
-  border-width: 1px;
   border-width: 0;
   transition: max-height 380ms var(--ease), opacity 300ms var(--ease),
               padding 320ms var(--ease), margin-top 320ms var(--ease);
@@ -203,7 +200,6 @@ body.civilian {
 
 .stream {
   flex: 1 1 0;       /* must be 0, not auto — auto uses content-size and blocks scroll */
-  min-height: 0;
   min-height: 120px; /* guarantee visible height even on very small screens */
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -280,7 +276,6 @@ body.civilian {
   align-items: center;
   padding: var(--sp-4) var(--sp-5);
   border-top: 1px solid var(--line);
-  min-height: 64px;
   min-height: 56px;
   cursor: pointer;
   user-select: none;

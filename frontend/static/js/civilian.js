@@ -155,9 +155,11 @@ function respond(text) {
       const p = {
         title: traumaTitles,
         summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol Constrained`,
+        summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol`,
         steps: steps
       };
       setTimeout(() => renderProtocol(p), 180);
+      renderProtocol(p);
     }
 
     // 3. Render any detected hazards
@@ -231,8 +233,19 @@ function showTyping() {
 
 function renderProtocol(p) {
   if (!p || !p.steps || !p.steps.length) return;
+
   const card = document.createElement("article");
   card.className = "protocol";
+
+  const stepsHtml = p.steps.map((s, i) => {
+    const text = s.replace(/^\d+[\.\)]\s*/, "");
+    return `<li class="step" tabindex="0" role="button" aria-pressed="false" data-i="${i}">
+      <span class="step__num">${i + 1}</span>
+      <span class="step__text">${text}</span>
+      <span class="step__check">${icons.check}</span>
+    </li>`;
+  }).join("");
+
   card.innerHTML = `
     <header class="protocol__head">
       <div class="grow">
@@ -252,6 +265,7 @@ function renderProtocol(p) {
         )
         .join("")}
     </ol>`;
+    <ol class="steps">${stepsHtml}</ol>`;
 
   const steps = $$(".step", card);
   const bar = $(".protocol__bar", card);
@@ -265,11 +279,24 @@ function renderProtocol(p) {
   };
   steps.forEach((li) => {
     li.addEventListener("click", () => mark(li));
+  const stepEls = card.querySelectorAll(".step");
+  stepEls.forEach((li) => {
+    const handler = () => {
+      li.classList.toggle("is-done");
+      li.setAttribute("aria-pressed", String(li.classList.contains("is-done")));
+      if (navigator.vibrate) navigator.vibrate(12);
+      const done = card.querySelectorAll(".step.is-done").length;
+      if (done === stepEls.length) {
+        say("resq", "Well done. All steps completed. Stay beside the casualty and continue watching their breathing.");
+      }
+    };
+    li.addEventListener("click", handler);
     li.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         mark(li);
       }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handler(); }
     });
   });
 
@@ -277,8 +304,14 @@ function renderProtocol(p) {
   scroll();
   setTimeout(() => {
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  // Force scroll to bottom — works on mobile fixed layout
+  el.stream.scrollTop = el.stream.scrollHeight;
+  requestAnimationFrame(() => {
     el.stream.scrollTop = el.stream.scrollHeight;
   }, 100);
+    card.scrollIntoView({ block: "end" });
+  });
 }
 
 function renderHazard(text) {
@@ -290,7 +323,6 @@ function renderHazard(text) {
 }
 
 function scroll() {
-  requestAnimationFrame(() => el.stream.scrollTo({ top: el.stream.scrollHeight, behavior: "smooth" }));
   // Use direct assignment first (works on iOS fixed body), then smooth RAF
   el.stream.scrollTop = el.stream.scrollHeight;
   requestAnimationFrame(() => {
