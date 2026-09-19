@@ -383,6 +383,7 @@ function renderQueue() {
 
   if (sorted.length === 0) {
     list.innerHTML = `<p class="queue-empty">No ${currentFilter === "all" ? "" : currentFilter === "red" ? "critical" : currentFilter === "yellow" ? "urgent" : "stable"} incidents at this time.</p>`;
+  } else {
     list.innerHTML = sorted
       .map(
         (i) => `<div class="incident incident--${i.triage} ${i.id === selected.id ? "is-selected" : ""}" data-id="${i.id}" role="button" tabindex="0">
