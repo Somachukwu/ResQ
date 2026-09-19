@@ -523,6 +523,8 @@ function renderMissionConsole(i) {
   const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
   const hospNameEl = $("#detailHospital");
   if (hospNameEl) hospNameEl.textContent = hosp.name;
+  const hospCapsEl = $("#detailHospitalCaps");
+  const hospEtaEl = $("#detailHospitalEta");
 
   // High-contrast hospital capability pills (Requirement 5)
   const hospCapsEl = $("#detailHospitalCaps");
@@ -533,6 +535,39 @@ function renderMissionConsole(i) {
     } else {
       hospCapsEl.textContent = "–";
     }
+  // Live Golden Hour Model Evaluation
+  if (i.lat && i.lng) {
+    fetch("/api/nearest-hospital", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat: i.lat,
+        lng: i.lng,
+        incident_type: i.type || "trauma",
+        rsi_score: i.rsi || 3.8
+      })
+    })
+    .then(res => res.ok ? res.json() : null)
+    .then(data => {
+      if (data && data.recommended_hospital) {
+        if (hospNameEl) hospNameEl.textContent = data.recommended_hospital.name;
+        if (hospEtaEl) hospEtaEl.textContent = `${data.duration_mins} mins (${data.distance_km} km) · ${(data.predicted_survival_probability * 100).toFixed(0)}% Survival`;
+        if (hospCapsEl) {
+          const capTier = data.capability ? data.capability.toUpperCase() : "LEVEL-1 TRAUMA";
+          const survivalTag = `<span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent);">Golden Hour: ${(data.predicted_survival_probability * 100).toFixed(0)}%</span>`;
+          hospCapsEl.innerHTML = `<span class="facility-cap-tag">${capTier}</span> ${survivalTag}`;
+        }
+      }
+    })
+    .catch(() => {
+      const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
+      if (hospNameEl) hospNameEl.textContent = hosp.name;
+      if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
+    });
+  } else {
+    const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
+    if (hospNameEl) hospNameEl.textContent = hosp.name;
+    if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
   }
 
   const hospEtaEl = $("#detailHospitalEta");
@@ -598,6 +633,16 @@ function wireDispatchAction() {
       const unit = UNITS.find((u) => u.id === unitCode);
       if (unit) unit.status = "dispatched";
       
+      // Call backend assign API to update database and broadcast
+      fetch("/api/responder/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incident_uuid: selected.id,
+          unit_code: unitCode
+        })
+      }).catch(err => console.warn("[Dispatch] Server assign sync note:", err));
+
       if (window.resqSocket) {
         window.resqSocket.emit("responder:assign", {
           incident_uuid: selected.id,

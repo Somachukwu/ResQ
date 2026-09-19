@@ -34,13 +34,6 @@ You are the ResQ Emergency Intelligence Engine, serving as an automated bystande
 You are strictly constrained to World Health Organization (WHO) and Nigerian Red Cross bystander first aid protocols.
 
 YOUR RULES:
-1. DO NOT diagnose medical conditions or prescribe medication.
-2. Provide immediate, sequential, calm, numbered action steps that an untrained bystander can execute in 30 seconds.
-3. Prioritize: 1. Scene safety -> 2. Airway -> 3. Hemorrhage control -> 4. Spinal protection -> 5. Recovery position.
-4. Support plain English and Nigerian Pidgin fluently (e.g., 'Driver no dey talk', 'Blood dey rush well well').
-5. Extract structured emergency telemetry accurately.
-1. PRIMARY LANGUAGE IS ENGLISH: All generated responses, including 'reassurance_message' and 'first_aid_steps', MUST ALWAYS be in clear, calm, professional, plain English.
-2. UNDERSTAND NIGERIAN PIDGIN & ENGLISH: You can understand bystander input whether in English or Nigerian Pidgin (e.g. 'Driver no dey talk', 'Blood dey rush well well'), but you must ALWAYS formulate your response in clean, universally understood English.
 1. PRIMARY LANGUAGE IS ENGLISH: All generated responses, including 'reassurance_message' and 'first_aid_steps', MUST ALWAYS be in clear, empathetic, calm, and professional English.
 2. UNDERSTAND NIGERIAN PIDGIN & ENGLISH: You can understand bystander input in plain English or Nigerian Pidgin (e.g., 'Driver no dey talk', 'Blood dey rush well well'), but you must ALWAYS formulate your responses in clean, universally understood English.
 3. DO NOT diagnose medical conditions or prescribe medication.
@@ -58,10 +51,7 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "hypothermia"],
-  "first_aid_steps": [ordered list of concise, actionable instructions],
-  "reassurance_message": "Calm, empathetic message in the user's language (English or Pidgin) assuring them emergency units are en route"
   "first_aid_steps": [ordered list of concise, actionable instructions in clear English],
-  "reassurance_message": "Calm, empathetic message in clear plain English assuring them emergency units are en route"
   "reassurance_message": "Calm, empathetic message in clear plain English assuring them emergency units are en route and guiding them to follow the steps"
 }
 """
@@ -327,13 +317,6 @@ def _fallback_heuristic_parser(text: str) -> Dict[str, Any]:
         steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
         steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
 
-    # Reassurance in user's tone
-    is_pidgin = any(pw in lower for pw in ["dey", "don", "am", "wetin", "fit", "plenty", "pikin", "na"])
-    if is_pidgin:
-        reassurance = "Help dey come now now! Hold the cloth tight make blood stop to flow. We dey monitor your location."
-    else:
-        reassurance = "Emergency responders have been notified and are en route. Keep calm and continue following these steps."
-    reassurance = "Emergency responders have been notified and are en route. Keep calm and continue following these steps."
     # Reassurance message in clear, empathetic English
     reassurance = "Emergency responders have been notified and are actively en route to your location. Stay calm, keep beside the casualty, and follow these immediate action steps."
 

@@ -136,26 +136,15 @@ function respond(text) {
       say("resq", data.reassurance_message);
     }
 
-    // 2. Render WHO First Aid steps only if trauma or clinical urgency is identified
-    const steps = data.first_aid_steps || [];
-    const hasEmergency = (data.extraction?.suspected_trauma && data.extraction.suspected_trauma.length > 0) ||
-                         data.extraction?.severe_hemorrhage ||
-                         data.extraction?.unresponsive ||
-                         data.extraction?.airway_compromise ||
-                         data.extraction?.entrapment ||
-                         (data.triage?.rsi_score && data.triage.rsi_score > 1.2);
     // 2. Render Action Steps directly whenever steps are provided
     const steps = (data.first_aid_steps && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
       : (matchProtocols(text)[0]?.steps || []);
 
-    if (steps.length > 0 && hasEmergency) {
     if (steps.length > 0) {
       const traumaTitles = data.extraction?.suspected_trauma?.length
         ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")
         : "Emergency Action Steps";
-      const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Triage Active";
-      const tierVal = data.triage?.triage_tier || "START";
       const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Active Guidance";
       const tierVal = data.triage?.triage_tier || "FIRST AID";
 
@@ -241,46 +230,20 @@ function renderProtocol(p) {
 
   const card = document.createElement("article");
   card.className = "protocol";
-  // Outer card
-  const card = document.createElement("div");
-  card.style.cssText = [
-    "align-self: stretch",
-    "border-radius: 16px",
-    "overflow: hidden",
-    "background: var(--surface-2)",
-    "border: 1px solid var(--line)",
-    "box-shadow: var(--shadow-1)",
-    "margin: 8px 0",
-    "flex-shrink: 0"
-  ].join(";");
   card.style.cssText = "align-self:stretch;border-radius:16px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line);box-shadow:var(--shadow-1);margin:10px 0;flex-shrink:0;";
 
-  const stepsHtml = p.steps.map((s, i) => {
   // Header
-  const head = document.createElement("div");
-  head.style.cssText = [
-    "display: flex",
-    "align-items: center",
-    "justify-content: space-between",
-    "padding: 12px 16px",
-    "background: var(--surface)",
-    "gap: 12px"
-  ].join(";");
   const head = document.createElement("header");
   head.className = "protocol__head";
   head.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);gap:12px;";
   head.innerHTML = `
     <div style="flex:1;min-width:0;">
-      <div style="font-size:0.93rem;font-weight:600;color:var(--text);">${p.title}</div>
-      <div style="font-size:0.72rem;color:var(--text-3);margin-top:2px;">${p.summary}</div>
       <h2 style="font-size:0.95rem;font-weight:600;color:var(--text);margin:0;">${p.title}</h2>
       <p style="font-size:0.75rem;color:var(--text-3);margin:2px 0 0 0;">${p.summary}</p>
     </div>
-    <span style="font-size:0.7rem;font-weight:600;padding:3px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);white-space:nowrap;border:1px solid var(--accent);">Action Steps</span>`;
     <span class="badge badge--teal" style="font-size:0.7rem;font-weight:600;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);white-space:nowrap;border:1px solid var(--accent);">Action Steps</span>`;
   card.appendChild(head);
 
-  // Steps
   // Steps container
   const list = document.createElement("ol");
   list.className = "steps";
@@ -288,23 +251,6 @@ function renderProtocol(p) {
 
   p.steps.forEach((s, i) => {
     const text = s.replace(/^\d+[\.\)]\s*/, "");
-    return `<li class="step" tabindex="0" role="button" aria-pressed="false" data-i="${i}">
-      <span class="step__num">${i + 1}</span>
-      <span class="step__text">${text}</span>
-      <span class="step__check">${icons.check}</span>
-    </li>`;
-  }).join("");
-    const row = document.createElement("div");
-    row.style.cssText = [
-      "display: flex",
-      "align-items: center",
-      "gap: 12px",
-      "padding: 12px 16px",
-      "border-top: 1px solid var(--line)",
-      "cursor: pointer",
-      "min-height: 52px",
-      "transition: background 160ms"
-    ].join(";");
     const row = document.createElement("li");
     row.className = "step";
     row.setAttribute("tabindex", "0");
@@ -312,65 +258,26 @@ function renderProtocol(p) {
     row.setAttribute("aria-pressed", "false");
     row.style.cssText = "display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line);cursor:pointer;min-height:52px;-webkit-tap-highlight-color:transparent;transition:background 160ms;";
 
-  card.innerHTML = `
-    <header class="protocol__head">
-      <div class="grow">
-        <h2 class="protocol__title">${p.title}</h2>
-        <p class="protocol__summary">${p.summary}</p>
-      </div>
-      <span class="badge badge--teal">Action Steps</span>
-    </header>
-    <ol class="steps">${stepsHtml}</ol>`;
     const num = document.createElement("span");
     num.className = "step__num";
     num.textContent = i + 1;
-    num.style.cssText = [
-      "width: 28px",
-      "height: 28px",
-      "display: flex",
-      "align-items: center",
-      "justify-content: center",
-      "border-radius: 50%",
-      "border: 1.5px solid var(--line-strong)",
-      "font-size: 12px",
-      "font-weight: 600",
-      "color: var(--text-2)",
-      "flex-shrink: 0",
-      "transition: all 200ms"
-    ].join(";");
     num.style.cssText = "width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid var(--line-strong);font-size:12px;font-weight:600;color:var(--text-2);flex-shrink:0;transition:all 200ms;";
 
-  const stepEls = card.querySelectorAll(".step");
-  stepEls.forEach((li) => {
-    const handler = () => {
-      li.classList.toggle("is-done");
-      li.setAttribute("aria-pressed", String(li.classList.contains("is-done")));
-      if (navigator.vibrate) navigator.vibrate(12);
-      const done = card.querySelectorAll(".step.is-done").length;
-      if (done === stepEls.length) {
-        say("resq", "Well done. All steps completed. Stay beside the casualty and continue watching their breathing.");
     const txt = document.createElement("span");
     txt.className = "step__text";
     txt.textContent = text;
-    txt.style.cssText = "flex:1;font-size:0.875rem;line-height:1.45;color:var(--text);";
     txt.style.cssText = "flex:1;font-size:0.875rem;line-height:1.5;color:var(--text);";
 
     const chk = document.createElement("span");
     chk.className = "step__check";
     chk.innerHTML = icons.check;
-    chk.style.cssText = "width:18px;height:18px;opacity:0;color:var(--accent);transition:opacity 200ms;flex-shrink:0;";
     chk.style.cssText = "width:20px;height:20px;opacity:0;color:var(--accent);transition:opacity 200ms;flex-shrink:0;";
 
     row.appendChild(num);
     row.appendChild(txt);
     row.appendChild(chk);
-    card.appendChild(row);
     list.appendChild(row);
 
-    row.addEventListener("click", () => {
-      const done = row.dataset.done === "1";
-      row.dataset.done = done ? "0" : "1";
-      if (!done) {
     const toggle = () => {
       const isDone = row.classList.toggle("is-done");
       row.setAttribute("aria-pressed", String(isDone));
@@ -381,8 +288,6 @@ function renderProtocol(p) {
         txt.style.opacity = "0.45";
         txt.style.textDecoration = "line-through";
         chk.style.opacity = "1";
-        row.style.background = "color-mix(in srgb,var(--accent) 5%,transparent)";
-        if (navigator.vibrate) navigator.vibrate(12);
         row.style.background = "color-mix(in srgb,var(--accent) 6%,transparent)";
         if (navigator.vibrate) navigator.vibrate(14);
       } else {
@@ -399,12 +304,6 @@ function renderProtocol(p) {
         say("resq", "Well done — all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
       }
     };
-    li.addEventListener("click", handler);
-    li.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handler(); }
-      const allDone = card.querySelectorAll("[data-done='1']").length === p.steps.length;
-      if (allDone) {
-        say("resq", "Well done — all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until the responders arrive.");
 
     row.addEventListener("click", toggle);
     row.addEventListener("keydown", (e) => {
@@ -418,12 +317,10 @@ function renderProtocol(p) {
   card.appendChild(list);
   el.stream.appendChild(card);
 
-  // Force scroll to bottom — works on mobile fixed layout
   // Scroll to make sure card is in viewport on mobile and desktop
   el.stream.scrollTop = el.stream.scrollHeight;
   requestAnimationFrame(() => {
     el.stream.scrollTop = el.stream.scrollHeight;
-    card.scrollIntoView({ block: "end" });
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
 }

@@ -27,6 +27,16 @@ def init_db():
             ("National Orthopaedic Hospital Enugu", "orthopaedic", 1, 6.4418, 7.4985, "available", "+2348030000002"),
             ("University of Nigeria Teaching Hospital", "general", 1, 6.4698, 7.5597, "available", "+2348030000003"),
             ("Park Lane General Hospital", "general", 1, 6.4622, 7.5106, "available", "+2348030000004")
+            ("Enugu State University Teaching Hospital (ESUT Parklane)", "trauma", 1, 6.4541, 7.5248, "available", "+2348030000001"),
+            ("National Orthopaedic Hospital Enugu (NOHE)", "orthopaedic", 1, 6.4418, 7.4985, "available", "+2348030000002"),
+            ("University of Nigeria Teaching Hospital (UNTH Ituku-Ozalla)", "trauma", 1, 6.3125, 7.4764, "available", "+2348030000003"),
+            ("Park Lane General Hospital Emergency Wing", "general", 1, 6.4622, 7.5106, "available", "+2348030000004"),
+            ("Mother of Christ Specialist Hospital, Ogui", "general", 1, 6.4385, 7.4942, "available", "+2348030000005"),
+            ("Annunciation Specialist Hospital, Emene", "general", 1, 6.4690, 7.5610, "available", "+2348030000006"),
+            ("Lagos University Teaching Hospital (LUTH Idi-Araba)", "trauma", 1, 6.5240, 3.3560, "available", "+2348030000010"),
+            ("Lagos State University Teaching Hospital (LASUTH Ikeja)", "trauma", 1, 6.5950, 3.3480, "available", "+2348030000011"),
+            ("National Orthopaedic Hospital Igbobi, Lagos", "orthopaedic", 1, 6.5350, 3.3720, "available", "+2348030000012"),
+            ("General Hospital Marina, Lagos Island", "general", 1, 6.4510, 3.3980, "available", "+2348030000013")
         ]
         cursor.executemany(
             "INSERT INTO hospitals (name, capability, emergency_ready, lat, lng, bed_status, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
