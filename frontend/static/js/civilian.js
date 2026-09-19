@@ -291,6 +291,11 @@ function renderHazard(text) {
 
 function scroll() {
   requestAnimationFrame(() => el.stream.scrollTo({ top: el.stream.scrollHeight, behavior: "smooth" }));
+  // Use direct assignment first (works on iOS fixed body), then smooth RAF
+  el.stream.scrollTop = el.stream.scrollHeight;
+  requestAnimationFrame(() => {
+    el.stream.scrollTop = el.stream.scrollHeight;
+  });
 }
 
 function autoGrow() {

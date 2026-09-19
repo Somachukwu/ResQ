@@ -35,12 +35,18 @@ body.civilian {
   position: relative;
 }
 @media (min-width: 760px) and (min-height: 700px) {
+@media (min-width: 760px) {
   body.civilian {
     position: static;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
   }
   .shell {
     margin-block: clamp(1rem, 2.5vh, 2rem);
     height: calc(100dvh - clamp(2rem, 5vh, 4rem));
+    margin-block: clamp(0.75rem, 2vh, 1.5rem);
+    height: calc(100dvh - clamp(1.5rem, 4vh, 3rem));
     border-radius: var(--r-xl);
     box-shadow: var(--shadow-2), 0 0 0 1px var(--line);
   }
@@ -188,9 +194,11 @@ body.civilian {
 .session {
   display: none;
   flex: 1 1 auto;
+  flex: 1 1 0;       /* shrink-to-zero so it never overflows the shell */
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  min-height: 0;     /* required for flex children to scroll correctly */
   overflow: hidden;
 }
 .session.is-active { display: flex; }
@@ -198,6 +206,7 @@ body.civilian {
 
 .stream {
   flex: 1 1 auto;
+  flex: 1 1 0;       /* must be 0, not auto — auto uses content-size and blocks scroll */
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
