@@ -95,7 +95,6 @@ body.dispatcher {
   padding: 3px 10px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
-  background: var(--surface-sunk);
   background: var(--surface);
   cursor: pointer;
   height: 30px;
@@ -108,7 +107,6 @@ body.dispatcher {
 .weather-pill:hover,
 .weather-pill.is-open {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-sunk));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 .weather-pill__icon {
@@ -174,11 +172,9 @@ body.dispatcher {
   z-index: 2100;
   width: 290px;
   padding: 12px;
-  border-radius: var(--r-lg);
   border-radius: var(--r-md);
   background: var(--surface);
   border: 1px solid var(--line-strong);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
@@ -212,7 +208,6 @@ body.dispatcher {
   gap: 6px;
   padding: 8px;
   border-radius: var(--r-sm);
-  background: var(--surface-sunk);
   background: var(--surface);
   border: 1px solid var(--line);
 }
@@ -478,16 +473,12 @@ body.dispatcher {
 /* Centered triage filter dropdown */
 .queue-filter-select {
   width: auto;
-  max-width: 120px;
-  height: 24px;
-  padding: 0 4px;
   max-width: 125px;
   height: 25px;
   padding: 0 6px;
   font-size: 11px;
   font-weight: 500;
   color: var(--text);
-  background: var(--surface-2);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -502,7 +493,6 @@ body.dispatcher {
   border-color: var(--accent);
 }
 
-#queueCount { font-size: 10px; padding: 1px 6px; }
 .badge--queue-count {
   font-size: 10.5px;
   font-weight: 600;
@@ -515,63 +505,56 @@ body.dispatcher {
   box-shadow: none !important;
 }
 
-/* Incident cards in queue */
 /* Incident cards in queue — Clean, non-shadowy, refined structure */
+/* Incident cards in queue — Clear, distinct container with crisp borders and no muddy shadows */
 .incident {
   border: 1px solid var(--line);
-  border-left: 3px solid var(--triage-green);
   border-left: 3.5px solid var(--triage-green);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--triage-green);
   border-radius: var(--r-md);
-  background: var(--surface-2);
-  padding: 10px 12px;
-  display: grid;
   background: var(--surface);
   padding: 11px 13px;
+  background: var(--surface-2);
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  gap: 7px;
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: border-color 160ms var(--ease), transform 120ms var(--ease), box-shadow 160ms var(--ease);
   box-shadow: none !important;
   transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
   box-sizing: border-box;
 }
-.incident:hover { transform: translateX(2px); box-shadow: var(--shadow-1); }
 .incident:hover {
   background: color-mix(in srgb, var(--surface-2) 65%, var(--surface));
   border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  border-color: var(--accent);
   box-shadow: none !important;
 }
 
-
-/* Selected element in left pane — brand green selector (Requirement 2) */
 /* Selected element in left pane — clean teal highlight without muddy shadows */
 .incident.is-selected {
-  border-color: var(--teal) !important;
-  box-shadow: 0 0 0 1.5px var(--teal), 0 4px 14px color-mix(in srgb, var(--teal) 25%, transparent) !important;
-  background: color-mix(in srgb, var(--teal) 8%, var(--surface-2)) !important;
   border-color: var(--accent) !important;
   border-left-color: var(--accent) !important;
   border-left-width: 4px !important;
   background: color-mix(in srgb, var(--accent) 7%, var(--surface)) !important;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)) !important;
   box-shadow: none !important;
 }
 .incident.is-selected .incident__id {
-  color: var(--teal-bright) !important;
-  font-weight: 700 !important;
   color: var(--accent) !important;
   font-weight: 600 !important;
 }
 
-/* Triage Semantics — Critical = RED, Urgent = ORANGE (Requirement 4) */
 /* Triage Semantics — Clear, distinctive triage left border indicators */
 .incident--red { border-left-color: var(--triage-red) !important; }
 .incident--yellow { border-left-color: var(--triage-orange) !important; }
 .incident--green { border-left-color: var(--triage-green) !important; }
 
-/* Compact Operational Rail representations (Requirement 2 & 4) */
 /* Compact Operational Rail representations */
 .incident__compact {
   display: none;
@@ -582,18 +565,6 @@ body.dispatcher {
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: none !important;
-}
-.incident-rail-dot--red {
-  background: var(--triage-red);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--triage-red) 70%, transparent);
-}
-.incident-rail-dot--yellow {
-  background: var(--triage-orange);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--triage-orange) 70%, transparent);
-}
-.incident-rail-dot--green {
-  background: var(--triage-green);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--triage-green) 70%, transparent);
 }
 .incident-rail-dot--red { background: var(--triage-red); }
 .incident-rail-dot--yellow { background: var(--triage-orange); }
@@ -611,7 +582,6 @@ body.dispatcher {
   font-weight: 700;
 }
 
-/* Full incident card layout (Requirement 6 - responsive resizing) */
 /* Full incident card layout */
 .incident__full {
   display: flex;
@@ -620,8 +590,6 @@ body.dispatcher {
   width: 100%;
   min-width: 0;
 }
-.incident__top { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
-.incident__id { font-size: 10px; letter-spacing: 0.08em; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .incident__top {
   display: flex;
   align-items: center;
@@ -684,21 +652,16 @@ body.dispatcher {
 }
 
 .incident__title {
-  font-size: 12px;
   font-size: 12.5px;
   line-height: 1.35;
-  font-weight: 500;
   font-weight: 600;
   color: var(--text);
   word-break: break-word;
   overflow-wrap: anywhere;
   margin: 0;
 }
-.incident__meta {
 .incident__loc {
   display: flex;
-  flex-wrap: wrap;
-  gap: 3px 8px;
   align-items: center;
   gap: 5px;
   font-size: 11px;
@@ -707,21 +670,10 @@ body.dispatcher {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-.incident__meta span { display: inline-flex; align-items: center; gap: 4px; }
-.incident__hazards { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
-.hz {
-  font-size: 9px;
-  padding: 2px 7px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--amber);
-  color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 10%, transparent);
-  letter-spacing: 0.02em;
 .incident__loc svg {
   color: var(--text-3);
   flex-shrink: 0;
 }
-.rsi {
 .incident__meta {
   display: flex;
   align-items: center;
@@ -733,8 +685,6 @@ body.dispatcher {
 }
 .incident__stat {
   display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
   align-items: center;
   gap: 4px;
   color: var(--text-2);
@@ -774,7 +724,6 @@ body.dispatcher {
   background: color-mix(in srgb, var(--amber) 8%, transparent);
   letter-spacing: 0.02em;
 }
-.rsi small { font-size: 9px; color: var(--text-3); }
 
 .queue-empty {
   font-size: 11px;
@@ -806,11 +755,9 @@ body.dispatcher {
   gap: 3px;
   padding: 6px;
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(14px);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-1);
   box-shadow: none !important;
   min-width: 155px;
   transition: top 180ms var(--ease);
@@ -840,11 +787,9 @@ body.dispatcher {
 .layer-toggle[data-tone="incident"].is-on { color: var(--triage-red); }
 .layer-toggle[data-tone="responder"].is-on { color: var(--accent); }
 .layer-toggle[data-tone="hospital"].is-on { color: var(--hospital) !important; font-weight: 500; }
-.layer-toggle[data-tone="hospital"].is-on .dot { background: var(--hospital) !important; border-color: var(--hospital) !important; box-shadow: 0 0 6px var(--hospital); }
 .layer-toggle[data-tone="hospital"].is-on .dot { background: var(--hospital) !important; border-color: var(--hospital) !important; box-shadow: none !important; }
 .layer-toggle[data-tone="flood"].is-on { color: #3B82F6; }
 .layer-toggle[data-tone="corridor"].is-on { color: #EF4444; font-weight: 500; }
-.layer-toggle[data-tone="corridor"].is-on .dot { background: #EF4444 !important; border-color: #EF4444 !important; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
 .layer-toggle[data-tone="corridor"].is-on .dot { background: #EF4444 !important; border-color: #EF4444 !important; box-shadow: none !important; }
 
 /* Tactical Model Banner (Floating on Top of Map) */
@@ -859,11 +804,8 @@ body.dispatcher {
   gap: 12px;
   padding: 8px 16px;
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(14px);
-  border: 1px solid var(--amber);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--line));
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   max-width: 90%;
@@ -937,7 +879,6 @@ body.dispatcher {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(14px);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-2);
   box-shadow: none !important;
   white-space: nowrap;
 }
@@ -963,7 +904,6 @@ body.dispatcher {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: none !important;
 }
 .region-btn__tag {
@@ -980,13 +920,8 @@ body.dispatcher {
   width: 18px; height: 18px;
   border-radius: 50%;
   border: 2px solid var(--surface);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
-.pin--red { background: var(--triage-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--triage-red) 35%, transparent); }
-.pin--yellow { background: var(--triage-orange); box-shadow: 0 0 0 3px color-mix(in srgb, var(--triage-orange) 35%, transparent); }
-.pin--green { background: var(--triage-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--triage-green) 35%, transparent); }
-.pin--hospital { background: var(--hospital); border-radius: 4px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--hospital) 45%, transparent); }
 .pin--red { background: var(--triage-red); box-shadow: none; }
 .pin--yellow { background: var(--triage-orange); box-shadow: none; }
 .pin--green { background: var(--triage-green); box-shadow: none; }
@@ -1007,7 +942,6 @@ body.dispatcher {
   border-radius: var(--r-pill);
   background: var(--surface);
   border: 1.5px solid #EF4444;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   white-space: nowrap;
@@ -1071,7 +1005,6 @@ body.dispatcher {
   margin-bottom: 8px;
   padding: 6px 8px;
   border-radius: var(--r-sm);
-  background: var(--surface-sunk);
   background: var(--surface);
   border: 1px solid var(--line);
   font-size: 10.5px;
@@ -1091,12 +1024,9 @@ body.dispatcher {
 }
 
 .leaflet-popup-content-wrapper {
-  background: var(--surface-2) !important;
   background: var(--surface) !important;
   color: var(--text) !important;
   border-radius: var(--r-md) !important;
-  border: 1px solid var(--line) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
   border: 1px solid var(--line-strong) !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
 }
@@ -1380,7 +1310,6 @@ body.dispatcher {
   gap: 6px;
   align-content: start;
   font-size: 11px;
-  background: var(--surface-sunk);
   background: var(--surface);
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -1401,7 +1330,6 @@ body.dispatcher {
   padding: 0 10px;
   border-radius: var(--r-sm);
   border: 1px solid var(--line-strong);
-  background: var(--surface-sunk);
   background: var(--surface);
   font-size: 11px;
   color: var(--text);
@@ -1494,7 +1422,6 @@ body.dispatcher {
     width: min(320px, calc(100vw - 20px)) !important;
     max-width: calc(100vw - 20px) !important;
     z-index: 99999 !important;
-    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
   }
 
@@ -1641,6 +1568,7 @@ body.dispatcher {
   .workspace.left-collapsed .panel__head-right {
     display: none !important;
   }
+  .workspace.left-collapsed .incident__compact,
   .workspace.left-collapsed .incident__rail {
     display: none !important;
   }
@@ -1653,8 +1581,12 @@ body.dispatcher {
     padding: 9px 10px !important;
     border: 1px solid var(--line) !important;
     border-left: 3px solid var(--triage-green) !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--line-strong) !important;
+    border-left: 4px solid var(--triage-green) !important;
     border-radius: var(--r-md) !important;
     background: var(--surface-2) !important;
+    box-shadow: none !important;
   }
   .workspace.left-collapsed .incident--red {
     border-left-color: var(--triage-red) !important;
