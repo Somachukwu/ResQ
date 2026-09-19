@@ -8,6 +8,7 @@ body.civilian {
   height: var(--visual-viewport-h, 100dvh);
   min-height: var(--visual-viewport-h, 100dvh);
   max-height: var(--visual-viewport-h, 100dvh);
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -18,6 +19,8 @@ body.civilian {
     radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
     var(--canvas);
   background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
 }
 
 .shell {
@@ -26,6 +29,8 @@ body.civilian {
   margin-inline: auto;
   height: 100%;
   max-height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--canvas);
@@ -40,6 +45,7 @@ body.civilian {
     overflow-y: auto;
     height: auto;
     min-height: 100dvh;
+    justify-content: center;
   }
   .shell {
     margin-block: clamp(0.75rem, 2vh, 1.5rem);
