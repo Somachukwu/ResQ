@@ -505,21 +505,15 @@ body.dispatcher {
   box-shadow: none !important;
 }
 
-/* Incident cards in queue — Clean, non-shadowy, refined structure */
 /* Incident cards in queue — Clear, distinct container with crisp borders and no muddy shadows */
 .incident {
-  border: 1px solid var(--line);
-  border-left: 3.5px solid var(--triage-green);
   border: 1px solid var(--line-strong);
   border-left: 4px solid var(--triage-green);
   border-radius: var(--r-md);
-  background: var(--surface);
-  padding: 11px 13px;
   background: var(--surface-2);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   gap: 7px;
   cursor: pointer;
   text-align: left;
@@ -529,8 +523,6 @@ body.dispatcher {
   box-sizing: border-box;
 }
 .incident:hover {
-  background: color-mix(in srgb, var(--surface-2) 65%, var(--surface));
-  border-color: var(--line-strong);
   background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
   border-color: var(--accent);
   box-shadow: none !important;
@@ -541,7 +533,6 @@ body.dispatcher {
   border-color: var(--accent) !important;
   border-left-color: var(--accent) !important;
   border-left-width: 4px !important;
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface)) !important;
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)) !important;
   box-shadow: none !important;
 }
@@ -1578,9 +1569,6 @@ body.dispatcher {
   .workspace.left-collapsed .incident {
     cursor: pointer !important;
     width: 100% !important;
-    padding: 9px 10px !important;
-    border: 1px solid var(--line) !important;
-    border-left: 3px solid var(--triage-green) !important;
     padding: 10px 12px !important;
     border: 1px solid var(--line-strong) !important;
     border-left: 4px solid var(--triage-green) !important;

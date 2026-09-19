@@ -550,16 +550,12 @@ function renderMissionConsole(i) {
       body: JSON.stringify({
         lat: i.lat,
         lng: i.lng,
-        incident_type: i.type || "trauma",
         incident_type: i.type || (i.triage === "red" ? "trauma" : "general"),
         rsi_score: i.rsi || 3.8
       })
     })
     .then(res => res.ok ? res.json() : null)
     .then(data => {
-      if (data && data.recommended_hospital) {
-        if (hospNameEl) hospNameEl.textContent = data.recommended_hospital.name;
-        if (hospEtaEl) hospEtaEl.textContent = `${data.duration_mins} mins (${data.distance_km} km) · ${(data.predicted_survival_probability * 100).toFixed(0)}% Survival`;
       if (data && (data.recommended_hospital || data.all_options?.length)) {
         const hospName = typeof data.recommended_hospital === "object" && data.recommended_hospital !== null
           ? (data.recommended_hospital.name || fallbackHosp.name)
@@ -581,26 +577,15 @@ function renderMissionConsole(i) {
         }
 
         if (hospCapsEl) {
-          const capTier = data.capability ? data.capability.toUpperCase() : "LEVEL-1 TRAUMA";
-          const survivalTag = `<span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent);">Golden Hour: ${(data.predicted_survival_probability * 100).toFixed(0)}%</span>`;
-          hospCapsEl.innerHTML = `<span class="facility-cap-tag">${capTier}</span> ${survivalTag}`;
           const capTier = data.capability ? `${data.capability.toUpperCase()} TRAUMA` : "LEVEL-1 TRAUMA";
           const survivalTag = `<span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); border-color:var(--accent);">Golden Hour: ${survivalPct}</span>`;
           hospCapsEl.innerHTML = `<span class="facility-cap-tag">${capTier}</span> <span class="facility-cap-tag">ICU READY</span> ${survivalTag}`;
         }
       }
     })
-    .catch(() => {
-      const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
-      if (hospNameEl) hospNameEl.textContent = hosp.name;
-      if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
     .catch(err => {
       console.warn("Nearest hospital API fallback:", err);
     });
-  } else {
-    const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
-    if (hospNameEl) hospNameEl.textContent = hosp.name;
-    if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
   }
 
   const assignedBadge = $("#detailAssignedBadge");
