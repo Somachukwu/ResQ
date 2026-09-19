@@ -1,12 +1,9 @@
-/* Responder tactical cockpit brief — telemetry, stage control, navigation, multi-pane & mobile view */
 /* Responder tactical cockpit brief — dynamic telemetry, stage control, navigation, multi-pane & mobile view */
 import "./resq-theme.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-const INCIDENT = {
-  id: "RQ-2417",
 // Extract target incident uuid from URL query or fallback
 const urlParams = new URLSearchParams(window.location.search);
 let activeIncidentUuid = urlParams.get("incident") || urlParams.get("id");
@@ -99,7 +96,6 @@ if (el.ackBtn) {
     if (isAcked) {
       el.ackBtn.classList.add("is-acked");
       if (el.ackText) el.ackText.textContent = "Brief acknowledged";
-      logLine("Brief acknowledged by Unit 14", "Dispatch notified via telemetry");
       logLine("Brief acknowledged by unit", "Dispatch notified via telemetry");
       radioElapsed = 0;
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
@@ -111,13 +107,10 @@ if (el.ackBtn) {
   });
 }
 
-/* ---------------- telemetry heartbeat: broadcast GPS every 15 s ---------------- */
 /* ---------------- telemetry heartbeat: broadcast GPS every 10 s ---------------- */
 let beats = 0;
-if (el.telemetry) el.telemetry.classList.add("is-live");
 let currentCoords = { lat: 6.4480, lng: 7.5150 };
 
-function broadcast() {
 function broadcastTelemetry() {
   beats += 1;
   radioElapsed = 0;
@@ -133,7 +126,6 @@ function broadcastTelemetry() {
       { duration: 600, easing: "ease-out" }
     );
   }
-  if (beats % 4 === 0) logLine("Position broadcast to dispatch", "GPS lock held");
 
   // POST telemetry beacon to server
   fetch("/api/responder-telemetry", {
@@ -153,9 +145,6 @@ function broadcastTelemetry() {
 
 if ("geolocation" in navigator) {
   navigator.geolocation.watchPosition(
-    () => {},
-    () => logLine("GPS signal weak", "Using last known position"),
-    { enableHighAccuracy: true, maximumAge: 15000 }
     (pos) => {
       currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     },
@@ -163,8 +152,6 @@ if ("geolocation" in navigator) {
     { enableHighAccuracy: true, maximumAge: 10000 }
   );
 }
-broadcast();
-setInterval(broadcast, 15000);
 broadcastTelemetry();
 setInterval(broadcastTelemetry, 10000);
 
@@ -307,7 +294,6 @@ $$(".stage-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     $$(".stage-btn").forEach((b) => b.classList.remove("is-active"));
     btn.classList.add("is-active");
-    logLine(`Status set to ${btn.dataset.stage}`, "Dispatch notified");
     logLine(`Status transitioned: ${btn.dataset.stage.toUpperCase()}`, "Dispatch notified");
     radioElapsed = 0;
     if (navigator.vibrate) navigator.vibrate(20);
@@ -316,18 +302,14 @@ $$(".stage-btn").forEach((btn) => {
 
 /* ---------------- actions: navigate & call ---------------- */
 function openNavigation() {
-  const { lat, lng } = INCIDENT.coords;
-  logLine("Turn-by-turn navigation opened", `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   const { lat, lng } = incidentState.coords;
   logLine("Turn-by-turn navigation launched", `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
 }
 
 function openCallScene() {
-  logLine("Voice channel opened to bystander", "Scene line live");
   logLine("Radio bridge opened to scene bystander", "Channel active");
   radioElapsed = 0;
-  alert("Connecting voice radio channel to bystander at scene (RQ-2417)...");
   alert(`Connecting encrypted voice radio bridge to reporting bystander at ${incidentState.id}...`);
 }
 
@@ -348,9 +330,6 @@ function logLine(label, detail) {
   while (el.log.children.length > 8) el.log.lastElementChild.remove();
 }
 
-logLine(`Mission ${INCIDENT.id} accepted`, INCIDENT.place);
-
-/* ---------------- fullscreen view toggle (Requirement 3) ---------------- */
 /* ---------------- fullscreen view toggle ---------------- */
 function wireFullscreen() {
   const btn = el.fullscreenBtn;
@@ -377,7 +356,6 @@ function wireFullscreen() {
 }
 wireFullscreen();
 
-/* ---------------- mobile segmented switcher (Requirement 4) ---------------- */
 /* ---------------- mobile segmented switcher ---------------- */
 function wireMobileNav() {
   const tabs = $$(".m-nav-tab");

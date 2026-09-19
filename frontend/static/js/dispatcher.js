@@ -387,28 +387,38 @@ function renderQueue() {
     list.innerHTML = sorted
       .map(
         (i) => `<div class="incident incident--${i.triage} ${i.id === selected.id ? "is-selected" : ""}" data-id="${i.id}" role="button" tabindex="0">
-        <!-- Compact Operational Rail: dot and clickable text on same line, no card container (Requirement 2) -->
+        <!-- Compact Operational Rail: dot and clickable text on same line, no card container -->
         <div class="incident__compact">
           <span class="incident-rail-dot incident-rail-dot--${i.triage}" aria-hidden="true"></span>
           <button class="incident-rail-text" type="button" data-id="${i.id}" title="${i.id} · ${i.title} (${i.triage.toUpperCase()})">${i.id}</button>
         </div>
-        <!-- Full representation (Requirement 6) -->
+        <!-- Full representation -->
         <div class="incident__full">
           <div class="incident__top">
-            <span class="incident__id">${i.id}</span>
-            <span class="badge badge--${i.triage}">${i.triage === "red" ? "Critical" : i.triage === "yellow" ? "Urgent" : "Stable"}</span>
+            <div class="incident__badges">
+              <span class="badge badge--${i.triage}">${i.triage === "red" ? "Critical" : i.triage === "yellow" ? "Urgent" : "Stable"}</span>
+              <span class="incident__id">${i.id}</span>
+            </div>
+            <span class="rsi">${i.rsi.toFixed(1)} <small>RSI</small></span>
           </div>
           <h3 class="incident__title">${i.title}</h3>
-          <div class="incident__meta">
+          <div class="incident__loc">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             <span>${i.place}</span>
           </div>
           <div class="incident__meta">
-            <span>${i.victims} victim${i.victims > 1 ? "s" : ""}</span>
-            <span data-elapsed="${i.id}">${elapsed(i.started)} elapsed</span>
-            <span class="rsi">${i.rsi.toFixed(1)} <small>RSI</small></span>
+            <span class="incident__stat">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              ${i.victims} victim${i.victims > 1 ? "s" : ""}
+            </span>
+            <span class="meta-dot" aria-hidden="true">·</span>
+            <span class="incident__stat incident__stat--time">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span data-elapsed="${i.id}">${elapsed(i.started)} elapsed</span>
+            </span>
           </div>
-          <p class="incident__meta"><span>${i.injuries}</span></p>
-          ${i.hazards.length ? `<div class="incident__hazards">${i.hazards.map((h) => `<span class="hz">${h}</span>`).join("")}</div>` : ""}
+          ${i.injuries ? `<p class="incident__injuries">${i.injuries}</p>` : ""}
+          ${i.hazards && i.hazards.length ? `<div class="incident__hazards">${i.hazards.map((h) => `<span class="hz">${h}</span>`).join("")}</div>` : ""}
         </div>
       </div>`
       )
@@ -520,21 +530,10 @@ function renderMissionConsole(i) {
       : `<span style="font-size:11px;color:var(--text-3)">No active environmental hazards flagged</span>`;
   }
 
-  const hosp = i.triage === "red" ? HOSPITALS[0] : nearestHospital(i);
   const hospNameEl = $("#detailHospital");
-  if (hospNameEl) hospNameEl.textContent = hosp.name;
   const hospCapsEl = $("#detailHospitalCaps");
   const hospEtaEl = $("#detailHospitalEta");
 
-  // High-contrast hospital capability pills (Requirement 5)
-  const hospCapsEl = $("#detailHospitalCaps");
-  if (hospCapsEl) {
-    if (hosp.caps) {
-      const parts = hosp.caps.split(/\s*·\s*/);
-      hospCapsEl.innerHTML = parts.map(cap => `<span class="facility-cap-tag">${cap}</span>`).join("");
-    } else {
-      hospCapsEl.textContent = "–";
-    }
   // Live Golden Hour Model Evaluation
   if (i.lat && i.lng) {
     fetch("/api/nearest-hospital", {
@@ -569,9 +568,6 @@ function renderMissionConsole(i) {
     if (hospNameEl) hospNameEl.textContent = hosp.name;
     if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
   }
-
-  const hospEtaEl = $("#detailHospitalEta");
-  if (hospEtaEl) hospEtaEl.textContent = "8.4 mins";
 
   const assignedBadge = $("#detailAssignedBadge");
   if (assignedBadge) {

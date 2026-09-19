@@ -23,10 +23,6 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM hospitals")
     if cursor.fetchone()[0] == 0:
         seed_hospitals = [
-            ("Enugu State University Teaching Hospital", "trauma", 1, 6.4541, 7.5248, "available", "+2348030000001"),
-            ("National Orthopaedic Hospital Enugu", "orthopaedic", 1, 6.4418, 7.4985, "available", "+2348030000002"),
-            ("University of Nigeria Teaching Hospital", "general", 1, 6.4698, 7.5597, "available", "+2348030000003"),
-            ("Park Lane General Hospital", "general", 1, 6.4622, 7.5106, "available", "+2348030000004")
             ("Enugu State University Teaching Hospital (ESUT Parklane)", "trauma", 1, 6.4541, 7.5248, "available", "+2348030000001"),
             ("National Orthopaedic Hospital Enugu (NOHE)", "orthopaedic", 1, 6.4418, 7.4985, "available", "+2348030000002"),
             ("University of Nigeria Teaching Hospital (UNTH Ituku-Ozalla)", "trauma", 1, 6.3125, 7.4764, "available", "+2348030000003"),

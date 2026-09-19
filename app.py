@@ -531,7 +531,6 @@ def civilian_chat_api():
             "escalation_status": "steady",
             "lat": lat or 6.4474,
             "lng": lng or 7.5098,
-            "location_name": data.get("location_name", "Civilian Telemetry Point"),
             "location_name": loc_name,
             "casualties_count": extraction["casualties_count"],
             "trapped_count": 1 if extraction["entrapment"] else 0
