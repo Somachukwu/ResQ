@@ -235,7 +235,40 @@ body.civilian {
   text-align: left;
 }
 .msg--resq { align-self: flex-start; }
-.msg--resq .msg__bubble { border-bottom-left-radius: 4px; }
+.msg--resq .msg__bubble {
+  border-bottom-left-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 95%, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+  box-shadow: 0 2px 10px rgba(13, 110, 110, 0.04);
+}
+.msg__bubble--thinking {
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent)) !important;
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line)) !important;
+}
+.thinking-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.thinking-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: calm-pulse 1.8s infinite;
+}
+@keyframes calm-pulse {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+  100% { transform: scale(0.85); opacity: 0.6; }
+}
+.thinking-label {
+  font-size: 12px;
+  color: var(--text-2);
+  font-style: italic;
+}
 
 /* First-aid step card (Generous Tap Targets) */
 .protocol {
@@ -746,22 +779,23 @@ body.civilian {
 /* 1. Clinical Synthesis & Mechanism Card */
 .clinical-synthesis {
   align-self: stretch;
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface-2));
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  margin: 6px 0;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 10%, var(--surface-2)), color-mix(in srgb, var(--accent) 4%, var(--surface-2)));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 8px 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  box-shadow: 0 2px 12px rgba(13, 110, 110, 0.05);
 }
 .clinical-synthesis__head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -770,8 +804,8 @@ body.civilian {
 }
 .clinical-synthesis__text {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text);
   font-weight: 400;
 }
@@ -779,22 +813,22 @@ body.civilian {
 /* 2. Red Flags (Emergency Escalation Warnings) */
 .red-flags-card {
   align-self: stretch;
-  background: color-mix(in srgb, var(--amber) 8%, var(--surface-2));
-  border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--line));
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  margin: 6px 0;
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--amber) 42%, var(--line));
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 8px 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .red-flags-card__head {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--amber);
 }
@@ -806,11 +840,11 @@ body.civilian {
   padding-left: 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .red-flags-card__list li {
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.45;
   color: var(--text);
   font-weight: 400;
 }
@@ -820,33 +854,33 @@ body.civilian {
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 8px 0;
+  gap: 12px;
+  margin: 10px 0;
 }
 .assessment-card {
   background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line-strong));
+  border-radius: 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: none;
+  gap: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
 }
 .assessment-card__prompt {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 9px;
 }
 .assessment-card__num {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
   border: 1px solid var(--accent);
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -855,47 +889,49 @@ body.civilian {
 }
 .assessment-card__question {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text);
 }
 .assessment-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
-  padding-left: 28px;
-}
-@media (max-width: 480px) {
-  .assessment-chips {
-    padding-left: 0;
-  }
 }
 .chip--assessment {
   cursor: pointer;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-pill);
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.35;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 450;
+  line-height: 1.4;
   text-align: left;
-  transition: all 160ms var(--ease);
+  transition: all 180ms var(--ease);
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 .chip--assessment:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   border-color: var(--accent);
   color: var(--accent);
+  transform: translateY(-1px);
 }
-.chip--assessment:active:not(:disabled),
+.chip--assessment:active:not(:disabled) {
+  transform: scale(0.98);
+}
 .chip--assessment.is-selected {
   background: var(--accent) !important;
   color: #ffffff !important;
   border-color: var(--accent) !important;
+  font-weight: 500;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .chip--assessment:disabled {
   cursor: default;

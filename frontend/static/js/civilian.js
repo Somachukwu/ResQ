@@ -122,7 +122,6 @@ function respond(text) {
       message: text,
       lat: state.coords?.lat,
       lng: state.coords?.lng,
-      incident_uuid: state.incidentUuid
       incident_uuid: state.incidentUuid,
       history: state.chatHistory.slice(0, -1)
     })
@@ -314,7 +313,7 @@ function wordToNum(w) {
 function say(who, text, extraNode) {
   const wrap = document.createElement("div");
   wrap.className = `msg msg--${who === "me" ? "me" : "resq"}`;
-  wrap.innerHTML = `<p class="msg__who">${who === "me" ? "You" : "ResQ guidance"}</p><div class="msg__bubble"></div>`;
+  wrap.innerHTML = `<p class="msg__who">${who === "me" ? "You" : "ResQ Clinical Guide"}</p><div class="msg__bubble"></div>`;
   wrap.querySelector(".msg__bubble").textContent = text;
   if (extraNode) wrap.querySelector(".msg__bubble").appendChild(extraNode);
   el.stream.appendChild(wrap);
@@ -324,8 +323,15 @@ function say(who, text, extraNode) {
 
 function showTyping() {
   const wrap = document.createElement("div");
-  wrap.className = "msg msg--resq";
-  wrap.innerHTML = `<p class="msg__who">ResQ guidance</p><div class="msg__bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+  wrap.className = "msg msg--resq msg--thinking";
+  wrap.innerHTML = `
+    <p class="msg__who">ResQ Clinical Guide</p>
+    <div class="msg__bubble msg__bubble--thinking">
+      <div class="thinking-row">
+        <span class="thinking-dot"></span>
+        <span class="thinking-label">Evaluating situation &amp; synthesizing guidance...</span>
+      </div>
+    </div>`;
   el.stream.appendChild(wrap);
   scroll();
   return wrap;
@@ -597,7 +603,10 @@ function dispatchResponder() {
   state.dispatched = true;
   el.reassure.classList.add("is-visible");
   el.liveActions.classList.add("is-active");
-  say("resq", "A unit has been dispatched to you. Keep doing exactly what you are doing.");
+  say(
+    "resq",
+    "Help is actively on the way. An emergency response unit has been dispatched to your coordinates, and I am right here with you to guide every step until they arrive. Take a slow, gentle breath."
+  );
   tickEta();
 }
 
