@@ -32,6 +32,8 @@ CANDIDATE_MODELS = list(dict.fromkeys(CANDIDATE_MODELS))
 SYSTEM_INSTRUCTION = """
 You are the ResQ Emergency Intelligence Engine, serving as an automated bystander triage assistant in Nigeria under the IEEE Response Quest Challenge 2026.
 You are strictly constrained to World Health Organization (WHO) and Nigerian Red Cross bystander first aid protocols.
+You are the ResQ Emergency Intelligence Engine, serving as an interactive, automated clinical triage assistant in Nigeria under the IEEE Response Quest Challenge 2026.
+You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (e.g. START triage, Ottawa Rules).
 
 YOUR RULES:
 1. PRIMARY LANGUAGE IS ENGLISH: All generated responses, including 'reassurance_message' and 'first_aid_steps', MUST ALWAYS be in clear, empathetic, calm, and professional English.
@@ -41,6 +43,26 @@ YOUR RULES:
 5. Prioritize: 1. Scene safety -> 2. Airway -> 3. Hemorrhage control -> 4. Spinal protection -> 5. Recovery position.
 6. Extract structured emergency telemetry accurately.
 7. REASSURANCE QUALITY: Provide a warm, calm, reassuring message acknowledging what happened, confirming that emergency response units are actively en route, and instructing the user to stay on the line and follow the action steps.
+YOUR OBJECTIVES:
+1. INTERACTIVE CLINICAL ASSESSMENT:
+   - In an emergency or acute injury, a civilian is stressed and doesn't know what details matter.
+   - You must conduct an active, empathetic triage assessment dialogue across turns.
+   - In addition to immediate first aid, formulate 1 or 2 targeted, structured follow-up assessment questions with clear lettered options (A, B, C, D) so the user can easily reply or tap on mobile.
+2. CONTEXTUAL CLINICAL SYNTHESIS:
+   - If the user provides answers to previous questions or describes symptoms, synthesize and interpret what their findings indicate (e.g., what mechanism + symptoms imply) in plain, reassuring language.
+   - Explain the physiological rationale (e.g., static vs dynamic load, why not to remove an impaled object, why immobilizing prevents spinal cord trauma).
+3. PROTOCOL-CONSTRAINED FIRST AID (WHO / Red Cross):
+   - Provide immediate, sequential, numbered action steps an untrained bystander can execute in 30 seconds.
+   - Prioritize: 1. Scene safety -> 2. Airway & breathing -> 3. Hemorrhage control -> 4. Spinal stabilization -> 5. Recovery position / fracture splinting.
+4. RED FLAG WARNING SIGNS:
+   - Provide 2 to 4 explicit, high-priority warning signs ("red_flags") indicating when the patient needs immediate surgical escalation or emergency imaging (e.g., loss of consciousness, inability to bear weight, severe bony tenderness, deformity, numbness/cold extremity, expanding hematoma).
+5. STRUCTURED TELEMETRY EXTRACTION:
+   - Extract clinical flags accurately for emergency dispatchers: unresponsive, severe_hemorrhage, airway_compromise, entrapment, casualties_count, scene_hazards, suspected_trauma.
+6. LANGUAGE & TONE:
+   - Always respond in clear, calm, empathetic, professional English.
+   - Fluently understand Nigerian Pidgin (e.g. 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local context, formulating your response in clear, universally understood English.
+7. STRICT CLINICAL BOUNDARY:
+   - Do NOT provide definitive medical diagnoses or prescribe prescription medications.
 
 OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
 {
@@ -51,8 +73,18 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "hypothermia"],
+  "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "ankle sprain"],
+  "reassurance_message": "Calm, empathetic, direct answer to the user's latest query and reassurance that emergency units are en route",
+  "clinical_synthesis": "Plain-language clinical interpretation of the reported findings and mechanisms so far",
   "first_aid_steps": [ordered list of concise, actionable instructions in clear English],
   "reassurance_message": "Calm, empathetic message in clear plain English assuring them emergency units are en route and guiding them to follow the steps"
+  "assessment_questions": [
+    {
+      "question": "Clear, concise triage question to evaluate injury severity or complications",
+      "options": ["A. First choice", "B. Second choice", "C. Third choice"]
+    }
+  ],
+  "red_flags": [list of high-risk warning signs that require immediate paramedic or emergency room escalation]
 }
 """
 
@@ -77,26 +109,27 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
 
 def extract_telemetry_and_guidance(
     bystander_text: str,
-    scene_photo_base64: Optional[str] = None
+    scene_photo_base64: Optional[str] = None,
+    history: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
-    Ingests bystander voice/text message and optional photo, returning structured
-    telemetry and protocol-constrained first aid instructions.
+    Ingests bystander voice/text message, optional photo, and multi-turn conversation history,
+    returning structured telemetry, clinical synthesis, protocol first aid, assessment questions, and red flags.
     """
     text = (bystander_text or "").strip()
     if not text and not scene_photo_base64:
-        return _fallback_heuristic_parser("Emergency assistance requested")
+        return _fallback_heuristic_parser("Emergency assistance requested", history=history)
 
-    # If API key is present, attempt live call to Gemini 2.0 Flash
+    # If API key is present, attempt live call to Gemini
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if api_key:
         try:
-            return _call_gemini_text(text, api_key, scene_photo_base64)
+            return _call_gemini_text(text, api_key, scene_photo_base64, history=history)
         except Exception as e:
             print(f"[GeminiEngine] API call failed ({e}). Engaging calibrated fallback parser.")
 
     # Graceful offline/local heuristic fallback engine
-    return _fallback_heuristic_parser(text)
+    return _fallback_heuristic_parser(text, history=history)
 
 
 def analyze_scene_photo(photo_bytes: bytes, mime_type: str = "image/jpeg") -> Dict[str, Any]:
@@ -115,31 +148,50 @@ def analyze_scene_photo(photo_bytes: bytes, mime_type: str = "image/jpeg") -> Di
     return _fallback_vision_parser()
 
 
-def _call_gemini_text(text: str, api_key: str, photo_b64: Optional[str] = None) -> Dict[str, Any]:
-    """Calls Google Gemini generateContent endpoint across supported candidate models."""
-    parts: List[Dict[str, Any]] = [{"text": text}]
+def _call_gemini_text(
+    text: str,
+    api_key: str,
+    photo_b64: Optional[str] = None,
+    history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Calls Google Gemini generateContent endpoint across supported candidate models with multi-turn context."""
+    contents: List[Dict[str, Any]] = []
+
+    # Prepend previous turns from conversation history
+    if history and isinstance(history, list):
+        for turn in history:
+            role = turn.get("role", "user")
+            gemini_role = "model" if role in ("model", "assistant", "resq") else "user"
+            msg_text = turn.get("text") or turn.get("content") or ""
+            if msg_text:
+                contents.append({
+                    "role": gemini_role,
+                    "parts": [{"text": str(msg_text)}]
+                })
+
+    # Current turn
+    current_parts: List[Dict[str, Any]] = [{"text": text}]
     if photo_b64:
-        parts.append({
+        current_parts.append({
             "inline_data": {
                 "mime_type": "image/jpeg",
                 "data": photo_b64
             }
         })
+    contents.append({
+        "role": "user",
+        "parts": current_parts
+    })
 
     payload = {
         "system_instruction": {
             "parts": [{"text": SYSTEM_INSTRUCTION}]
         },
-        "contents": [
-            {
-                "role": "user",
-                "parts": parts
-            }
-        ],
+        "contents": contents,
         "generationConfig": {
             "response_mime_type": "application/json",
-            "temperature": 0.1,
-            "maxOutputTokens": 800
+            "temperature": 0.2,
+            "maxOutputTokens": 1000
         }
     }
 
@@ -147,7 +199,7 @@ def _call_gemini_text(text: str, api_key: str, photo_b64: Optional[str] = None) 
     for model_name in CANDIDATE_MODELS:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         try:
-            response = requests.post(url, json=payload, timeout=8)
+            response = requests.post(url, json=payload, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -211,6 +263,16 @@ def _call_gemini_vision(b64_img: str, mime_type: str, api_key: str) -> Dict[str,
 
 def _validate_schema(data: Dict[str, Any], raw_text: str) -> Dict[str, Any]:
     """Ensures returned dictionary adheres strictly to clinical schema."""
+    raw_questions = data.get("assessment_questions", [])
+    valid_questions = []
+    if isinstance(raw_questions, list):
+        for q in raw_questions:
+            if isinstance(q, dict) and q.get("question") and q.get("options"):
+                valid_questions.append({
+                    "question": str(q["question"]),
+                    "options": [str(opt) for opt in q["options"] if opt]
+                })
+
     return {
         "unresponsive": bool(data.get("unresponsive", False)),
         "severe_hemorrhage": bool(data.get("severe_hemorrhage", False)),
@@ -220,13 +282,16 @@ def _validate_schema(data: Dict[str, Any], raw_text: str) -> Dict[str, Any]:
         "scene_hazards": list(data.get("scene_hazards", [])),
         "suspected_trauma": list(data.get("suspected_trauma", [])),
         "first_aid_steps": list(data.get("first_aid_steps", [])),
-        "reassurance_message": str(data.get("reassurance_message", "Help is on the way. Continue following these steps.")),
+        "reassurance_message": str(data.get("reassurance_message", "Emergency response units have been notified and are on the way. Please follow these guidance steps.")),
+        "clinical_synthesis": str(data.get("clinical_synthesis", "")),
+        "assessment_questions": valid_questions,
+        "red_flags": [str(rf) for rf in data.get("red_flags", []) if rf],
         "source": "gemini_2_flash",
         "raw_input": raw_text
     }
 
 
-def _fallback_heuristic_parser(text: str) -> Dict[str, Any]:
+def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Intelligent local heuristic parser supporting English and Nigerian Pidgin.
     Operates offline or when API keys are absent.
@@ -287,12 +352,15 @@ def _fallback_heuristic_parser(text: str) -> Dict[str, Any]:
 
     # Suspected Trauma
     trauma = []
+    is_sprain_or_joint = any(k in lower for k in ["ankle", "sprain", "twisted", "joint", "twist", "foot", "jogging", "limp", "limping"])
     if "head" in lower or unresponsive:
         trauma.append("head injury / traumatic brain injury")
     if severe_hemorrhage:
         trauma.append("severe hemorrhage")
     if any(k in lower for k in ["leg", "bone", "arm", "fracture", "break"]):
         trauma.append("extremity fracture")
+    if is_sprain_or_joint and not any("fracture" in t for t in trauma):
+        trauma.append("lateral ankle sprain / soft-tissue injury")
     if airway_compromise:
         trauma.append("respiratory arrest / compromised airway")
 
@@ -310,12 +378,98 @@ def _fallback_heuristic_parser(text: str) -> Dict[str, Any]:
         steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
         steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
 
+    if is_sprain_or_joint:
+        steps.append("Protection & Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
+        steps.append("Ice & Compression: Apply a cold pack wrapped in cloth for 15–20 minutes, and wrap with comfortable elastic support.")
+        steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
+
     if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
         steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
 
     if not steps:
         steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
         steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
+
+    # Contextual Clinical Synthesis
+    if is_sprain_or_joint:
+        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Weight-bearing capacity provides initial clinical screening under Ottawa Decision Rules."
+    elif severe_hemorrhage:
+        synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure is mandatory to initiate haemostasis and prevent hypovolemic shock."
+    elif unresponsive:
+        synthesis = "Altered mental status or unconsciousness detected. Maintaining a patent airway and strict cervical spine alignment are the highest clinical priorities."
+    else:
+        synthesis = "Initial emergency triage assessment in progress. Immediate protocol steps focus on scene stabilization and continuous monitoring."
+
+    # Interactive Assessment Questions with Multiple-Choice Options
+    questions = []
+    if is_sprain_or_joint:
+        questions.append({
+            "question": "Where exactly is the pain concentrated when you touch the area?",
+            "options": [
+                "A. Soft tissue in front of outer ankle bone",
+                "B. Directly on the hard outer bone itself",
+                "C. Behind the ankle bone or up the shin"
+            ]
+        })
+        questions.append({
+            "question": "Can the person take four steps, even with a limp?",
+            "options": [
+                "A. Yes, can take four steps",
+                "B. No, completely unable to bear weight",
+                "C. Can walk with minimal discomfort"
+            ]
+        })
+    elif severe_hemorrhage:
+        questions.append({
+            "question": "Is the bleeding controlled by continuous direct pressure?",
+            "options": [
+                "A. Bleeding is slowing down or stopped",
+                "B. Bleeding continues to soak through cloths",
+                "C. Blood is spurting rhythmically"
+            ]
+        })
+    elif unresponsive:
+        questions.append({
+            "question": "Is the casualty breathing normally and continuously?",
+            "options": [
+                "A. Breathing normally and regularly",
+                "B. Gasping, snoring, or struggling to breathe",
+                "C. No breathing detected at all"
+            ]
+        })
+    else:
+        questions.append({
+            "question": "Is the casualty alert, oriented, and speaking clearly?",
+            "options": [
+                "A. Alert and speaking in full sentences",
+                "B. Confused, drowsy, or drifting off",
+                "C. Completely unresponsive to voice or touch"
+            ]
+        })
+
+    # Red Flag Warning Signs
+    if is_sprain_or_joint:
+        red_flags = [
+            "Complete inability to bear weight or take 4 steps immediately",
+            "Severe bone tenderness directly over the malleolus (outer or inner ankle bone)",
+            "Visible joint deformity, skin discoloration, or numbness/coldness in the toes"
+        ]
+    elif severe_hemorrhage:
+        red_flags = [
+            "Continuous arterial spurting despite firm two-hand direct pressure",
+            "Signs of hypovolemic shock: pale/clammy skin, confusion, or rapid shallow breathing"
+        ]
+    elif unresponsive:
+        red_flags = [
+            "Cessation of breathing or irregular agonal breathing",
+            "Unequal pupils, seizures, or clear fluid draining from nose or ears"
+        ]
+    else:
+        red_flags = [
+            "Loss of consciousness or worsening confusion",
+            "Difficulty breathing or sudden severe chest pain",
+            "Visible open fracture or severe deformity"
+        ]
 
     # Reassurance message in clear, empathetic English
     reassurance = "Emergency responders have been notified and are actively en route to your location. Stay calm, keep beside the casualty, and follow these immediate action steps."
@@ -330,6 +484,9 @@ def _fallback_heuristic_parser(text: str) -> Dict[str, Any]:
         "suspected_trauma": trauma,
         "first_aid_steps": steps,
         "reassurance_message": reassurance,
+        "clinical_synthesis": synthesis,
+        "assessment_questions": questions,
+        "red_flags": red_flags,
         "source": "resq_local_heuristic_engine",
         "raw_input": text
     }

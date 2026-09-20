@@ -38,6 +38,7 @@ const state = {
   victims: 1,
   dispatched: false,
   etaSeconds: 12 * 60,
+  chatHistory: [],
 };
 
 const icons = {
@@ -111,6 +112,9 @@ function respond(text) {
   const count = text.match(/\b(two|three|four|2|3|4|5)\b/i);
   if (count) state.victims = Math.max(state.victims, parseInt(count[1], 10) || wordToNum(count[1]));
 
+  // Record user turn in local history
+  state.chatHistory.push({ role: "user", text: text });
+
   fetch("/api/civilian/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,6 +123,8 @@ function respond(text) {
       lat: state.coords?.lat,
       lng: state.coords?.lng,
       incident_uuid: state.incidentUuid
+      incident_uuid: state.incidentUuid,
+      history: state.chatHistory.slice(0, -1)
     })
   })
   .then((res) => {
@@ -131,12 +137,23 @@ function respond(text) {
       state.incidentUuid = data.incident_uuid;
     }
 
+    // Record model turn in local history
+    if (data.reassurance_message) {
+      state.chatHistory.push({ role: "model", text: data.reassurance_message });
+    }
+
     // 1. Empathic / Reassurance message
     if (data.reassurance_message) {
       say("resq", data.reassurance_message);
     }
 
     // 2. Render Action Steps directly whenever steps are provided
+    // 2. Clinical Synthesis & Mechanism (if provided)
+    if (data.clinical_synthesis) {
+      renderClinicalSynthesis(data.clinical_synthesis);
+    }
+
+    // 3. Render Action Steps directly whenever steps are provided
     const steps = (data.first_aid_steps && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
       : (matchProtocols(text)[0]?.steps || []);
@@ -157,6 +174,17 @@ function respond(text) {
     }
 
     // 3. Render any detected hazards
+    // 4. Interactive Assessment Questions & Quick-Reply Chips (if provided)
+    if (data.assessment_questions && data.assessment_questions.length > 0) {
+      renderAssessmentQuestions(data.assessment_questions);
+    }
+
+    // 5. Red Flag Warning Signs (if provided)
+    if (data.red_flags && data.red_flags.length > 0) {
+      renderRedFlags(data.red_flags);
+    }
+
+    // 6. Render any detected hazards
     const detectedHazards = data.extraction?.scene_hazards || [];
     detectedHazards.forEach((h, i) => {
       if (!state.hazards.includes(h)) {
@@ -193,6 +221,84 @@ function respond(text) {
     }
     dispatchResponder();
   });
+}
+
+function renderClinicalSynthesis(text) {
+  if (!text) return;
+  const card = document.createElement("div");
+  card.className = "clinical-synthesis";
+  card.innerHTML = `
+    <div class="clinical-synthesis__head">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20"/></svg>
+      <span>Clinical Assessment & Mechanism</span>
+    </div>
+    <p class="clinical-synthesis__text">${text}</p>
+  `;
+  el.stream.appendChild(card);
+  scroll();
+}
+
+function renderRedFlags(flags) {
+  if (!flags || !flags.length) return;
+  const card = document.createElement("div");
+  card.className = "red-flags-card";
+  card.innerHTML = `
+    <div class="red-flags-card__head">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>Immediate Warning Signs (Red Flags)</span>
+    </div>
+    <ul class="red-flags-card__list">
+      ${flags.map(f => `<li>${f}</li>`).join("")}
+    </ul>
+  `;
+  el.stream.appendChild(card);
+  scroll();
+}
+
+function renderAssessmentQuestions(questions) {
+  if (!questions || !questions.length) return;
+  const container = document.createElement("div");
+  container.className = "assessment-container";
+
+  questions.forEach((q, idx) => {
+    const card = document.createElement("div");
+    card.className = "assessment-card";
+    card.innerHTML = `
+      <div class="assessment-card__prompt">
+        <span class="assessment-card__num">${idx + 1}</span>
+        <p class="assessment-card__question">${q.question}</p>
+      </div>
+      <div class="assessment-chips"></div>
+    `;
+
+    const chipsEl = card.querySelector(".assessment-chips");
+    (q.options || []).forEach(opt => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip chip--assessment";
+      btn.textContent = opt;
+      btn.addEventListener("click", () => {
+        // Mark selected and disable sibling chips
+        chipsEl.querySelectorAll(".chip--assessment").forEach(c => {
+          c.classList.remove("is-selected");
+          c.disabled = true;
+          c.style.opacity = "0.5";
+        });
+        btn.classList.add("is-selected");
+        btn.style.opacity = "1";
+
+        // Auto-send response
+        say("me", opt);
+        respond(opt);
+      });
+      chipsEl.appendChild(btn);
+    });
+
+    container.appendChild(card);
+  });
+
+  el.stream.appendChild(container);
+  scroll();
 }
 
 function opening(protocols) {

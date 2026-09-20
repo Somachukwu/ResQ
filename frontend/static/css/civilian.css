@@ -740,3 +740,163 @@ body.civilian {
   background: var(--amber);
   flex-shrink: 0;
 }
+
+/* ---------- Interactive Clinical Triage Components ---------- */
+
+/* 1. Clinical Synthesis & Mechanism Card */
+.clinical-synthesis {
+  align-self: stretch;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.clinical-synthesis__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.clinical-synthesis__head svg {
+  flex-shrink: 0;
+}
+.clinical-synthesis__text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* 2. Red Flags (Emergency Escalation Warnings) */
+.red-flags-card {
+  align-self: stretch;
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--line));
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.red-flags-card__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.red-flags-card__head svg {
+  flex-shrink: 0;
+}
+.red-flags-card__list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.red-flags-card__list li {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* 3. Interactive Assessment Questions & Quick-Reply Chips */
+.assessment-container {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0;
+}
+.assessment-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: none;
+}
+.assessment-card__prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.assessment-card__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: 10.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.assessment-card__question {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+}
+.assessment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 28px;
+}
+@media (max-width: 480px) {
+  .assessment-chips {
+    padding-left: 0;
+  }
+}
+.chip--assessment {
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  transition: all 160ms var(--ease);
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip--assessment:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip--assessment:active:not(:disabled),
+.chip--assessment.is-selected {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+}
+.chip--assessment:disabled {
+  cursor: default;
+}

@@ -157,5 +157,37 @@ class TestGeminiTriage(unittest.TestCase):
         self.assertIn("resq-offline", sw_res.data.decode("utf-8"))
 
 
+    def test_interactive_assessment_and_clinical_synthesis(self):
+        """Verifies clinical synthesis, assessment questions, and red flags are generated."""
+        res = _fallback_heuristic_parser("I twisted my ankle while jogging, can I run tomorrow?")
+        self.assertIn("clinical_synthesis", res)
+        self.assertTrue(len(res["clinical_synthesis"]) > 10)
+        self.assertIn("assessment_questions", res)
+        self.assertTrue(len(res["assessment_questions"]) > 0)
+        self.assertTrue(all("question" in q and "options" in q for q in res["assessment_questions"]))
+        self.assertTrue(len(res["assessment_questions"][0]["options"]) >= 2)
+        self.assertIn("red_flags", res)
+        self.assertTrue(len(res["red_flags"]) >= 2)
+
+    def test_civilian_chat_api_multi_turn_history(self):
+        """POST /api/civilian/chat accepts history and returns interactive assessment fields."""
+        payload = {
+            "message": "Pain is around the outside of the ankle and swelling is starting",
+            "lat": 6.4402,
+            "lng": 7.4936,
+            "history": [
+                {"role": "user", "text": "I twisted my ankle jogging"},
+                {"role": "model", "text": "Stop running and elevate the ankle."}
+            ]
+        }
+        res = self.client.post("/api/civilian/chat", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertIn("clinical_synthesis", data)
+        self.assertIn("assessment_questions", data)
+        self.assertIn("red_flags", data)
+        self.assertTrue(len(data["assessment_questions"]) > 0)
+
+
 if __name__ == "__main__":
     unittest.main()

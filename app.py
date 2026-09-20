@@ -487,12 +487,15 @@ def civilian_chat_api():
     lng = data.get("lng")
     incident_uuid = data.get("incident_uuid")
     photo_b64 = data.get("photo_b64")
+    history = data.get("history") or []
 
     if not message and not photo_b64:
         return jsonify({"error": "Message or photo required"}), 400
 
     # 1. Multimodal AI Extraction (English + Nigerian Pidgin)
     extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64)
+    # 1. Multimodal AI Extraction (English + Nigerian Pidgin + Multi-turn context)
+    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64, history=history)
 
     # 2. Algorithmic RSI Triage Scoring
     triage = calculate_rsi(
@@ -572,7 +575,8 @@ def civilian_chat_api():
             "rsi": triage["rsi_score"],
             "tier": triage["triage_tier"],
             "unit": triage["recommended_unit"],
-            "hazards": extraction["scene_hazards"]
+            "hazards": extraction["scene_hazards"],
+            "clinical_synthesis": extraction.get("clinical_synthesis", "")
         }
     )
 
@@ -596,7 +600,10 @@ def civilian_chat_api():
         "extraction": extraction,
         "triage": triage,
         "first_aid_steps": extraction["first_aid_steps"],
-        "reassurance_message": extraction["reassurance_message"]
+        "reassurance_message": extraction["reassurance_message"],
+        "clinical_synthesis": extraction.get("clinical_synthesis", ""),
+        "assessment_questions": extraction.get("assessment_questions", []),
+        "red_flags": extraction.get("red_flags", [])
     })
 
 
