@@ -144,29 +144,41 @@ function respond(text) {
     // 1. Empathic / Reassurance message
     if (data.reassurance_message) {
       say("resq", data.reassurance_message);
+    // 1. Natural Conversational Response (with integrated clinical insight if provided)
+    let replyText = data.reassurance_message || "";
+    if (data.clinical_synthesis && !replyText.includes(data.clinical_synthesis)) {
+      replyText = replyText ? `${replyText}\n\n${data.clinical_synthesis}` : data.clinical_synthesis;
     }
 
     // 2. Render Action Steps directly whenever steps are provided
     // 2. Clinical Synthesis & Mechanism (if provided)
     if (data.clinical_synthesis) {
       renderClinicalSynthesis(data.clinical_synthesis);
+    if (replyText) {
+      say("resq", replyText);
     }
 
     // 3. Render Action Steps directly whenever steps are provided
     const steps = (data.first_aid_steps && data.first_aid_steps.length > 0)
+    // 2. Action Steps: ONLY rendered when the AI or protocol explicitly dictates immediate physical actions
+    const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
       : (matchProtocols(text)[0]?.steps || []);
+      : [];
 
     if (steps.length > 0) {
       const traumaTitles = data.extraction?.suspected_trauma?.length
         ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")
         : "Emergency Action Steps";
+        ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ")
+        : "Action Steps";
       const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Active Guidance";
       const tierVal = data.triage?.triage_tier || "FIRST AID";
 
       const p = {
         title: traumaTitles,
         summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol`,
+        summary: `${rsiVal} (${tierVal}), WHO and Nigerian Red Cross Protocol`,
         steps: steps
       };
       renderProtocol(p);
@@ -174,11 +186,13 @@ function respond(text) {
 
     // 3. Render any detected hazards
     // 4. Interactive Assessment Questions & Quick-Reply Chips (if provided)
+    // 3. Interactive Assessment Questions (rendered ONLY when the AI deduces assessment is needed)
     if (data.assessment_questions && data.assessment_questions.length > 0) {
       renderAssessmentQuestions(data.assessment_questions);
     }
 
     // 5. Red Flag Warning Signs (if provided)
+    // 4. Red Flag Warning Signs (rendered ONLY when high-risk danger signs exist)
     if (data.red_flags && data.red_flags.length > 0) {
       renderRedFlags(data.red_flags);
     }
@@ -414,6 +428,7 @@ function renderProtocol(p) {
       const doneCount = list.querySelectorAll(".step.is-done").length;
       if (doneCount === p.steps.length) {
         say("resq", "Well done — all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
+        say("resq", "Well done, all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
       }
     };
 
@@ -542,6 +557,7 @@ function onPhoto(e) {
     t.remove();
     say("resq", "Photo recorded locally. Scene analysis is running for hazards and victim positions.");
     renderHazard("Vehicle debris field across the carriageway — approach from the shoulder");
+    renderHazard("Vehicle debris field across the carriageway, approach from the shoulder");
     dispatchResponder();
   });
 
@@ -552,6 +568,7 @@ function toggleVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
     say("resq", "Voice is not supported on this browser. Type a few words instead — short is fine.");
+    say("resq", "Voice is not supported on this browser. Type a few words instead, short is fine.");
     return;
   }
   if (window.__resqRec) {

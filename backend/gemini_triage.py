@@ -46,26 +46,32 @@ CORE CLINICAL PRINCIPLES:
    - When the user answers an assessment question, weave their answer warmly into the conversation:
      e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further damage."
    - Vary your reassurance naturally from turn to turn so it feels genuine, responsive, and comforting.
+CRITICAL CONVERSATIONAL AND PUNCTUATION RULES:
+1. STRICT PUNCTUATION RULE (ZERO DASHES):
+   - NEVER use dashes, hyphens, em-dashes, or en-dashes (— or – or -) as punctuation in your sentences.
+   - Always construct clean, natural, complete English sentences using commas, periods, or semicolons instead.
 
-2. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
-   - Explain the physiological mechanism in plain, reassuring, accessible language (e.g., why rapid swelling after an ankle inversion suggests ligament tear or bone fracture, why elevating reduces throbbing, why immobilizing prevents spinal cord trauma).
-   - Interpret the combination of symptoms and user answers to illuminate why each step is being taken.
+2. ADAPTIVE, CONVERSATIONAL INTELLIGENCE:
+   - Do NOT output action steps, multiple-choice questions, or red flags on every single turn.
+   - You must intelligently deduce what is needed for each specific interaction:
+     * NATURAL CONVERSATION: If the user is answering a previous question, asking for clarification, sharing an update, feeling frightened, or just talking, reply conversationally and warmly in 'reassurance_message'. In purely conversational turns, keep 'first_aid_steps': [] and 'assessment_questions': [].
+     * ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now. If they already know what to do or are just talking, keep 'first_aid_steps': [].
+     * MULTIPLE-CHOICE QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when you genuinely need more clinical clarity to determine care. When you already have enough information or are guiding ongoing care, keep 'assessment_questions': [].
+     * RED FLAGS ('red_flags'): ONLY provide red flags when there is a risk of acute life or limb threat. For mild cases or conversational turns, keep 'red_flags': [].
 
-3. STRUCTURED ASSESSMENT QUESTIONS & QUICK-REPLY CHOICES (assessment_questions):
-   - A panicked bystander cannot write long paragraphs. Formulate 1 or 2 targeted, high-yield multiple-choice questions based on clinical decision rules (Ottawa Rules, WHO/START).
-   - Provide clear, lettered options (A, B, C, D) representing direct patient states so the user can easily tap on mobile.
+3. EMPATHETIC, GROUNDING REASSURANCE (reassurance_message):
+   - Speak with calming warmth, emotional grounding, and clarity.
+   - Never use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be in shock or doing nothing yet).
+   - Instead, offer genuine presence:
+     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me, you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
+   - When the user answers an assessment question, acknowledge their answer warmly:
+     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further strain."
 
-4. PROTOCOL-CONSTRAINED FIRST AID (first_aid_steps):
-   - Provide immediate, sequential, numbered action steps an untrained bystander can execute in 30 seconds.
-   - Action-oriented, calm verbs (e.g., "1. Help them sit down safely on firm ground.", "2. Gently loosen tight footwear...").
+4. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
+   - Explain the physiological mechanism in plain, accessible language without technical jargon.
+   - Weave your explanation naturally so the bystander understands why each precaution matters.
 
-5. RED FLAG WARNING SIGNS (red_flags):
-   - 2 to 4 explicit high-priority danger signs indicating immediate surgical or hospital escalation (e.g., cold/pale toes, joint deformity, severe bone tenderness, loss of consciousness).
-
-6. STRUCTURED TELEMETRY EXTRACTION:
-   - Extract clinical flags accurately for emergency dispatchers: unresponsive, severe_hemorrhage, airway_compromise, entrapment, casualties_count, scene_hazards, suspected_trauma.
-
-7. LANGUAGE & CONTEXT:
+5. LANGUAGE AND CONTEXT:
    - Fluently understand Nigerian Pidgin (e.g., 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local vernacular, but formulate ALL output in clear, universally understood, comforting English.
    - STRICT BOUNDARY: Never provide definitive medical diagnoses or prescribe medications.
 
@@ -78,16 +84,11 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "ankle sprain"],
-  "reassurance_message": "Warm, grounding, empathetic answer acknowledging their specific situation, reassuring them that responders are en route, and offering compassionate presence",
-  "clinical_synthesis": "Plain-language clinical interpretation explaining the injury mechanism, physiology, and why current precautions matter",
-  "first_aid_steps": [ordered list of concise, actionable instructions in clear English],
-  "assessment_questions": [
-    {
-      "question": "Clear triage question to evaluate injury severity or complications",
-      "options": ["A. Option one", "B. Option two", "C. Option three"]
-    }
-  ],
-  "red_flags": [list of high-risk warning signs that require urgent emergency room or surgical intervention]
+  "reassurance_message": "Warm, grounding, empathetic answer acknowledging their specific situation, reassuring them that responders are en route, and offering compassionate presence with zero dashes",
+  "clinical_synthesis": "Plain-language clinical explanation of mechanism and physiology with zero dashes",
+  "first_aid_steps": [ordered list of actionable instructions, or empty list if none needed right now],
+  "assessment_questions": [list containing at most 1 question with options, or empty list if none needed right now],
+  "red_flags": [list of high-risk warning signs, or empty list if none needed right now]
 }
 """
 
@@ -368,30 +369,34 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
         trauma.append("respiratory arrest / compromised airway")
 
     # Protocol-constrained step-by-step guidance (WHO / Red Cross)
+    # Intelligently deduce if user is directly answering a multiple-choice option or acknowledging
+    is_answering_option = lower.startswith(("a.", "b.", "c.", "option a", "option b", "option c", "done", "finished", "thank you", "thanks"))
+
     steps = []
-    if unresponsive and airway_compromise:
-        steps.append("Immediately check mouth for blockages. Gently tilt the head backward and lift the chin to open the airway.")
-        steps.append("If not breathing at all, begin chest compressions: push hard and fast in the center of the chest (100–120 per minute).")
-    elif unresponsive and not airway_compromise:
-        steps.append("Do NOT shake the person. Check breathing by watching the chest rise and fall.")
-        steps.append("If breathing normally, roll gently onto their side into the recovery position to keep the airway clear.")
-        steps.append("Keep the neck straight. Do not place pillows under the head if spinal injury is suspected.")
+    if not is_answering_option:
+        if unresponsive and airway_compromise:
+            steps.append("Immediately check mouth for blockages. Gently tilt the head backward and lift the chin to open the airway.")
+            steps.append("If not breathing at all, begin chest compressions: push hard and fast in the center of the chest (100 to 120 per minute).")
+        elif unresponsive and not airway_compromise:
+            steps.append("Do NOT shake the person. Check breathing by watching the chest rise and fall.")
+            steps.append("If breathing normally, roll gently onto their side into the recovery position to keep the airway clear.")
+            steps.append("Keep the neck straight. Do not place pillows under the head if spinal injury is suspected.")
 
-    if severe_hemorrhage:
-        steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
-        steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
+        if severe_hemorrhage:
+            steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
+            steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
 
-    if is_sprain_or_joint:
-        steps.append("Protection & Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
-        steps.append("Ice & Compression: Apply a cold pack wrapped in cloth for 15–20 minutes, and wrap with comfortable elastic support.")
-        steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
+        if is_sprain_or_joint:
+            steps.append("Protection and Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
+            steps.append("Ice and Compression: Apply a cold pack wrapped in cloth for 15 to 20 minutes, and wrap with comfortable elastic support.")
+            steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
 
-    if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
-        steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
+        if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
+            steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
 
-    if not steps:
-        steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
-        steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
+        if not steps:
+            steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
+            steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
 
     # Contextual Clinical Synthesis
     if is_sprain_or_joint:
@@ -403,86 +408,76 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
     else:
         synthesis = "Initial emergency triage assessment in progress. Immediate protocol steps focus on scene stabilization and continuous monitoring."
 
-    # Interactive Assessment Questions with Multiple-Choice Options
+    # Interactive Assessment Questions: ONLY ask when assessing symptoms, never when user just answered
     questions = []
-    if is_sprain_or_joint:
-        questions.append({
-            "question": "Where exactly is the pain concentrated when you touch the area?",
-            "options": [
-                "A. Soft tissue in front of outer ankle bone",
-                "B. Directly on the hard outer bone itself",
-                "C. Behind the ankle bone or up the shin"
-            ]
-        })
-        questions.append({
-            "question": "Can the person take four steps, even with a limp?",
-            "options": [
-                "A. Yes, can take four steps",
-                "B. No, completely unable to bear weight",
-                "C. Can walk with minimal discomfort"
-            ]
-        })
-    elif severe_hemorrhage:
-        questions.append({
-            "question": "Is the bleeding controlled by continuous direct pressure?",
-            "options": [
-                "A. Bleeding is slowing down or stopped",
-                "B. Bleeding continues to soak through cloths",
-                "C. Blood is spurting rhythmically"
-            ]
-        })
-    elif unresponsive:
-        questions.append({
-            "question": "Is the casualty breathing normally and continuously?",
-            "options": [
-                "A. Breathing normally and regularly",
-                "B. Gasping, snoring, or struggling to breathe",
-                "C. No breathing detected at all"
-            ]
-        })
-    else:
-        questions.append({
-            "question": "Is the casualty alert, oriented, and speaking clearly?",
-            "options": [
-                "A. Alert and speaking in full sentences",
-                "B. Confused, drowsy, or drifting off",
-                "C. Completely unresponsive to voice or touch"
-            ]
-        })
+    if not is_answering_option:
+        if is_sprain_or_joint:
+            questions.append({
+                "question": "Can the person take four steps, even with a limp?",
+                "options": [
+                    "A. Yes, can take four steps",
+                    "B. No, completely unable to bear weight",
+                    "C. Can walk with minimal discomfort"
+                ]
+            })
+        elif severe_hemorrhage:
+            questions.append({
+                "question": "Is the bleeding controlled by continuous direct pressure?",
+                "options": [
+                    "A. Bleeding is slowing down or stopped",
+                    "B. Bleeding continues to soak through cloths",
+                    "C. Blood is spurting rhythmically"
+                ]
+            })
+        elif unresponsive:
+            questions.append({
+                "question": "Is the casualty breathing normally and continuously?",
+                "options": [
+                    "A. Breathing normally and regularly",
+                    "B. Gasping, snoring, or struggling to breathe",
+                    "C. No breathing detected at all"
+                ]
+            })
 
     # Red Flag Warning Signs
-    if is_sprain_or_joint:
-        red_flags = [
-            "Complete inability to bear weight or take 4 steps immediately",
-            "Severe bone tenderness directly over the malleolus (outer or inner ankle bone)",
-            "Visible joint deformity, skin discoloration, or numbness/coldness in the toes"
-        ]
-    elif severe_hemorrhage:
-        red_flags = [
-            "Continuous arterial spurting despite firm two-hand direct pressure",
-            "Signs of hypovolemic shock: pale/clammy skin, confusion, or rapid shallow breathing"
-        ]
-    elif unresponsive:
-        red_flags = [
-            "Cessation of breathing or irregular agonal breathing",
-            "Unequal pupils, seizures, or clear fluid draining from nose or ears"
-        ]
-    else:
-        red_flags = [
-            "Loss of consciousness or worsening confusion",
-            "Difficulty breathing or sudden severe chest pain",
-            "Visible open fracture or severe deformity"
-        ]
+    red_flags = []
+    if not is_answering_option:
+        if is_sprain_or_joint:
+            red_flags = [
+                "Complete inability to bear weight or take 4 steps immediately",
+                "Severe bone tenderness directly over the malleolus (outer or inner ankle bone)",
+                "Visible joint deformity, skin discoloration, or numbness/coldness in the toes"
+            ]
+        elif severe_hemorrhage:
+            red_flags = [
+                "Continuous arterial spurting despite firm two-hand direct pressure",
+                "Signs of hypovolemic shock: pale/clammy skin, confusion, or rapid shallow breathing"
+            ]
+        elif unresponsive:
+            red_flags = [
+                "Cessation of breathing or irregular agonal breathing",
+                "Unequal pupils, seizures, or clear fluid draining from nose or ears"
+            ]
 
-    # Reassurance message in clear, calming, empathetic English
-    if is_sprain_or_joint:
-        reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, steady breath with me — you are not alone, and I am right here beside you to guide you and protect that joint until the medical team arrives."
-    elif severe_hemorrhage:
-        reassurance = "Emergency responders have been notified and are speeding toward your exact location. Stay right beside them; maintain continuous, firm pressure, and I will be here with you through every single breath until the crew arrives."
-    elif unresponsive:
-        reassurance = "Emergency responders have been notified and are on their way to you. Stay calm and stay close — keep their airway open, and I am right here walking beside you through every step until the paramedics arrive."
+    # Reassurance message in clear, calming, empathetic English with zero dashes
+    if is_answering_option:
+        if is_sprain_or_joint:
+            reassurance = "Emergency responders have been notified and are actively on their way. Thank you for checking so quickly. Keeping that joint rested, supported, and completely elevated is the most important thing you can do until the medical crew reaches you."
+        elif severe_hemorrhage:
+            reassurance = "Emergency responders have been notified and are speeding to your location. Keep that firm direct pressure held steadily without letting go, and I am right here keeping you focused until the medics arrive."
+        elif unresponsive:
+            reassurance = "Emergency responders have been notified and are en route. Continue watching their chest gently rise and fall to ensure their breathing stays steady, and I will stay right beside you until help arrives."
+        else:
+            reassurance = "Emergency responders have been notified and are on their way. You are doing a wonderful job staying calm and alert, and I will stay right here with you until the team arrives."
     else:
-        reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, gentle breath — you are doing the right thing, and I will stay right here to guide you until help arrives."
+        if is_sprain_or_joint:
+            reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, steady breath with me, you are not alone, and I am right here beside you to guide you and protect that joint until the medical team arrives."
+        elif severe_hemorrhage:
+            reassurance = "Emergency responders have been notified and are speeding toward your exact location. Stay right beside them, maintain continuous firm pressure, and I will be here with you through every single breath until the crew arrives."
+        elif unresponsive:
+            reassurance = "Emergency responders have been notified and are on their way to you. Stay calm and stay close, keep their airway open, and I am right here walking beside you through every step until the paramedics arrive."
+        else:
+            reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, gentle breath, you are doing the right thing, and I will stay right here to guide you until help arrives."
 
     return {
         "unresponsive": unresponsive,
