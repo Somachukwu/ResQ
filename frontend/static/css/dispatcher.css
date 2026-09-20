@@ -437,7 +437,7 @@ body.dispatcher {
   height: 38px;
   box-sizing: border-box;
 }
-.panel__title { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.panel__title { font-size: 13px; font-weight: 400; white-space: nowrap; }
 .panel__body {
   flex: 1;
   min-height: 0;
@@ -505,10 +505,9 @@ body.dispatcher {
   box-shadow: none !important;
 }
 
-/* Incident cards in queue — Clear, distinct container with crisp borders and no muddy shadows */
+/* Incident cards in queue — Clean container with uniform borders and no side severity stripe */
 .incident {
   border: 1px solid var(--line-strong);
-  border-left: 4px solid var(--triage-green);
   border-radius: var(--r-md);
   background: var(--surface-2);
   padding: 12px 14px;
@@ -528,23 +527,28 @@ body.dispatcher {
   box-shadow: none !important;
 }
 
-/* Selected element in left pane — clean teal highlight without muddy shadows */
+/* Selected element in left pane — clean subtle highlight with uniform 1px border */
 .incident.is-selected {
-  border-color: var(--accent) !important;
-  border-left-color: var(--accent) !important;
-  border-left-width: 4px !important;
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)) !important;
+  border: 1px solid var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)) !important;
   box-shadow: none !important;
 }
 .incident.is-selected .incident__id {
   color: var(--accent) !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
 }
 
-/* Triage Semantics — Clear, distinctive triage left border indicators */
-.incident--red { border-left-color: var(--triage-red) !important; }
-.incident--yellow { border-left-color: var(--triage-orange) !important; }
-.incident--green { border-left-color: var(--triage-green) !important; }
+/* Triage Semantics — No side colored border, clean uniform border */
+.incident--red,
+.incident--yellow,
+.incident--green {
+  border-left: 1px solid var(--line-strong);
+}
+.incident.is-selected.incident--red,
+.incident.is-selected.incident--yellow,
+.incident.is-selected.incident--green {
+  border-left: 1px solid var(--accent) !important;
+}
 
 /* Compact Operational Rail representations */
 .incident__compact {
@@ -601,23 +605,45 @@ body.dispatcher {
   font-weight: 600;
 }
 
-/* Triage Badges - crisp flat pills without glowing drop shadows */
-.badge--red {
-  background: color-mix(in srgb, var(--triage-red) 12%, transparent) !important;
+/* Left-pane incident triage badges: text only with triage color, no pill background or border */
+.incident .incident__badges .badge {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.incident .incident__badges .badge--red {
   color: var(--triage-red) !important;
-  border: 1px solid color-mix(in srgb, var(--triage-red) 35%, transparent) !important;
+}
+.incident .incident__badges .badge--yellow {
+  color: var(--triage-orange) !important;
+}
+.incident .incident__badges .badge--green {
+  color: var(--triage-green) !important;
+}
+
+/* General Triage Badges - fallback */
+.badge--red {
+  background: color-mix(in srgb, var(--triage-red) 12%, transparent);
+  color: var(--triage-red);
+  border: 1px solid color-mix(in srgb, var(--triage-red) 35%, transparent);
   box-shadow: none !important;
 }
 .badge--yellow {
-  background: color-mix(in srgb, var(--triage-orange) 12%, transparent) !important;
-  color: var(--triage-orange) !important;
-  border: 1px solid color-mix(in srgb, var(--triage-orange) 35%, transparent) !important;
+  background: color-mix(in srgb, var(--triage-orange) 12%, transparent);
+  color: var(--triage-orange);
+  border: 1px solid color-mix(in srgb, var(--triage-orange) 35%, transparent);
   box-shadow: none !important;
 }
 .badge--green {
-  background: color-mix(in srgb, var(--triage-green) 12%, transparent) !important;
-  color: var(--triage-green) !important;
-  border: 1px solid color-mix(in srgb, var(--triage-green) 35%, transparent) !important;
+  background: color-mix(in srgb, var(--triage-green) 12%, transparent);
+  color: var(--triage-green);
+  border: 1px solid color-mix(in srgb, var(--triage-green) 35%, transparent);
   box-shadow: none !important;
 }
 
@@ -627,8 +653,8 @@ body.dispatcher {
   gap: 2px;
   font-variant-numeric: tabular-nums;
   font-size: 10.5px;
-  font-weight: 600;
-  color: var(--text);
+  font-weight: 500;
+  color: var(--text-2);
   background: color-mix(in srgb, var(--text) 6%, transparent);
   padding: 1px 6px;
   border-radius: var(--r-pill);
@@ -638,14 +664,14 @@ body.dispatcher {
 .incident .rsi small {
   font-size: 8.5px;
   color: var(--text-3);
-  font-weight: 500;
+  font-weight: 400;
   text-transform: uppercase;
 }
 
 .incident__title {
   font-size: 12.5px;
   line-height: 1.35;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text);
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -1163,7 +1189,7 @@ body.dispatcher {
 
 .brief-card__rsi { font-size: 11px; font-weight: 500; color: var(--amber); font-variant-numeric: tabular-nums; }
 .brief-card__time { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.brief-card__title { font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.35; margin: 0; }
+.brief-card__title { font-size: 12px; font-weight: 400; color: var(--text); line-height: 1.35; margin: 0; }
 .brief-card__place { font-size: 11px; color: var(--text-2); display: flex; align-items: center; gap: 4px; margin: 0; }
 
 /* Console sections */
@@ -1189,7 +1215,7 @@ body.dispatcher {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-3);
-  font-weight: 500;
+  font-weight: 400;
 }
 .console-section__label svg { color: var(--text-3); }
 
@@ -1204,43 +1230,74 @@ body.dispatcher {
 }
 .hazard-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* Capability-Matched Hospital — Normal neutral box with plain text and responsive time */
 .facility-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   padding: 10px 12px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--hospital);
 }
-.facility-card__name { font-size: 12.5px; font-weight: 600; color: var(--text); }
-/* High-contrast hospital capability tags (Requirement 1 & 5) */
+.facility-card__main {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.facility-card__name {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.35;
+}
+/* Capability details — plain normal text without circular backgrounds */
 .facility-card__caps {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 5px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-weight: 400;
+  line-height: 1.4;
 }
 .facility-cap-tag {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--hospital) 16%, var(--surface));
-  color: var(--hospital);
-  border: 1px solid color-mix(in srgb, var(--hospital) 45%, transparent);
-  letter-spacing: 0.02em;
+  display: inline;
+  font-size: 11.5px;
+  font-weight: 400;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--text-2) !important;
+  border: none !important;
+  letter-spacing: normal;
+  box-shadow: none !important;
 }
 [data-theme="dark"] .facility-cap-tag {
-  background: color-mix(in srgb, var(--hospital) 22%, transparent);
-  color: #c4b5fd;
-  border-color: color-mix(in srgb, var(--hospital) 50%, transparent);
+  background: none !important;
+  color: var(--text-2) !important;
+  border: none !important;
 }
-.facility-card__eta { font-size: 12px; font-weight: 600; color: var(--hospital); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.facility-card__eta {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: right;
+  flex: 0 1 auto;
+  white-space: normal;
+  word-break: break-word;
+}
+@media (max-width: 480px) {
+  .facility-card__eta {
+    text-align: left;
+    flex-basis: 100%;
+  }
+}
 
 /* Dispatch action box — restrained neutral surface (Requirement 2) */
 .dispatch-action-box {
@@ -1571,19 +1628,9 @@ body.dispatcher {
     width: 100% !important;
     padding: 10px 12px !important;
     border: 1px solid var(--line-strong) !important;
-    border-left: 4px solid var(--triage-green) !important;
     border-radius: var(--r-md) !important;
     background: var(--surface-2) !important;
     box-shadow: none !important;
-  }
-  .workspace.left-collapsed .incident--red {
-    border-left-color: var(--triage-red) !important;
-  }
-  .workspace.left-collapsed .incident--yellow {
-    border-left-color: var(--triage-orange) !important;
-  }
-  .workspace.left-collapsed .incident--green {
-    border-left-color: var(--triage-green) !important;
   }
   .workspace.left-collapsed .incident.is-selected {
     border-color: var(--select-accent) !important;

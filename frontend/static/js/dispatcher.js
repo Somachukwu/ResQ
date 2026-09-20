@@ -540,7 +540,7 @@ function renderMissionConsole(i) {
   if (hospEtaEl) hospEtaEl.textContent = "8.4 mins · 92% Survival";
   if (hospCapsEl) {
     const defaultParts = fallbackHosp.caps ? fallbackHosp.caps.split(/\s*·\s*/) : ["Level 1 trauma", "ICU", "Blood bank"];
-    hospCapsEl.innerHTML = defaultParts.map(cap => `<span class="facility-cap-tag">${cap}</span>`).join(" ");
+    hospCapsEl.innerHTML = defaultParts.map(cap => `<span class="facility-cap-tag">${cap}</span>`).join(" · ");
   }
 
   // Live Golden Hour Model Evaluation
@@ -579,8 +579,8 @@ function renderMissionConsole(i) {
 
         if (hospCapsEl) {
           const capTier = data.capability ? `${data.capability.toUpperCase()} TRAUMA` : "LEVEL-1 TRAUMA";
-          const survivalTag = `<span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); border-color:var(--accent);">Golden Hour: ${survivalPct}</span>`;
-          hospCapsEl.innerHTML = `<span class="facility-cap-tag">${capTier}</span> <span class="facility-cap-tag">ICU READY</span> ${survivalTag}`;
+          const survivalText = `Golden Hour: ${survivalPct}`;
+          hospCapsEl.innerHTML = `<span class="facility-cap-tag">${capTier}</span> · <span class="facility-cap-tag">ICU Ready</span> · <span class="facility-cap-tag">${survivalText}</span>`;
         }
       }
     })
