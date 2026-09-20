@@ -32,9 +32,8 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/static/css/resq.css" />
-    <link rel="stylesheet" href="/static/css/civilian.css" />
-    <link rel="stylesheet" href="/static/css/civilian.css?v=2.4" />
+    <link rel="stylesheet" href="/static/css/resq.css?v=2.7" />
+    <link rel="stylesheet" href="/static/css/civilian.css?v=2.7" />
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
@@ -101,14 +100,15 @@
           <p class="hero__sub">Press once. No sign-up, no forms. ResQ will guide you through the next right action while help makes its way to you.</p>
         </div>
 
-        <button class="sos" id="sos" type="button" aria-label="Start emergency triage session">
-          <span class="sos__ring" aria-hidden="true"></span>
-          <span class="sos__text">Start Emergency Assistance</span>
+        <button class="sos" id="sos" type="button" onclick="window.startSession && window.startSession()" aria-label="Start emergency triage session">
           <span class="sos__label">SOS</span>
           <span class="sos__hint">Press for help</span>
         </button>
 
-        <p class="hero__meta">Immediate AI Guidance · Geolocation · Direct Dispatch</p>
+        <p class="offline-note">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="netHero">First aid steps are stored on this phone already.</span>
+        </p>
       </main>
 
       <!-- Session -->
@@ -179,6 +179,6 @@
       </div>
     </div>
 
-    <script type="module" src="/static/js/civilian.js?v=2.5"></script>
+    <script type="module" src="/static/js/civilian.js?v=2.7"></script>
   </body>
 </html>

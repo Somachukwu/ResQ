@@ -47,25 +47,63 @@ const icons = {
 };
 
 /* ---------------- boot ---------------- */
-cacheProtocols();
-renderOfflineLibrary();
-watchNetwork();
-wireKeyboardAccommodation();
+try {
+  cacheProtocols();
+  renderOfflineLibrary();
+  watchNetwork();
+  wireKeyboardAccommodation();
+} catch (err) {
+  console.warn("ResQ civilian setup note:", err);
+}
 
-el.sos.addEventListener("click", startSession);
+/* ---------------- session ---------------- */
+export function startSession(e) {
+  if (e) {
+    if (typeof e.preventDefault === "function") e.preventDefault();
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+  }
+  if (state.started) return;
+  state.started = true;
+  if (el.hero) el.hero.classList.add("is-hidden");
+  if (el.session) el.session.classList.add("is-active");
+  try {
+    el.field?.focus({ preventScroll: true });
+  } catch (_) {}
+
+  say(
+    "resq",
+    "I am with you. Tell me in your own words what you can see. If it is easier, tap one of the quick options below."
+  );
+  try {
+    requestLocation();
+  } catch (_) {}
+  setTimeout(dispatchResponder, 9000);
+}
+
+// Expose globally so HTML inline onclick fallback works reliably
+window.startSession = startSession;
+
+if (el.sos) {
+  el.sos.addEventListener("click", startSession);
+  el.sos.addEventListener("pointerup", (e) => {
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      startSession(e);
+    }
+  });
+}
 el.gpsBtn?.addEventListener("click", requestLocation);
-el.form.addEventListener("submit", onSubmit);
-el.field.addEventListener("input", autoGrow);
-el.field.addEventListener("keydown", (e) => {
+el.form?.addEventListener("submit", onSubmit);
+el.field?.addEventListener("input", autoGrow);
+el.field?.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     el.form.requestSubmit();
   }
 });
-el.camera.addEventListener("click", () => el.photo.click());
-el.photo.addEventListener("change", onPhoto);
-el.mic.addEventListener("click", toggleVoice);
-el.quick.addEventListener("click", (e) => {
+el.camera?.addEventListener("click", () => el.photo.click());
+el.photo?.addEventListener("change", onPhoto);
+el.mic?.addEventListener("click", toggleVoice);
+el.quick?.addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
   el.field.value = chip.dataset.say;
@@ -76,22 +114,6 @@ $$("[data-close-drawer]").forEach((b) => b.addEventListener("click", () => el.dr
 $("#callResponder")?.addEventListener("click", () => {
   say("resq", "Connecting you to the responder unit now. Keep your phone on speaker and stay beside the victim.");
 });
-
-/* ---------------- session ---------------- */
-function startSession() {
-  if (state.started) return;
-  state.started = true;
-  el.hero.classList.add("is-hidden");
-  el.session.classList.add("is-active");
-  el.field.focus({ preventScroll: true });
-
-  say(
-    "resq",
-    "I am with you. Tell me in your own words what you can see. If it is easier, tap one of the quick options below."
-  );
-  requestLocation();
-  setTimeout(dispatchResponder, 9000);
-}
 
 function onSubmit(e) {
   e.preventDefault();
@@ -556,7 +578,6 @@ function onPhoto(e) {
     console.warn("[Civilian] Photo upload failed, queuing for retry:", err);
     t.remove();
     say("resq", "Photo recorded locally. Scene analysis is running for hazards and victim positions.");
-    renderHazard("Vehicle debris field across the carriageway — approach from the shoulder");
     renderHazard("Vehicle debris field across the carriageway, approach from the shoulder");
     dispatchResponder();
   });
@@ -567,7 +588,6 @@ function onPhoto(e) {
 function toggleVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    say("resq", "Voice is not supported on this browser. Type a few words instead — short is fine.");
     say("resq", "Voice is not supported on this browser. Type a few words instead, short is fine.");
     return;
   }

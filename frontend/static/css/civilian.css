@@ -153,6 +153,15 @@ body.civilian {
   box-shadow: 0 16px 44px color-mix(in srgb, var(--amber) 45%, transparent);
   transition: transform 160ms var(--ease);
   -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  border: none;
+  outline: none;
+}
+.sos * {
+  pointer-events: none;
 }
 .sos:active { transform: scale(0.965); }
 .sos__label { font-size: clamp(2.4rem, 6.5vh, 3.4rem); letter-spacing: 0.08em; font-weight: 500; }
@@ -190,8 +199,8 @@ body.civilian {
   min-height: 0;     /* required for flex children to scroll correctly */
   overflow: hidden;
 }
-.session.is-active { display: flex; }
-.hero.is-hidden { display: none; }
+.session.is-active { display: flex !important; }
+.hero.is-hidden { display: none !important; }
 
 .stream {
   flex: 1 1 0;       /* must be 0, not auto — auto uses content-size and blocks scroll */
