@@ -1,4 +1,5 @@
 /* ResQ Service Worker — Offline First Aid Protocol Caching (S/N 12) */
+const CACHE_NAME = "resq-offline-v7";
 const CACHE_NAME = "resq-offline-v8";
 const OFFLINE_URLS = [
   "/civilian",

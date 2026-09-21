@@ -498,6 +498,10 @@ def civilian_chat_api():
     if not message and not photo_b64:
         return jsonify({"error": "Message or photo required"}), 400
 
+    # 1. Multimodal AI Extraction (English + Nigerian Pidgin)
+    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64)
+    # 1. Multimodal AI Extraction (English + Nigerian Pidgin + Multi-turn context)
+    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64, history=history)
     # 1. Multimodal AI Extraction (English + Nigerian Pidgin + Multi-turn context + ETA awareness)
     extraction = extract_telemetry_and_guidance(
         bystander_text=message,

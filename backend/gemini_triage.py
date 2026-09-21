@@ -34,13 +34,32 @@ _SESSION = requests.Session()
 
 SYSTEM_INSTRUCTION = """
 You are the ResQ Emergency Intelligence Engine, serving as an interactive, deeply empathetic clinical triage assistant in Nigeria under the IEEE Response Quest Challenge 2026.
+You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (e.g. START triage, Ottawa Rules).
 You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (such as START triage and Ottawa Rules).
 
+CORE CLINICAL PRINCIPLES:
+1. EMPATHETIC, CALMING REASSURANCE (reassurance_message):
+   - You are the calm, compassionate anchor guiding someone through a frightening crisis.
+   - Speak with grounding warmth, emotional presence, and clarity.
+   - NEVER use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be frozen in shock or has not yet started).
+   - Instead, offer emotional anchoring and presence:
+     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me — you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
+   - When the user answers an assessment question, weave their answer warmly into the conversation:
+     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further damage."
+   - Vary your reassurance naturally from turn to turn so it feels genuine, responsive, and comforting.
+CRITICAL CONVERSATIONAL AND PUNCTUATION RULES:
 CORE CLINICAL AND CONVERSATIONAL PRINCIPLES:
 1. STRICT PUNCTUATION RULE (ZERO DASHES):
    - NEVER use dashes, hyphens, em-dashes, or en-dashes (— or – or -) as punctuation in your sentences.
    - Always construct clean, natural, complete English sentences using commas, periods, or semicolons instead.
 
+2. ADAPTIVE, CONVERSATIONAL INTELLIGENCE:
+   - Do NOT output action steps, multiple-choice questions, or red flags on every single turn.
+   - You must intelligently deduce what is needed for each specific interaction:
+     * NATURAL CONVERSATION: If the user is answering a previous question, asking for clarification, sharing an update, feeling frightened, or just talking, reply conversationally and warmly in 'reassurance_message'. In purely conversational turns, keep 'first_aid_steps': [] and 'assessment_questions': [].
+     * ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now. If they already know what to do or are just talking, keep 'first_aid_steps': [].
+     * MULTIPLE-CHOICE QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when you genuinely need more clinical clarity to determine care. When you already have enough information or are guiding ongoing care, keep 'assessment_questions': [].
+     * RED FLAGS ('red_flags'): ONLY provide red flags when there is a risk of acute life or limb threat. For mild cases or conversational turns, keep 'red_flags': [].
 2. CONCISE, CALMING REASSURANCE (reassurance_message):
    - Keep your message short, comforting, and emotionally grounding (1 to 2 short sentences maximum).
    - Do NOT lecture the user about medical issues, diagnoses, or clinical mechanisms in the chat.
@@ -50,15 +69,27 @@ CORE CLINICAL AND CONVERSATIONAL PRINCIPLES:
      "Help is actively on the way to your location. Take a slow, gentle breath with me, you are doing well, and I will stay right beside you until the medical team arrives."
      "Thank you for checking that so quickly. Take a deep breath, keep him comfortable, and I am right here with you."
 
+3. EMPATHETIC, GROUNDING REASSURANCE (reassurance_message):
+   - Speak with calming warmth, emotional grounding, and clarity.
+   - Never use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be in shock or doing nothing yet).
+   - Instead, offer genuine presence:
+     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me, you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
+   - When the user answers an assessment question, acknowledge their answer warmly:
+     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further strain."
 3. INTELLIGENT STEP DEDUCTION (first_aid_steps):
    - It is NOT every time that you should show steps. Sometimes just talk with the user until they are ready.
    - If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [].
    - ONLY output action steps when there are concrete, immediate physical actions the bystander needs to take right now (such as applying firm direct pressure to heavy bleeding or clearing an obstructed airway).
 
+4. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
+   - Explain the physiological mechanism in plain, accessible language without technical jargon.
+   - Weave your explanation naturally so the bystander understands why each precaution matters.
 4. TARGETED ASSESSMENT QUESTIONS (assessment_questions):
    - When assessing acute trauma or injury where functional capacity (such as weight-bearing or breathing) is not yet verified, include 1 targeted multiple-choice question with 2 to 3 simple options to assess severity.
    - For general conversation, fear reassurance, or once screening is done, keep 'assessment_questions': [].
 
+5. LANGUAGE AND CONTEXT:
+   - Fluently understand Nigerian Pidgin (e.g., 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local vernacular, but formulate ALL output in clear, universally understood, comforting English.
 5. SELECTIVE RED FLAGS (red_flags):
    - Do NOT show red flags on ordinary or conversational turns.
    - Keep 'red_flags': [] for all general conversations, sprains, moderate injuries, and check-ins.
@@ -85,6 +116,8 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "ankle sprain"],
+  "reassurance_message": "Warm, grounding, empathetic answer acknowledging their specific situation, reassuring them that responders are en route, and offering compassionate presence with zero dashes",
+  "clinical_synthesis": "Plain-language clinical explanation of mechanism and physiology with zero dashes",
   "reassurance_message": "Short, warm, calming message keeping the user calm with zero dashes",
   "clinical_synthesis": "Brief clinical mechanism for responder records with zero dashes",
   "first_aid_steps": [ordered list of actionable instructions, or empty list if none needed right now],
@@ -397,6 +430,7 @@ def _fallback_heuristic_parser(
     ]
     entrapment = any(kw in lower for kw in entrapment_keywords)
 
+    # Suspected Trauma details based on identified symptoms
     if "head" in lower or unresponsive:
         trauma.append("head injury / traumatic brain injury")
     if severe_hemorrhage:
@@ -408,6 +442,8 @@ def _fallback_heuristic_parser(
     if airway_compromise:
         trauma.append("respiratory arrest / compromised airway")
 
+    # Protocol-constrained step-by-step guidance (WHO / Red Cross)
+    # Intelligently deduce if user is directly answering a multiple-choice option or acknowledging
     # 2. Emotional / Conversational check (talk with user till ready, no steps)
     is_conversational_or_fear = bool(re.search(
         r"\b(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|i am here|what should i do|don'?t know|frightened|terrified|worried|calm down)\b",
@@ -449,19 +485,34 @@ def _fallback_heuristic_parser(
             steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
             steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
 
+        if is_sprain_or_joint:
+            steps.append("Protection and Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
+            steps.append("Ice and Compression: Apply a cold pack wrapped in cloth for 15 to 20 minutes, and wrap with comfortable elastic support.")
+            steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
+
         if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
             steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
 
+        if not steps:
+            steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
+            steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
+
+    # Contextual Clinical Synthesis
     # Contextual Clinical Synthesis for responder records
     if is_sprain_or_joint:
+        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Weight-bearing capacity provides initial clinical screening under Ottawa Decision Rules."
         synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Ottawa rules apply."
     elif severe_hemorrhage:
+        synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure is mandatory to initiate haemostasis and prevent hypovolemic shock."
         synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure required."
     elif unresponsive:
+        synthesis = "Altered mental status or unconsciousness detected. Maintaining a patent airway and strict cervical spine alignment are the highest clinical priorities."
         synthesis = "Altered mental status or unconsciousness detected. Airway management is prioritized."
     else:
+        synthesis = "Initial emergency triage assessment in progress. Immediate protocol steps focus on scene stabilization and continuous monitoring."
         synthesis = "Emergency triage assessment in progress. Continuous monitoring."
 
+    # Interactive Assessment Questions: ONLY ask when assessing symptoms, never when user just answered
     # Interactive Assessment Questions: ONLY ask when assessing acute physical state
     questions = []
     if not is_answering_option:

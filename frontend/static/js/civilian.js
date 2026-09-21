@@ -145,6 +145,7 @@ function respond(text) {
       lat: state.coords?.lat,
       lng: state.coords?.lng,
       incident_uuid: state.incidentUuid,
+      history: state.chatHistory.slice(0, -1)
       history: state.chatHistory.slice(0, -1),
       eta_seconds: state.etaSeconds
     })
@@ -164,13 +165,23 @@ function respond(text) {
       state.chatHistory.push({ role: "model", text: data.reassurance_message });
     }
 
+    // 1. Natural Conversational Response (with integrated clinical insight if provided)
+    let replyText = data.reassurance_message || "";
+    if (data.clinical_synthesis && !replyText.includes(data.clinical_synthesis)) {
+      replyText = replyText ? `${replyText}\n\n${data.clinical_synthesis}` : data.clinical_synthesis;
+    }
+    if (replyText) {
+      say("resq", replyText);
+    }
     // 1. Natural Conversational Response (concise, calming, and emotionally supportive)
     const replyText = data.reassurance_message || "I am right here with you. Take a slow, gentle breath.";
     say("resq", replyText);
 
+    // 2. Action Steps: ONLY rendered when the AI or protocol explicitly dictates immediate physical actions
     // 2. Action Steps: ONLY rendered when the AI explicitly provides first_aid_steps
     const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
+      : (matchProtocols(text)[0]?.steps || []);
       : [];
 
     if (steps.length > 0) {
@@ -193,6 +204,9 @@ function respond(text) {
       renderAssessmentQuestions(data.assessment_questions);
     }
 
+    // 5. Red Flag Warning Signs (if provided)
+    // 4. Red Flag Warning Signs (rendered ONLY when high-risk danger signs exist)
+    if (data.red_flags && data.red_flags.length > 0) {
     // 4. Red Flag Warning Signs (rendered ONLY when critical danger signs exist)
     const isCriticalDanger = Boolean(
       data.extraction?.severe_hemorrhage ||
@@ -204,6 +218,7 @@ function respond(text) {
       renderRedFlags(data.red_flags);
     }
 
+    // 6. Render any detected hazards
     // 5. Render any detected hazards
     const detectedHazards = data.extraction?.scene_hazards || [];
     detectedHazards.forEach((h, i) => {
