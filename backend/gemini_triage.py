@@ -34,45 +34,46 @@ _SESSION = requests.Session()
 
 SYSTEM_INSTRUCTION = """
 You are the ResQ Emergency Intelligence Engine, serving as an interactive, deeply empathetic clinical triage assistant in Nigeria under the IEEE Response Quest Challenge 2026.
-You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (e.g. START triage, Ottawa Rules).
+You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (such as START triage and Ottawa Rules).
 
-CORE CLINICAL PRINCIPLES:
-1. EMPATHETIC, CALMING REASSURANCE (reassurance_message):
-   - You are the calm, compassionate anchor guiding someone through a frightening crisis.
-   - Speak with grounding warmth, emotional presence, and clarity.
-   - NEVER use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be frozen in shock or has not yet started).
-   - Instead, offer emotional anchoring and presence:
-     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me — you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
-   - When the user answers an assessment question, weave their answer warmly into the conversation:
-     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further damage."
-   - Vary your reassurance naturally from turn to turn so it feels genuine, responsive, and comforting.
-CRITICAL CONVERSATIONAL AND PUNCTUATION RULES:
+CORE CLINICAL AND CONVERSATIONAL PRINCIPLES:
 1. STRICT PUNCTUATION RULE (ZERO DASHES):
    - NEVER use dashes, hyphens, em-dashes, or en-dashes (— or – or -) as punctuation in your sentences.
    - Always construct clean, natural, complete English sentences using commas, periods, or semicolons instead.
 
-2. ADAPTIVE, CONVERSATIONAL INTELLIGENCE:
-   - Do NOT output action steps, multiple-choice questions, or red flags on every single turn.
-   - You must intelligently deduce what is needed for each specific interaction:
-     * NATURAL CONVERSATION: If the user is answering a previous question, asking for clarification, sharing an update, feeling frightened, or just talking, reply conversationally and warmly in 'reassurance_message'. In purely conversational turns, keep 'first_aid_steps': [] and 'assessment_questions': [].
-     * ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now. If they already know what to do or are just talking, keep 'first_aid_steps': [].
-     * MULTIPLE-CHOICE QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when you genuinely need more clinical clarity to determine care. When you already have enough information or are guiding ongoing care, keep 'assessment_questions': [].
-     * RED FLAGS ('red_flags'): ONLY provide red flags when there is a risk of acute life or limb threat. For mild cases or conversational turns, keep 'red_flags': [].
+2. CONCISE, CALMING REASSURANCE (reassurance_message):
+   - Keep your message short, comforting, and emotionally grounding (1 to 2 short sentences maximum).
+   - Do NOT lecture the user about medical issues, diagnoses, or clinical mechanisms in the chat.
+   - Just focus on keeping the caller calm, grounded, and reassured that they are not alone.
+   - NEVER use robotic phrases like "Keep doing exactly what you are doing".
+   - Examples of good reassurance:
+     "Help is actively on the way to your location. Take a slow, gentle breath with me, you are doing well, and I will stay right beside you until the medical team arrives."
+     "Thank you for checking that so quickly. Take a deep breath, keep him comfortable, and I am right here with you."
 
-3. EMPATHETIC, GROUNDING REASSURANCE (reassurance_message):
-   - Speak with calming warmth, emotional grounding, and clarity.
-   - Never use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be in shock or doing nothing yet).
-   - Instead, offer genuine presence:
-     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me, you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
-   - When the user answers an assessment question, acknowledge their answer warmly:
-     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further strain."
+3. INTELLIGENT STEP DEDUCTION (first_aid_steps):
+   - It is NOT every time that you should show steps. Sometimes just talk with the user until they are ready.
+   - If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [].
+   - ONLY output action steps when there are concrete, immediate physical actions the bystander needs to take right now (such as applying firm direct pressure to heavy bleeding or clearing an obstructed airway).
 
-4. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
-   - Explain the physiological mechanism in plain, accessible language without technical jargon.
-   - Weave your explanation naturally so the bystander understands why each precaution matters.
+4. TARGETED ASSESSMENT QUESTIONS (assessment_questions):
+   - When assessing acute trauma or injury where functional capacity (such as weight-bearing or breathing) is not yet verified, include 1 targeted multiple-choice question with 2 to 3 simple options to assess severity.
+   - For general conversation, fear reassurance, or once screening is done, keep 'assessment_questions': [].
 
-5. LANGUAGE AND CONTEXT:
-   - Fluently understand Nigerian Pidgin (e.g., 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local vernacular, but formulate ALL output in clear, universally understood, comforting English.
+5. SELECTIVE RED FLAGS (red_flags):
+   - Do NOT show red flags on ordinary or conversational turns.
+   - Keep 'red_flags': [] for all general conversations, sprains, moderate injuries, and check-ins.
+   - ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding).
+
+6. DISPATCH TIMING AND ETA AWARENESS:
+   - When the user asks about responders arriving, how long it will take, or where the ambulance is, reassure them warmly.
+   - Use comforting conversational approximations such as "in less than 5 minutes" or "in just a few minutes, help is very close" rather than rigid mechanical numbers.
+
+6. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
+   - Summarize the underlying clinical mechanism for dispatch and responder records.
+   - Keep it professional and clear with zero dashes.
+
+7. LANGUAGE AND BOUNDARIES:
+   - Fluently understand Nigerian Pidgin (such as 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local context, while answering in clear, calming English.
    - STRICT BOUNDARY: Never provide definitive medical diagnoses or prescribe medications.
 
 OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
@@ -84,8 +85,8 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "ankle sprain"],
-  "reassurance_message": "Warm, grounding, empathetic answer acknowledging their specific situation, reassuring them that responders are en route, and offering compassionate presence with zero dashes",
-  "clinical_synthesis": "Plain-language clinical explanation of mechanism and physiology with zero dashes",
+  "reassurance_message": "Short, warm, calming message keeping the user calm with zero dashes",
+  "clinical_synthesis": "Brief clinical mechanism for responder records with zero dashes",
   "first_aid_steps": [ordered list of actionable instructions, or empty list if none needed right now],
   "assessment_questions": [list containing at most 1 question with options, or empty list if none needed right now],
   "red_flags": [list of high-risk warning signs, or empty list if none needed right now]
@@ -114,26 +115,27 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
 def extract_telemetry_and_guidance(
     bystander_text: str,
     scene_photo_base64: Optional[str] = None,
-    history: Optional[List[Dict[str, Any]]] = None
+    history: Optional[List[Dict[str, Any]]] = None,
+    eta_seconds: Optional[int] = None
 ) -> Dict[str, Any]:
     """
-    Ingests bystander voice/text message, optional photo, and multi-turn conversation history,
+    Ingests bystander voice/text message, optional photo, multi-turn conversation history, and live ETA,
     returning structured telemetry, clinical synthesis, protocol first aid, assessment questions, and red flags.
     """
     text = (bystander_text or "").strip()
     if not text and not scene_photo_base64:
-        return _fallback_heuristic_parser("Emergency assistance requested", history=history)
+        return _fallback_heuristic_parser("Emergency assistance requested", history=history, eta_seconds=eta_seconds)
 
     # If API key is present, attempt live call to Gemini
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if api_key:
         try:
-            return _call_gemini_text(text, api_key, scene_photo_base64, history=history)
+            return _call_gemini_text(text, api_key, scene_photo_base64, history=history, eta_seconds=eta_seconds)
         except Exception as e:
             print(f"[GeminiEngine] API call failed ({e}). Engaging calibrated fallback parser.")
 
     # Graceful offline/local heuristic fallback engine
-    return _fallback_heuristic_parser(text, history=history)
+    return _fallback_heuristic_parser(text, history=history, eta_seconds=eta_seconds)
 
 
 def analyze_scene_photo(photo_bytes: bytes, mime_type: str = "image/jpeg") -> Dict[str, Any]:
@@ -156,9 +158,10 @@ def _call_gemini_text(
     text: str,
     api_key: str,
     photo_b64: Optional[str] = None,
-    history: Optional[List[Dict[str, Any]]] = None
+    history: Optional[List[Dict[str, Any]]] = None,
+    eta_seconds: Optional[int] = None
 ) -> Dict[str, Any]:
-    """Calls Google Gemini generateContent endpoint across supported candidate models with multi-turn context."""
+    """Calls Google Gemini generateContent endpoint across supported candidate models with multi-turn context and ETA awareness."""
     contents: List[Dict[str, Any]] = []
 
     # Prepend previous turns from conversation history
@@ -187,9 +190,15 @@ def _call_gemini_text(
         "parts": current_parts
     })
 
+    system_text = SYSTEM_INSTRUCTION
+    if eta_seconds is not None:
+        eta_minutes = max(1, round(eta_seconds / 60))
+        time_desc = "in less than 5 minutes" if eta_minutes <= 5 else f"in less than {eta_minutes} minutes"
+        system_text += f"\n\nCURRENT DISPATCH TIMING CONTEXT:\nThe emergency response unit is en route. Current estimated arrival time is approximately {eta_minutes} minutes ({time_desc}). If the user asks when help is arriving, how long it will take, or where the responders are, reassure them warmly using comforting conversational phrasing such as '{time_desc}, help is very close' rather than quoting exact timestamps."
+
     payload = {
         "system_instruction": {
-            "parts": [{"text": SYSTEM_INSTRUCTION}]
+            "parts": [{"text": system_text}]
         },
         "contents": contents,
         "generationConfig": {
@@ -295,12 +304,69 @@ def _validate_schema(data: Dict[str, Any], raw_text: str) -> Dict[str, Any]:
     }
 
 
-def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+def _fallback_heuristic_parser(
+    text: str,
+    history: Optional[List[Dict[str, Any]]] = None,
+    eta_seconds: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Intelligent local heuristic parser supporting English and Nigerian Pidgin.
     Operates offline or when API keys are absent.
     """
     lower = text.lower()
+
+    # Casualties count extraction
+    casualties = 1
+    num_match = re.search(r"\b(two|three|four|five|2|3|4|5|6|7|8)\b", lower)
+    if num_match:
+        word = num_match.group(1)
+        word_map = {"two": 2, "three": 3, "four": 4, "five": 5}
+        casualties = word_map.get(word, int(word) if word.isdigit() else 1)
+
+    # Environmental / Scene Hazards
+    hazards = []
+    if any(k in lower for k in ["fuel", "petrol", "gasoline", "diesel", "leak"]):
+        hazards.append("fuel_leak")
+    if any(k in lower for k in ["fire", "flame", "burning", "smoke"]):
+        hazards.append("vehicle_fire")
+    if any(k in lower for k in ["wire", "cable", "electric", "power line"]):
+        hazards.append("live_wire")
+    if any(k in lower for k in ["flood", "water", "river", "culvert", "drowning"]):
+        hazards.append("flood_water")
+    if any(k in lower for k in ["crowd", "mob", "people rushing"]):
+        hazards.append("aggressive_crowd")
+    if any(k in lower for k in ["snake", "bite"]):
+        hazards.append("venomous_snake")
+
+    # Suspected Trauma
+    trauma = []
+    is_sprain_or_joint = any(k in lower for k in ["ankle", "sprain", "twisted", "joint", "twist", "foot", "jogging", "limp", "limping"])
+
+    # 1. Dispatch timing / ETA check
+    asking_eta = bool(re.search(
+        r"\b(when|how long|where is|where are|ambulance|coming|reach|arrive|how many minutes|far|time|still coming|en route|how far|shey dem dey come)\b",
+        lower
+    ))
+    if asking_eta:
+        eta_mins = max(1, round((eta_seconds or 720) / 60))
+        time_phrase = "in less than 5 minutes" if eta_mins <= 5 else f"in less than {eta_mins} minutes"
+        reassurance = f"The response unit is actively on the way and should reach your location {time_phrase}. Take a gentle breath with me, you are doing well, and I will stay right here beside you until they arrive."
+        return {
+            "unresponsive": False,
+            "severe_hemorrhage": False,
+            "airway_compromise": False,
+            "entrapment": False,
+            "casualties_count": casualties,
+            "scene_hazards": hazards,
+            "suspected_trauma": trauma,
+            "first_aid_steps": [],
+            "reassurance_message": reassurance,
+            "clinical_synthesis": "Bystander requested estimated responder arrival time. Reassurance provided.",
+            "assessment_questions": [],
+            "red_flags": [],
+            "source": "resq_local_heuristic_engine",
+            "raw_input": text
+        }
 
     # Consciousness / Responsiveness
     unresponsive_keywords = [
@@ -331,32 +397,6 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
     ]
     entrapment = any(kw in lower for kw in entrapment_keywords)
 
-    # Casualties count extraction
-    casualties = 1
-    num_match = re.search(r"\b(two|three|four|five|2|3|4|5|6|7|8)\b", lower)
-    if num_match:
-        word = num_match.group(1)
-        word_map = {"two": 2, "three": 3, "four": 4, "five": 5}
-        casualties = word_map.get(word, int(word) if word.isdigit() else 1)
-
-    # Environmental / Scene Hazards
-    hazards = []
-    if any(k in lower for k in ["fuel", "petrol", "gasoline", "diesel", "leak"]):
-        hazards.append("fuel_leak")
-    if any(k in lower for k in ["fire", "flame", "burning", "smoke"]):
-        hazards.append("vehicle_fire")
-    if any(k in lower for k in ["wire", "cable", "electric", "power line"]):
-        hazards.append("live_wire")
-    if any(k in lower for k in ["flood", "water", "river", "culvert", "drowning"]):
-        hazards.append("flood_water")
-    if any(k in lower for k in ["crowd", "mob", "people rushing"]):
-        hazards.append("aggressive_crowd")
-    if any(k in lower for k in ["snake", "bite"]):
-        hazards.append("venomous_snake")
-
-    # Suspected Trauma
-    trauma = []
-    is_sprain_or_joint = any(k in lower for k in ["ankle", "sprain", "twisted", "joint", "twist", "foot", "jogging", "limp", "limping"])
     if "head" in lower or unresponsive:
         trauma.append("head injury / traumatic brain injury")
     if severe_hemorrhage:
@@ -368,8 +408,31 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
     if airway_compromise:
         trauma.append("respiratory arrest / compromised airway")
 
-    # Protocol-constrained step-by-step guidance (WHO / Red Cross)
-    # Intelligently deduce if user is directly answering a multiple-choice option or acknowledging
+    # 2. Emotional / Conversational check (talk with user till ready, no steps)
+    is_conversational_or_fear = bool(re.search(
+        r"\b(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|i am here|what should i do|don'?t know|frightened|terrified|worried|calm down)\b",
+        lower
+    ))
+    if is_conversational_or_fear and not (severe_hemorrhage or unresponsive or airway_compromise):
+        reassurance = "Take a slow, gentle breath with me. You are safe, help is already moving toward your location, and I am right here beside you. Whenever you feel ready, let me know what you can see."
+        return {
+            "unresponsive": False,
+            "severe_hemorrhage": False,
+            "airway_compromise": False,
+            "entrapment": False,
+            "casualties_count": casualties,
+            "scene_hazards": hazards,
+            "suspected_trauma": trauma,
+            "first_aid_steps": [],
+            "reassurance_message": reassurance,
+            "clinical_synthesis": "Bystander anxiety and emotional grounding support.",
+            "assessment_questions": [],
+            "red_flags": [],
+            "source": "resq_local_heuristic_engine",
+            "raw_input": text
+        }
+
+    # Protocol-constrained step-by-step guidance
     is_answering_option = lower.startswith(("a.", "b.", "c.", "option a", "option b", "option c", "done", "finished", "thank you", "thanks"))
 
     steps = []
@@ -386,29 +449,20 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
             steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
             steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
 
-        if is_sprain_or_joint:
-            steps.append("Protection and Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
-            steps.append("Ice and Compression: Apply a cold pack wrapped in cloth for 15 to 20 minutes, and wrap with comfortable elastic support.")
-            steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
-
         if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
             steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
 
-        if not steps:
-            steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
-            steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
-
-    # Contextual Clinical Synthesis
+    # Contextual Clinical Synthesis for responder records
     if is_sprain_or_joint:
-        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Weight-bearing capacity provides initial clinical screening under Ottawa Decision Rules."
+        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Ottawa rules apply."
     elif severe_hemorrhage:
-        synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure is mandatory to initiate haemostasis and prevent hypovolemic shock."
+        synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure required."
     elif unresponsive:
-        synthesis = "Altered mental status or unconsciousness detected. Maintaining a patent airway and strict cervical spine alignment are the highest clinical priorities."
+        synthesis = "Altered mental status or unconsciousness detected. Airway management is prioritized."
     else:
-        synthesis = "Initial emergency triage assessment in progress. Immediate protocol steps focus on scene stabilization and continuous monitoring."
+        synthesis = "Emergency triage assessment in progress. Continuous monitoring."
 
-    # Interactive Assessment Questions: ONLY ask when assessing symptoms, never when user just answered
+    # Interactive Assessment Questions: ONLY ask when assessing acute physical state
     questions = []
     if not is_answering_option:
         if is_sprain_or_joint:
@@ -444,40 +498,38 @@ def _fallback_heuristic_parser(text: str, history: Optional[List[Dict[str, Any]]
     if not is_answering_option:
         if is_sprain_or_joint:
             red_flags = [
-                "Complete inability to bear weight or take 4 steps immediately",
-                "Severe bone tenderness directly over the malleolus (outer or inner ankle bone)",
-                "Visible joint deformity, skin discoloration, or numbness/coldness in the toes"
+                "Complete inability to bear weight or take four steps immediately",
+                "Severe bone tenderness directly over the outer or inner ankle bone"
             ]
         elif severe_hemorrhage:
             red_flags = [
                 "Continuous arterial spurting despite firm two-hand direct pressure",
-                "Signs of hypovolemic shock: pale/clammy skin, confusion, or rapid shallow breathing"
+                "Signs of hypovolemic shock: pale cold skin, confusion, or rapid shallow breathing"
             ]
-        elif unresponsive:
+        elif unresponsive and airway_compromise:
             red_flags = [
-                "Cessation of breathing or irregular agonal breathing",
-                "Unequal pupils, seizures, or clear fluid draining from nose or ears"
+                "Cessation of breathing or irregular agonal breathing"
             ]
 
     # Reassurance message in clear, calming, empathetic English with zero dashes
     if is_answering_option:
         if is_sprain_or_joint:
-            reassurance = "Emergency responders have been notified and are actively on their way. Thank you for checking so quickly. Keeping that joint rested, supported, and completely elevated is the most important thing you can do until the medical crew reaches you."
+            reassurance = "Thank you for checking that. Keep the joint rested, comfortable, and elevated, and I will stay right here with you until help arrives."
         elif severe_hemorrhage:
-            reassurance = "Emergency responders have been notified and are speeding to your location. Keep that firm direct pressure held steadily without letting go, and I am right here keeping you focused until the medics arrive."
+            reassurance = "Thank you for holding that pressure. Keep both hands pressed firmly in place, take a deep breath, and I am right here with you."
         elif unresponsive:
-            reassurance = "Emergency responders have been notified and are en route. Continue watching their chest gently rise and fall to ensure their breathing stays steady, and I will stay right beside you until help arrives."
+            reassurance = "Thank you for staying close. Keep watching their chest gently rise and fall, and I will stay right beside you until the crew arrives."
         else:
-            reassurance = "Emergency responders have been notified and are on their way. You are doing a wonderful job staying calm and alert, and I will stay right here with you until the team arrives."
+            reassurance = "You are doing well. Take a slow, gentle breath, and I will stay right here with you until help arrives."
     else:
         if is_sprain_or_joint:
-            reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, steady breath with me, you are not alone, and I am right here beside you to guide you and protect that joint until the medical team arrives."
+            reassurance = "Emergency responders have been notified and are actively on the way. Take a slow breath, keep that leg rested and elevated, and I am right here with you."
         elif severe_hemorrhage:
-            reassurance = "Emergency responders have been notified and are speeding toward your exact location. Stay right beside them, maintain continuous firm pressure, and I will be here with you through every single breath until the crew arrives."
+            reassurance = "Emergency responders are speeding toward your location. Stay right beside them, maintain steady pressure, and I will stay with you every second."
         elif unresponsive:
-            reassurance = "Emergency responders have been notified and are on their way to you. Stay calm and stay close, keep their airway open, and I am right here walking beside you through every step until the paramedics arrive."
+            reassurance = "Emergency responders are on the way to you. Stay calm and keep their airway open, and I will guide you through every moment until they arrive."
         else:
-            reassurance = "Emergency responders have been notified and are actively en route to your location. Take a slow, gentle breath, you are doing the right thing, and I will stay right here to guide you until help arrives."
+            reassurance = "Emergency responders have been notified and are on the way. Take a slow, gentle breath with me, you are not alone, and I am right here with you."
 
     return {
         "unresponsive": unresponsive,

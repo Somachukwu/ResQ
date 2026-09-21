@@ -145,7 +145,8 @@ function respond(text) {
       lat: state.coords?.lat,
       lng: state.coords?.lng,
       incident_uuid: state.incidentUuid,
-      history: state.chatHistory.slice(0, -1)
+      history: state.chatHistory.slice(0, -1),
+      eta_seconds: state.etaSeconds
     })
   })
   .then((res) => {
@@ -163,19 +164,14 @@ function respond(text) {
       state.chatHistory.push({ role: "model", text: data.reassurance_message });
     }
 
-    // 1. Natural Conversational Response (with integrated clinical insight if provided)
-    let replyText = data.reassurance_message || "";
-    if (data.clinical_synthesis && !replyText.includes(data.clinical_synthesis)) {
-      replyText = replyText ? `${replyText}\n\n${data.clinical_synthesis}` : data.clinical_synthesis;
-    }
-    if (replyText) {
-      say("resq", replyText);
-    }
+    // 1. Natural Conversational Response (concise, calming, and emotionally supportive)
+    const replyText = data.reassurance_message || "I am right here with you. Take a slow, gentle breath.";
+    say("resq", replyText);
 
-    // 2. Action Steps: ONLY rendered when the AI or protocol explicitly dictates immediate physical actions
+    // 2. Action Steps: ONLY rendered when the AI explicitly provides first_aid_steps
     const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
-      : (matchProtocols(text)[0]?.steps || []);
+      : [];
 
     if (steps.length > 0) {
       const traumaTitles = data.extraction?.suspected_trauma?.length
@@ -197,13 +193,18 @@ function respond(text) {
       renderAssessmentQuestions(data.assessment_questions);
     }
 
-    // 5. Red Flag Warning Signs (if provided)
-    // 4. Red Flag Warning Signs (rendered ONLY when high-risk danger signs exist)
-    if (data.red_flags && data.red_flags.length > 0) {
+    // 4. Red Flag Warning Signs (rendered ONLY when critical danger signs exist)
+    const isCriticalDanger = Boolean(
+      data.extraction?.severe_hemorrhage ||
+      data.extraction?.unresponsive ||
+      data.extraction?.airway_compromise ||
+      (data.triage && (data.triage.triage_tier === "IMMEDIATE" || data.triage.rsi_score >= 8))
+    );
+    if (isCriticalDanger && data.red_flags && Array.isArray(data.red_flags) && data.red_flags.length > 0) {
       renderRedFlags(data.red_flags);
     }
 
-    // 6. Render any detected hazards
+    // 5. Render any detected hazards
     const detectedHazards = data.extraction?.scene_hazards || [];
     detectedHazards.forEach((h, i) => {
       if (!state.hazards.includes(h)) {
@@ -217,6 +218,23 @@ function respond(text) {
   .catch((err) => {
     console.warn("[Civilian] Backend chat request failed, engaging local offline protocol engine:", err);
     thinking.remove();
+
+    const lower = text.toLowerCase();
+    const isAskingEta = /(when|how long|where|arrive|reach|ambulance|responder|minutes|far|coming)/.test(lower);
+    if (isAskingEta) {
+      const mins = Math.max(1, Math.round(state.etaSeconds / 60));
+      const phrase = mins <= 5 ? "in less than 5 minutes" : `in less than ${mins} minutes`;
+      say("resq", `The emergency unit is traveling as fast as possible and will be with you ${phrase}. Take a gentle breath, I will stay right here with you until they arrive.`);
+      dispatchResponder();
+      return;
+    }
+
+    const isFearOrChat = /(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|don't know|dont know|calm down)/.test(lower);
+    if (isFearOrChat) {
+      say("resq", "Take a slow, gentle breath with me. You are safe, help is already on the way, and I am right here beside you. Whenever you feel ready, tell me what you see.");
+      dispatchResponder();
+      return;
+    }
 
     // Local offline heuristic fallback
     const protocols = matchProtocols(text);
