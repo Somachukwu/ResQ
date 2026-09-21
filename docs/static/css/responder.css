@@ -1,0 +1,989 @@
+/* Responder tactical cockpit brief — restrained brand colors, critical icons, pro CAD aesthetic */
+
+body.responder {
+  margin: 0;
+  padding: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.responder-app {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   1. CONDITION DOTS & CRITICAL ICONS
+   ========================================================================== */
+.cond-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.cond-dot--red {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+.cond-dot--orange {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+}
+.cond-dot--green {
+  background: var(--teal-bright);
+}
+
+.crit-icon {
+  flex-shrink: 0;
+  transition: transform 140ms var(--ease);
+}
+.crit-icon--red {
+  color: #ef4444 !important;
+}
+.crit-icon--orange {
+  color: #f97316 !important;
+}
+.crit-icon--teal {
+  color: var(--teal-bright) !important;
+}
+
+.status-indicator-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.status-indicator-tag--red {
+  border-color: color-mix(in srgb, #ef4444 35%, var(--line));
+}
+
+.crit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.crit-badge--red {
+  color: #ef4444;
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
+}
+
+/* ==========================================================================
+   2. TOP COMMAND BAR (48px Sleek Tactical Header)
+   ========================================================================== */
+.r-header {
+  height: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+  position: relative;
+  z-index: 100;
+}
+
+.r-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.r-header .resq-mark__img { width: 24px; height: 24px; }
+.r-header .resq-mark__name { font-size: 15px; font-weight: 600; }
+.r-header .resq-mark__sub { font-size: 12px; color: var(--text-3); }
+
+.badge--unit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  color: var(--teal-bright);
+}
+
+.r-header__center {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.telemetry {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 12px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+.telemetry.is-live {
+  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
+  color: var(--text);
+}
+
+.r-radio-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.r-radio-status svg { color: var(--teal-bright); }
+
+.r-header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Compact Buttons in topbar */
+.btn--compact {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 11px;
+  font-size: 12.5px;
+  gap: 6px;
+  border-radius: var(--r-pill);
+}
+.btn--icon-only {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  transition: all 140ms var(--ease);
+}
+.btn--icon-only:hover {
+  border-color: var(--teal);
+  color: var(--text);
+}
+.btn--icon-only svg { width: 14px; height: 14px; }
+
+.r-header .theme-toggle {
+  width: 44px;
+  height: 26px;
+  padding: 2px;
+}
+.r-header .theme-toggle__thumb {
+  width: 20px;
+  height: 20px;
+  top: 2px;
+  left: 2px;
+}
+[data-theme="dark"] .r-header .theme-toggle__thumb {
+  transform: translateX(18px);
+}
+.r-header .theme-toggle__icon { width: 20px; height: 20px; }
+.r-header .theme-toggle__icon svg { width: 12px; height: 12px; }
+
+.hidden { display: none !important; }
+
+/* Mobile elements hidden on desktop */
+.mobile-responder-strip,
+.mobile-responder-nav,
+.mobile-dock {
+  display: none;
+}
+
+/* ==========================================================================
+   3. DESKTOP COCKPIT WORKSPACE (100vh Multi-Pane Grid)
+   ========================================================================== */
+.responder-workspace {
+  display: grid;
+  grid-template-columns: minmax(330px, 1fr) minmax(330px, 1fr) minmax(350px, 1.1fr);
+  height: calc(100dvh - 48px);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.r-pane {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  background: var(--canvas);
+}
+.r-pane:not(:last-child) {
+  border-right: 1px solid var(--line);
+}
+
+/* Neutral Surfaces for All Cards */
+.r-card,
+.block,
+.victim-counter-card,
+.destination,
+.stage-control-card,
+.statuslog-card,
+.route,
+.alert {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-sizing: border-box;
+  transition: border-color 140ms var(--ease);
+}
+
+.block__label,
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Incident Header Card & ETA Layout --- */
+.r-card--incident {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.incident-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.incident-titles {
+  flex: 1;
+  min-width: 0;
+}
+.mission__trauma {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  margin: 0;
+}
+.mission__where {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin: 5px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.35;
+}
+.mission__where svg { color: var(--text-3); flex-shrink: 0; width: 15px; height: 15px; }
+
+/* Dedicated prominent ETA Countdown Card */
+.countdown-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--teal) 10%, var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  flex-shrink: 0;
+  min-width: 96px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.countdown-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  line-height: 1;
+}
+.countdown-val {
+  font-size: 23px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--teal-bright);
+  line-height: 1.15;
+  margin: 3px 0 1px 0;
+}
+.countdown-unit {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+  line-height: 1;
+}
+
+/* --- Victim Counter Matrix / Report Card (Requirement 2) --- */
+.victim-counter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.victim-counter-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.victim-caption-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.victim-counter-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.victim-count-badge {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  line-height: 1.2;
+}
+.victim-counter-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.victim-counter-status {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.victim-counter-sub {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.4;
+  display: block;
+}
+
+/* --- Safety Alerts --- */
+.alerts-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 11px 13px;
+}
+.alert__label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  margin: 0 0 3px 0;
+}
+.alert__text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+
+/* --- Route Guidance & Done Lists (Requirement 5: Identical listing format) --- */
+.done-list {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.done-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.done-list svg {
+  width: 16px;
+  height: 16px;
+  color: var(--teal-bright);
+  flex-shrink: 0;
+}
+
+/* Route-list uses the exact same listing format as bystander actions with distinct turn icons and distance pill */
+.route-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+.route-list svg {
+  width: 16px;
+  height: 16px;
+  color: var(--teal-bright);
+  flex-shrink: 0;
+}
+.route-list__text {
+  flex: 1;
+  min-width: 0;
+}
+.route-list__dist {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+}
+
+/* --- Clinical & Bystander Block --- */
+.block {
+  padding: 12px 14px;
+}
+
+/* Victim Profiles Grid */
+.victim-profiles-grid {
+  display: grid;
+  gap: 10px;
+}
+.victim-card {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.victim-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.victim-condition-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.victim-card__eta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.victim-card__demo {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+.victim-card__clinical {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Contact Card */
+.block--contact {
+  background: var(--surface-2);
+}
+.block__head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.block__value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 5px 0 3px 0;
+}
+.block__note {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* --- Hospital Destination (Pane 3) --- */
+.destination {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.destination__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.destination__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+.destination__eta {
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--teal-bright);
+}
+.destination__caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.facility-cap-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  color: var(--teal-bright);
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+}
+.destination__why {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin: 2px 0 0 0;
+}
+
+/* Acknowledge button */
+.ack-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 140ms var(--ease);
+  margin-top: 4px;
+}
+.ack-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal-bright);
+}
+.ack-btn.is-acked {
+  background: color-mix(in srgb, var(--teal) 18%, var(--surface));
+  border-color: var(--teal);
+  color: var(--teal-bright);
+}
+.ack-btn svg { flex-shrink: 0; }
+
+/* Stage Control */
+.stage-control-card {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stages {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+.stage-btn {
+  height: 32px;
+  min-height: 32px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 140ms var(--ease);
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+}
+.stage-btn:hover {
+  border-color: var(--teal);
+  color: var(--text);
+}
+.stage-btn.is-active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Cockpit Action Buttons (Navigate & Call scene enhanced in web view) */
+.cockpit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cockpit-actions .btn {
+  height: 44px;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+.cockpit-actions .btn svg { width: 17px; height: 17px; flex-shrink: 0; }
+.btn--action-nav {
+  background: var(--teal);
+  color: #ffffff;
+  border: 1px solid var(--teal);
+}
+.btn--action-nav:hover {
+  background: color-mix(in srgb, var(--teal) 85%, #ffffff);
+}
+.btn--action-call {
+  background: var(--amber);
+  color: #1a1a1a;
+  border: 1px solid var(--amber);
+}
+.btn--action-call:hover {
+  background: color-mix(in srgb, var(--amber) 85%, #ffffff);
+}
+
+/* Status Log */
+.statuslog-card {
+  padding: 12px 14px;
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.statuslog {
+  flex: 1;
+  min-height: 75px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-sunk);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+}
+.statuslog__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--text-3);
+  margin: 0;
+  line-height: 1.45;
+}
+.statuslog__row b { color: var(--text-2); font-weight: 500; }
+
+/* ==========================================================================
+   4. MOBILE COCKPIT AUDIT & FIX (≤ 860px)
+   ========================================================================== */
+@media (max-width: 860px) {
+  .responder-app {
+    grid-template-rows: 44px auto auto minmax(0, 1fr) 52px;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Clean, decluttered topbar on mobile */
+  .r-header {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .r-header__left {
+    gap: 8px;
+    min-width: 0;
+  }
+  .r-header .resq-mark__img { width: 22px; height: 22px; }
+  .r-header .resq-mark__name { font-size: 14px; }
+  .r-header .resq-mark__sub {
+    display: none;
+  }
+  .badge--unit-status,
+  .status-indicator-tag,
+  .r-header__center {
+    display: none !important;
+  }
+  .r-header__right {
+    gap: 8px;
+  }
+
+  /* Mobile Hero Summary Strip (Single glance status) */
+  .mobile-responder-strip {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .m-strip__main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .m-strip__trauma {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .m-strip__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .m-strip__metrics {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .m-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    min-width: 44px;
+  }
+  .m-metric__val {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--teal-bright);
+    line-height: 1.1;
+  }
+  .m-metric__lbl {
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+  }
+
+  .m-strip__alert {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    line-height: 1.35;
+  }
+  .m-strip__alert svg { flex-shrink: 0; }
+
+  /* Mobile Segmented Tab Navigation */
+  .mobile-responder-nav {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 8px;
+    gap: 5px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+  .m-nav-tab {
+    flex: 1;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-3);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all 140ms var(--ease);
+    padding: 0 4px;
+  }
+  .m-nav-tab svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .m-nav-tab.is-active {
+    background: color-mix(in srgb, var(--teal) 15%, transparent);
+    color: var(--teal-bright);
+    border-color: var(--teal);
+  }
+
+  /* Single Pane Mode on Mobile */
+  .responder-workspace {
+    display: block !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  .r-pane {
+    display: none !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    padding: 10px 12px calc(64px + env(safe-area-inset-bottom)) !important;
+    border-right: none !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+  }
+
+  /* Hide duplicate countdown card on mobile because ETA is in the hero strip */
+  .incident-main-row .countdown-card {
+    display: none;
+  }
+
+  /* Active Tab Controls */
+  .responder-workspace[data-active-tab="route"] #paneNavigation {
+    display: flex !important;
+  }
+  .responder-workspace[data-active-tab="patients"] #paneClinical {
+    display: flex !important;
+  }
+  .responder-workspace[data-active-tab="hospital"] #paneHospital {
+    display: flex !important;
+  }
+
+  /* Mobile Bottom Quick Action Dock */
+  .mobile-dock {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    height: 52px;
+    box-sizing: border-box;
+    z-index: 90;
+  }
+  .mobile-dock .btn {
+    height: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--r-pill);
+  }
+  .mobile-dock .btn svg { width: 15px; height: 15px; }
+  .mobile-dock #mobileNavBtn {
+    background: var(--teal);
+    color: #ffffff;
+    border: 1px solid var(--teal);
+  }
+  .mobile-dock #mobileCallBtn {
+    background: var(--amber);
+    color: #1a1a1a;
+    border: 1px solid var(--amber);
+  }
+
+  /* In mobile, hide the desktop-only cockpit actions in Pane 3 */
+  #paneHospital .cockpit-actions {
+    display: none;
+  }
+}

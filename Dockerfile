@@ -20,3 +20,4 @@ EXPOSE 5000
 
 # Execute multi-threaded Gunicorn binding to dynamically assigned $PORT
 CMD ["sh", "-c", "gunicorn -k gthread --threads 100 --workers 1 --bind 0.0.0.0:${PORT:-5000} app:app"]
+

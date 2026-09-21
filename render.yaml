@@ -19,3 +19,4 @@ services:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
+

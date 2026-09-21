@@ -1,0 +1,1663 @@
+/* Dispatcher GIS command center — pro-grade tactical aesthetic */
+
+body.dispatcher {
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+.cmd {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+/* ---------- Top bar (48px sleek header — Requirement 3) ---------- */
+.topbar {
+  min-height: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  position: relative;
+  z-index: 2000;
+  box-sizing: border-box;
+}
+.topbar__left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.topbar__right { display: flex; align-items: center; gap: 8px; }
+
+.topbar .resq-mark__img { width: 24px; height: 24px; }
+.topbar .resq-mark__name { font-size: 14px; }
+.topbar .resq-mark__sub { font-size: 11px; color: var(--text-3); }
+
+/* Full KPI strip (desktop) */
+.kpis { display: flex; gap: 12px; min-width: 0; align-items: center; }
+.kpi { display: inline-flex; align-items: baseline; gap: 5px; flex-shrink: 0; }
+.kpi__val { font-size: 14px; font-variant-numeric: tabular-nums; line-height: 1; font-weight: 500; }
+.kpi__label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.kpi--alert .kpi__val { color: var(--amber); }
+
+/* Compact buttons in topbar */
+.btn--compact {
+  min-height: 30px;
+  height: 30px;
+  padding: 0 11px;
+  font-size: 12px;
+  gap: 6px;
+  border-radius: var(--r-pill);
+}
+.btn--icon-only {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--r-pill);
+}
+.btn--icon-only svg { width: 14px; height: 14px; }
+
+.topbar .theme-toggle {
+  width: 46px;
+  height: 26px;
+  padding: 2px;
+}
+.topbar .theme-toggle__thumb {
+  width: 20px;
+  height: 20px;
+  top: 2px;
+  left: 2px;
+}
+[data-theme="dark"] .topbar .theme-toggle__thumb {
+  transform: translateX(20px);
+}
+.topbar .theme-toggle__icon {
+  width: 20px;
+  height: 20px;
+}
+.topbar .theme-toggle__icon svg { width: 12px; height: 12px; }
+
+/* ---------- Weather widget in Topbar (Requirement 1 & 9) ---------- */
+.topbar-weather {
+  position: relative;
+  display: flex;
+  align-items: center;
+  z-index: 2001;
+}
+.weather-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  height: 30px;
+  font-size: 12px;
+  color: var(--text);
+  box-sizing: border-box;
+  box-shadow: none !important;
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.weather-pill:hover,
+.weather-pill.is-open {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.weather-pill__icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.weather-pill__icon svg { width: 16px; height: 16px; }
+.weather-pill__temp {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.weather-pill__cond {
+  font-size: 11px;
+  color: var(--text-2);
+}
+.badge--escalation {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  text-transform: uppercase;
+}
+.badge--escalating {
+  background: color-mix(in srgb, var(--amber) 15%, transparent);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.badge--steady {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.weather-collapse-btn {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 200ms var(--ease);
+}
+.weather-pill.is-open .weather-collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Floating Dropdown Card below topbar weather pill (Centered with high z-index) */
+.weather-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2100;
+  width: 290px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slide-down 180ms var(--ease);
+}
+.weather-dropdown.hidden { display: none !important; }
+
+.weather-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.weather-dropdown__title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.weather-dropdown__region {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.weather-dropdown__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.metric-item { display: flex; flex-direction: column; gap: 1px; }
+.metric-label { font-size: 9px; color: var(--text-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.metric-val { font-size: 11px; font-weight: 500; color: var(--text); }
+.text-amber { color: var(--amber) !important; }
+
+.weather-dropdown__advisories { display: flex; flex-direction: column; gap: 6px; }
+.weather-advisory {
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.weather-advisory--critical {
+  border-left-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+}
+.weather-advisory--favorable {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.advisory-tag {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+.weather-advisory--favorable .advisory-tag { color: var(--accent); }
+.advisory-msg { color: var(--text-2); }
+
+/* ---------- Mobile Command Navigation Tab Bar ---------- */
+.mobile-command-nav {
+  display: none;
+}
+
+/* ---------- 3-Pane Workspace with Resizable Splitters ---------- */
+.workspace {
+  display: grid;
+  grid-template-columns: var(--left-pane-w, 310px) 4px minmax(0, 1fr) 4px var(--right-pane-w, 350px);
+  min-height: 0;
+  height: 100%;
+  position: relative;
+  user-select: auto;
+}
+.workspace.is-resizing {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
+/* Collapse/Expand Left Pane into Compact Operational Rail (Requirements 1 & 2) */
+.workspace.left-collapsed {
+  grid-template-columns: 84px 4px minmax(0, 1fr) 4px var(--right-pane-w, 350px) !important;
+}
+.workspace.left-collapsed #queuePanel {
+  display: flex !important;
+  width: 84px;
+  overflow: hidden;
+}
+.workspace.left-collapsed #resizerLeft {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.workspace.left-collapsed .panel__head-left,
+.workspace.left-collapsed .panel__head-center {
+  display: none !important;
+}
+.workspace.left-collapsed .panel__head-right {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.workspace.left-collapsed #queueHead {
+  padding: 6px 2px;
+  justify-content: center;
+}
+.workspace.left-collapsed #collapseQueueBtn .collapse-icon {
+  transform: rotate(180deg);
+}
+.workspace.left-collapsed #queue {
+  padding: 8px 6px;
+  gap: 3px;
+  overflow-x: hidden;
+}
+
+/* In collapsed view, remove container of left pane elements completely (Requirement 2) */
+.workspace.left-collapsed .incident,
+.workspace.left-collapsed .incident:hover,
+.workspace.left-collapsed .incident.is-selected {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  padding: 3px 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  transform: none !important;
+  cursor: default !important;
+}
+.workspace.left-collapsed .incident:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+.workspace.left-collapsed .incident__full {
+  display: none !important;
+}
+
+/* Severity indicator and text on the SAME LINE (Requirement 2) */
+.workspace.left-collapsed .incident__compact {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  width: 100% !important;
+}
+
+/* The text should be the clickable element (Requirement 2) */
+.incident-rail-text {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 120ms var(--ease);
+  white-space: nowrap;
+}
+.incident-rail-text:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* Collapsed selection: NO rectangle; only indicator circle around severity dot and changed text color (Requirement 2) */
+.workspace.left-collapsed .incident.is-selected .incident-rail-text {
+  color: var(--select-accent) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+}
+.workspace.left-collapsed .incident.is-selected .incident-rail-dot {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4.5px var(--select-accent) !important;
+}
+
+.workspace.left-collapsed .queue-empty {
+  padding: 10px 2px;
+  font-size: 9px;
+  border: none;
+}
+.workspace.left-collapsed .layers {
+  left: 96px;
+}
+
+/* Panel Collapse Button inside Queue Head */
+.panel-collapse-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0;
+  transition: all 140ms var(--ease);
+}
+.panel-collapse-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Pane Resizers / Splitters */
+.pane-resizer {
+  width: 4px;
+  background: var(--line);
+  cursor: col-resize;
+  position: relative;
+  z-index: 50;
+  transition: background-color 150ms var(--ease);
+}
+.pane-resizer:hover,
+.pane-resizer.is-dragging {
+  background: var(--accent);
+}
+.pane-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 12px;
+  z-index: 51;
+}
+
+/* Panes */
+.panel {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+}
+.panel--left { border-right: none; }
+.panel--right { border-left: none; }
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  height: 38px;
+  box-sizing: border-box;
+}
+.panel__title { font-size: 13px; font-weight: 400; white-space: nowrap; }
+.panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 10px 24px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+/* Three-column layout for queue header (Requirement 3) */
+.panel__head-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.panel__head-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+.panel__head-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* Centered triage filter dropdown */
+.queue-filter-select {
+  width: auto;
+  max-width: 125px;
+  height: 25px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  outline: none;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: none !important;
+  transition: border-color 140ms var(--ease);
+}
+.queue-filter-select:hover,
+.queue-filter-select:focus {
+  border-color: var(--accent);
+}
+
+.badge--queue-count {
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  box-shadow: none !important;
+}
+
+/* Incident cards in queue — Clean container with uniform borders and no side severity stripe */
+.incident {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-shadow: none !important;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+  box-sizing: border-box;
+}
+.incident:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  border-color: var(--accent);
+  box-shadow: none !important;
+}
+
+/* Selected element in left pane — clean subtle highlight with uniform 1px border */
+.incident.is-selected {
+  border: 1px solid var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)) !important;
+  box-shadow: none !important;
+}
+.incident.is-selected .incident__id {
+  color: var(--accent) !important;
+  font-weight: 500 !important;
+}
+
+/* Triage Semantics — No side colored border, clean uniform border */
+.incident--red,
+.incident--yellow,
+.incident--green {
+  border-left: 1px solid var(--line-strong);
+}
+.incident.is-selected.incident--red,
+.incident.is-selected.incident--yellow,
+.incident.is-selected.incident--green {
+  border-left: 1px solid var(--accent) !important;
+}
+
+/* Compact Operational Rail representations */
+.incident__compact {
+  display: none;
+}
+.incident-rail-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: none !important;
+}
+.incident-rail-dot--red { background: var(--triage-red); }
+.incident-rail-dot--yellow { background: var(--triage-orange); }
+.incident-rail-dot--green { background: var(--triage-green); }
+.incident-rail-id {
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.incident.is-selected .incident-rail-id {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Full incident card layout */
+.incident__full {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+.incident__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.incident__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.incident__id {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Left-pane incident triage badges: text only with triage color, no pill background or border */
+.incident .incident__badges .badge {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.incident .incident__badges .badge--red {
+  color: var(--triage-red) !important;
+}
+.incident .incident__badges .badge--yellow {
+  color: var(--triage-orange) !important;
+}
+.incident .incident__badges .badge--green {
+  color: var(--triage-green) !important;
+}
+
+/* General Triage Badges - fallback */
+.badge--red {
+  background: color-mix(in srgb, var(--triage-red) 12%, transparent);
+  color: var(--triage-red);
+  border: 1px solid color-mix(in srgb, var(--triage-red) 35%, transparent);
+  box-shadow: none !important;
+}
+.badge--yellow {
+  background: color-mix(in srgb, var(--triage-orange) 12%, transparent);
+  color: var(--triage-orange);
+  border: 1px solid color-mix(in srgb, var(--triage-orange) 35%, transparent);
+  box-shadow: none !important;
+}
+.badge--green {
+  background: color-mix(in srgb, var(--triage-green) 12%, transparent);
+  color: var(--triage-green);
+  border: 1px solid color-mix(in srgb, var(--triage-green) 35%, transparent);
+  box-shadow: none !important;
+}
+
+.incident .rsi {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.incident .rsi small {
+  font-size: 8.5px;
+  color: var(--text-3);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.incident__title {
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: var(--text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.incident__loc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.incident__loc svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.incident__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+.incident__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+}
+.incident__stat svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.incident__stat--time {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.meta-dot {
+  color: var(--text-3);
+  opacity: 0.6;
+  font-size: 11px;
+}
+.incident__injuries {
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin: 0;
+}
+.incident__hazards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+.hz {
+  font-size: 9.5px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+  letter-spacing: 0.02em;
+}
+
+.queue-empty {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 24px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+
+/* ---------- Map Canvas ---------- */
+.mapwrap { position: relative; min-height: 0; height: 100%; overflow: hidden; }
+#map { position: absolute; inset: 0; background: var(--surface-sunk); }
+[data-theme="dark"] .leaflet-tile-pane { filter: var(--map-filter); }
+.leaflet-container { background: var(--surface-sunk) !important; font-family: inherit !important; }
+.leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface) 80%, transparent) !important;
+  color: var(--text-3) !important;
+  font-size: 9px !important;
+}
+
+/* Map layer toggles — top-left */
+.layers {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 400;
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  box-shadow: none !important;
+  min-width: 155px;
+  transition: top 180ms var(--ease);
+}
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  color: var(--text-2);
+  cursor: pointer;
+  min-height: 26px;
+  transition: background-color 140ms var(--ease), color 140ms var(--ease);
+}
+.layer-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.layer-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.layer-toggle .dot {
+  width: 8px; height: 8px; border-radius: 2px;
+  border: 1.5px solid currentColor;
+  flex-shrink: 0;
+  box-shadow: none !important;
+}
+.layer-toggle input:checked + .dot { background: currentColor; }
+.layer-toggle.is-on { color: var(--text); }
+.layer-toggle[data-tone="incident"].is-on { color: var(--triage-red); }
+.layer-toggle[data-tone="responder"].is-on { color: var(--accent); }
+.layer-toggle[data-tone="hospital"].is-on { color: var(--hospital) !important; font-weight: 500; }
+.layer-toggle[data-tone="hospital"].is-on .dot { background: var(--hospital) !important; border-color: var(--hospital) !important; box-shadow: none !important; }
+.layer-toggle[data-tone="flood"].is-on { color: #3B82F6; }
+.layer-toggle[data-tone="corridor"].is-on { color: #EF4444; font-weight: 500; }
+.layer-toggle[data-tone="corridor"].is-on .dot { background: #EF4444 !important; border-color: #EF4444 !important; box-shadow: none !important; }
+
+/* Tactical Model Banner (Floating on Top of Map) */
+.tactical-model-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 450;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--line));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  max-width: 90%;
+  color: var(--text);
+  transition: all 160ms var(--ease);
+}
+.tactical-banner__icon {
+  display: flex;
+  align-items: center;
+  color: var(--amber);
+  flex-shrink: 0;
+}
+.tactical-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.3;
+}
+.tactical-banner__text strong {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+}
+.tactical-banner__text span {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.tactical-banner__action {
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 120ms var(--ease);
+}
+.tactical-banner__action:hover {
+  background: var(--amber);
+  color: #ffffff;
+}
+.tactical-banner__close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.tactical-banner__close:hover {
+  color: var(--text);
+}
+
+/* Region Selector — BOTTOM-CENTER of map */
+.region-selector {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+.region-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 140ms var(--ease);
+}
+.region-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.region-btn.is-active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  box-shadow: none !important;
+}
+.region-btn__tag {
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  text-transform: uppercase;
+}
+
+/* Map markers */
+.pin {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.pin--red { background: var(--triage-red); box-shadow: none; }
+.pin--yellow { background: var(--triage-orange); box-shadow: none; }
+.pin--green { background: var(--triage-green); box-shadow: none; }
+.pin--hospital { background: var(--hospital); border-radius: 4px; box-shadow: none; }
+.pin--responder {
+  background: var(--teal-bright);
+  clip-path: polygon(50% 0%, 100% 100%, 50% 78%, 0% 100%);
+  border: 0;
+  width: 20px; height: 20px;
+}
+.pin--corridor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1.5px solid #EF4444;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pin--corridor .corridor-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.pin--flood {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  font-size: 11px;
+  line-height: 1;
+}
+.pin--pulse::after {
+  content: "";
+  position: absolute; inset: -3px;
+  border-radius: var(--r-pill);
+  border: 2px solid #EF4444;
+  animation: sos-halo 2.4s var(--ease) infinite;
+}
+
+/* Rich Map Popup Card */
+.map-popup-card {
+  padding: 2px;
+  min-width: 220px;
+  max-width: 290px;
+  font-family: inherit;
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.map-popup-card .popup-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.map-popup-card .popup-sub {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.map-popup-card .popup-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 10.5px;
+}
+.map-popup-card .popup-advisory {
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border-left: 3px solid var(--amber);
+  font-size: 10.5px;
+  margin-bottom: 4px;
+}
+.map-popup-card .popup-patrol {
+  font-size: 10px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-radius: var(--r-md) !important;
+  border: 1px solid var(--line-strong) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
+}
+.leaflet-popup-tip {
+  background: var(--surface-2) !important;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--text-3) !important;
+}
+
+/* Map Legend */
+.map-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 10px;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--text-2);
+}
+.map-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.map-legend i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ---------- Mission & Dispatch Console (Pane 3) ---------- */
+.console-tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 0 8px;
+  background: var(--surface);
+  gap: 4px;
+  height: 38px;
+  min-height: 38px;
+  flex-shrink: 0;
+}
+.console-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  height: 38px;
+  box-sizing: border-box;
+  transition: all 140ms var(--ease);
+}
+.console-tab:hover { color: var(--text); }
+.console-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Console Body with generous spacing and bottom padding (Requirement 3 & 4) */
+.console-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 38px 14px; /* 38px bottom padding ensures bottom buttons never cut off */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.console-body.hidden { display: none !important; }
+
+/* Mission brief card with dynamic triage accent (Requirement 7) */
+.mission-brief-card {
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  display: grid;
+  gap: 5px;
+  transition: border-left-color 200ms var(--ease), background-color 200ms var(--ease);
+}
+.mission-brief-card[data-triage="red"] {
+  border-left-color: var(--triage-red) !important;
+  background: var(--surface-2) !important;
+}
+.mission-brief-card[data-triage="red"] .brief-card__rsi {
+  color: var(--triage-red) !important;
+}
+.mission-brief-card[data-triage="yellow"] {
+  border-left-color: var(--triage-orange) !important;
+  background: var(--surface-2) !important;
+}
+.mission-brief-card[data-triage="yellow"] .brief-card__rsi {
+  color: var(--triage-orange) !important;
+}
+.mission-brief-card[data-triage="green"] {
+  border-left-color: var(--triage-green) !important;
+  background: var(--surface-2) !important;
+}
+.mission-brief-card[data-triage="green"] .brief-card__rsi {
+  color: var(--triage-green) !important;
+}
+
+.brief-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.badge--triage {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--triage-red) 15%, transparent);
+  color: var(--triage-red);
+  border: 1px solid var(--triage-red);
+  text-transform: uppercase;
+}
+.badge--triage.badge--red {
+  background: color-mix(in srgb, var(--triage-red) 15%, transparent) !important;
+  color: var(--triage-red) !important;
+  border-color: var(--triage-red) !important;
+}
+.badge--triage.badge--yellow {
+  background: color-mix(in srgb, var(--triage-orange) 15%, transparent) !important;
+  color: var(--triage-orange) !important;
+  border-color: var(--triage-orange) !important;
+}
+.badge--triage.badge--green {
+  background: color-mix(in srgb, var(--triage-green) 15%, transparent) !important;
+  color: var(--triage-green) !important;
+  border-color: var(--triage-green) !important;
+}
+
+.brief-card__rsi { font-size: 11px; font-weight: 500; color: var(--amber); font-variant-numeric: tabular-nums; }
+.brief-card__time { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.brief-card__title { font-size: 12px; font-weight: 400; color: var(--text); line-height: 1.35; margin: 0; }
+.brief-card__place { font-size: 11px; color: var(--text-2); display: flex; align-items: center; gap: 4px; margin: 0; }
+
+/* Console sections */
+.console-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.console-section:first-child { padding-top: 0; border-top: 0; }
+.console-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.console-section__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 400;
+}
+.console-section__label svg { color: var(--text-3); }
+
+.casualty-box {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.hazard-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Capability-Matched Hospital — Normal neutral box with plain text and responsive time */
+.facility-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.facility-card__main {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.facility-card__name {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.35;
+}
+/* Capability details — plain normal text without circular backgrounds */
+.facility-card__caps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-weight: 400;
+  line-height: 1.4;
+}
+.facility-cap-tag {
+  display: inline;
+  font-size: 11.5px;
+  font-weight: 400;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--text-2) !important;
+  border: none !important;
+  letter-spacing: normal;
+  box-shadow: none !important;
+}
+[data-theme="dark"] .facility-cap-tag {
+  background: none !important;
+  color: var(--text-2) !important;
+  border: none !important;
+}
+.facility-card__eta {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: right;
+  flex: 0 1 auto;
+  white-space: normal;
+  word-break: break-word;
+}
+@media (max-width: 480px) {
+  .facility-card__eta {
+    text-align: left;
+    flex-basis: 100%;
+  }
+}
+
+/* Dispatch action box — restrained neutral surface (Requirement 2) */
+.dispatch-action-box {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.badge--assigned {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+.unit-assign-row { display: flex; gap: 6px; margin-top: 6px; }
+.unit-select {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  border-radius: var(--r-sm);
+  padding: 0 8px;
+  font-size: 11px;
+}
+.unit-select:focus { outline: none; border-color: var(--accent); }
+.btn--dispatch-action {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  gap: 5px;
+  border-radius: var(--r-sm);
+  transition: background-color var(--dur) var(--ease), transform 140ms var(--ease);
+}
+.btn--dispatch-action.is-dispatched { background: var(--triage-green); }
+.channel-pill {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+/* Comms console */
+.comms__log {
+  flex: 1;
+  min-height: 90px;
+  overflow-y: auto;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  font-size: 11px;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+.comms__line { display: grid; gap: 2px; }
+.comms__who { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.comms__text { color: var(--text-2); line-height: 1.45; }
+.comms__line--me .comms__text { color: var(--accent); }
+.comms__input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.comms__input input {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--text);
+}
+.comms__input input:focus { outline: none; border-color: var(--accent); }
+.comms__input button {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+/* Fleet */
+.unit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  transition: transform 140ms var(--ease), border-color 140ms var(--ease);
+}
+.unit:hover { transform: translateX(2px); border-color: var(--accent); }
+.unit__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+.unit__dot--idle { background: var(--triage-green); }
+.unit__dot--dispatched { background: var(--amber); }
+.unit__dot--enroute { background: var(--accent); }
+.unit__dot--scene { background: var(--purple); }
+.unit__name { font-size: 11px; font-weight: 500; }
+.unit__meta { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.unit__status { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2); }
+
+/* ---------- MOBILE VIEW OVERHAUL (<= 860px) ---------- */
+@media (max-width: 860px) {
+  html,
+  body.dispatcher,
+  .cmd {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .cmd {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  /* Ultra-sleek topbar on mobile */
+  .topbar {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+  }
+  .topbar__left {
+    gap: 6px !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+  }
+  .topbar .resq-mark__sub {
+    display: none !important;
+  }
+  .kpis {
+    display: none !important;
+  }
+
+  .topbar-weather {
+    flex-shrink: 0 !important;
+    position: static;
+  }
+  .weather-pill {
+    height: 28px !important;
+    padding: 2px 7px !important;
+    gap: 5px !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .weather-pill__cond,
+  #weatherTrend {
+    display: none !important;
+  }
+  .weather-dropdown {
+    position: fixed !important;
+    top: 52px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(320px, calc(100vw - 20px)) !important;
+    max-width: calc(100vw - 20px) !important;
+    z-index: 99999 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .topbar__right {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  #demoInjectBtn {
+    width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+  #demoInjectBtn span {
+    display: none !important;
+  }
+  #fullscreenBtn {
+    display: none !important;
+  }
+  .topbar .theme-toggle {
+    width: 40px !important;
+    height: 24px !important;
+  }
+  .topbar .theme-toggle__thumb {
+    width: 18px !important;
+    height: 18px !important;
+    top: 2px !important;
+    left: 2px !important;
+  }
+  [data-theme="dark"] .topbar .theme-toggle__thumb {
+    transform: translateX(16px) !important;
+  }
+
+  /* Show mobile command tab switcher */
+  .mobile-command-nav {
+    display: flex !important;
+    align-items: center !important;
+    border-bottom: 1px solid var(--line) !important;
+    background: var(--surface) !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    z-index: 90 !important;
+  }
+  .mobile-nav-tab {
+    flex: 1 1 0 !important;
+    height: 28px !important;
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0 4px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--r-sm) !important;
+    background: transparent !important;
+    color: var(--text-3) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 140ms var(--ease) !important;
+  }
+  .mobile-nav-tab svg { width: 13px !important; height: 13px !important; flex-shrink: 0 !important; }
+  .mobile-nav-tab span {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .mobile-nav-tab:hover { color: var(--text) !important; }
+  .mobile-nav-tab.is-active {
+    background: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+    color: var(--accent) !important;
+    border-color: var(--accent) !important;
+  }
+
+  /* Workspace single-view mode */
+  .workspace,
+  .workspace.left-collapsed {
+    display: block !important;
+    grid-template-columns: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: calc(100dvh - 48px - 38px) !important;
+    overflow: hidden !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  .pane-resizer { display: none !important; }
+
+  /* Tab switching visibility on mobile */
+  .workspace .panel--left,
+  .workspace .mapwrap,
+  .workspace .panel--right,
+  .workspace.left-collapsed #queuePanel,
+  .workspace.left-collapsed .mapwrap,
+  .workspace.left-collapsed #consolePanel {
+    display: none !important;
+    height: 100% !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    position: static !important;
+    transform: none !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Default view or data-view active view */
+  .workspace[data-mobile-view="queue"] .panel--left,
+  .workspace.left-collapsed[data-mobile-view="queue"] #queuePanel {
+    display: flex !important;
+  }
+  .workspace[data-mobile-view="map"] .mapwrap,
+  .workspace.left-collapsed[data-mobile-view="map"] .mapwrap {
+    display: block !important;
+  }
+  .workspace[data-mobile-view="console"] .panel--right,
+  .workspace.left-collapsed[data-mobile-view="console"] #consolePanel {
+    display: flex !important;
+  }
+
+  /* If no attribute is set yet, show queue */
+  .workspace:not([data-mobile-view]) .panel--left,
+  .workspace.left-collapsed:not([data-mobile-view]) #queuePanel {
+    display: flex !important;
+  }
+
+  /* Mobile incident queue specific adjustments */
+  #collapseQueueBtn {
+    display: none !important;
+  }
+  .workspace.left-collapsed .panel__head-left,
+  .workspace.left-collapsed .panel__head-center {
+    display: flex !important;
+  }
+  .workspace.left-collapsed .panel__head-right {
+    display: none !important;
+  }
+  .workspace.left-collapsed .incident__compact,
+  .workspace.left-collapsed .incident__rail {
+    display: none !important;
+  }
+  .workspace.left-collapsed .incident__full {
+    display: flex !important;
+  }
+  .workspace.left-collapsed .incident {
+    cursor: pointer !important;
+    width: 100% !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--line-strong) !important;
+    border-radius: var(--r-md) !important;
+    background: var(--surface-2) !important;
+    box-shadow: none !important;
+  }
+  .workspace.left-collapsed .incident.is-selected {
+    border-color: var(--select-accent) !important;
+    background: var(--select-accent-bg) !important;
+  }
+
+  /* Map controls on mobile */
+  .layers {
+    max-width: 140px;
+    padding: 5px;
+    top: 8px;
+    left: 8px;
+  }
+  .layer-toggle {
+    font-size: 10px;
+    min-height: 24px;
+    padding: 3px 6px;
+  }
+  .region-selector {
+    bottom: 8px;
+    padding: 2px;
+  }
+  .region-btn {
+    padding: 4px 8px;
+    font-size: 10px;
+    gap: 3px;
+  }
+  .region-btn__tag { display: none; }
+  .map-legend { display: none; }
+}
