@@ -34,78 +34,46 @@ _SESSION = requests.Session()
 
 SYSTEM_INSTRUCTION = """
 You are the ResQ Emergency Intelligence Engine, serving as an interactive, deeply empathetic clinical triage assistant in Nigeria under the IEEE Response Quest Challenge 2026.
-You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (e.g. START triage, Ottawa Rules).
 You are strictly constrained to World Health Organization (WHO), Nigerian Red Cross bystander first aid protocols, and clinical decision rules (such as START triage and Ottawa Rules).
 
-CORE CLINICAL PRINCIPLES:
-1. EMPATHETIC, CALMING REASSURANCE (reassurance_message):
-   - You are the calm, compassionate anchor guiding someone through a frightening crisis.
-   - Speak with grounding warmth, emotional presence, and clarity.
-   - NEVER use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be frozen in shock or has not yet started).
-   - Instead, offer emotional anchoring and presence:
-     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me — you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
-   - When the user answers an assessment question, weave their answer warmly into the conversation:
-     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further damage."
-   - Vary your reassurance naturally from turn to turn so it feels genuine, responsive, and comforting.
-CRITICAL CONVERSATIONAL AND PUNCTUATION RULES:
-CORE CLINICAL AND CONVERSATIONAL PRINCIPLES:
+CORE PRINCIPLES:
 1. STRICT PUNCTUATION RULE (ZERO DASHES):
    - NEVER use dashes, hyphens, em-dashes, or en-dashes (— or – or -) as punctuation in your sentences.
-   - Always construct clean, natural, complete English sentences using commas, periods, or semicolons instead.
+   - Always construct clean, natural, complete sentences using commas, periods, or question marks instead.
 
-2. ADAPTIVE, CONVERSATIONAL INTELLIGENCE:
-   - Do NOT output action steps, multiple-choice questions, or red flags on every single turn.
-   - You must intelligently deduce what is needed for each specific interaction:
-     * NATURAL CONVERSATION: If the user is answering a previous question, asking for clarification, sharing an update, feeling frightened, or just talking, reply conversationally and warmly in 'reassurance_message'. In purely conversational turns, keep 'first_aid_steps': [] and 'assessment_questions': [].
-     * ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now. If they already know what to do or are just talking, keep 'first_aid_steps': [].
-     * MULTIPLE-CHOICE QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when you genuinely need more clinical clarity to determine care. When you already have enough information or are guiding ongoing care, keep 'assessment_questions': [].
-     * RED FLAGS ('red_flags'): ONLY provide red flags when there is a risk of acute life or limb threat. For mild cases or conversational turns, keep 'red_flags': [].
-2. CONCISE, CALMING REASSURANCE (reassurance_message):
+2. DYNAMIC LANGUAGE ADAPTATION (ENGLISH & NIGERIAN PIDGIN):
+   - English is your primary default language. When the user speaks or messages in English, always reply in clear, empathetic, calming English.
+   - If the user communicates in Nigerian Pidgin (such as 'Abeg help me', 'Driver no dey talk', 'Blood dey rush well well', 'Wetin I go do?', 'How far the ambulance?', 'Person don fall', 'E dey breathe small small', 'Shey dem dey come?'), you MUST immediately adapt and reply in natural, warm, comforting Nigerian Pidgin.
+   - If the user switches back to English, smoothly switch back to English. Dynamically match the caller's language turn by turn to keep them comfortable and calm during crisis.
+
+3. CONCISE, CALMING REASSURANCE (reassurance_message):
    - Keep your message short, comforting, and emotionally grounding (1 to 2 short sentences maximum).
-   - Do NOT lecture the user about medical issues, diagnoses, or clinical mechanisms in the chat.
+   - Do NOT lecture the user about medical pathology or clinical mechanisms in the chat.
    - Just focus on keeping the caller calm, grounded, and reassured that they are not alone.
    - NEVER use robotic phrases like "Keep doing exactly what you are doing".
-   - Examples of good reassurance:
+   - Examples of good English reassurance:
      "Help is actively on the way to your location. Take a slow, gentle breath with me, you are doing well, and I will stay right beside you until the medical team arrives."
      "Thank you for checking that so quickly. Take a deep breath, keep him comfortable, and I am right here with you."
+   - Examples of good Nigerian Pidgin reassurance:
+     "The medical team don dey rush come your side now now. Take soft breath with me, you dey try well well, and I dey right here with you till dem reach."
+     "Thank you as you check that one sharp sharp. No fear at all, keep am comfortable, and I dey right beside you here."
 
-3. EMPATHETIC, GROUNDING REASSURANCE (reassurance_message):
-   - Speak with calming warmth, emotional grounding, and clarity.
-   - Never use robotic, presumptive phrasing like "Keep doing exactly what you are doing" (the caller may be in shock or doing nothing yet).
-   - Instead, offer genuine presence:
-     e.g., "Help is actively on the way to your exact location. Take a slow, gentle breath with me, you are not alone, and I am right here beside you to guide you through every moment until the medical crew arrives."
-   - When the user answers an assessment question, acknowledge their answer warmly:
-     e.g., "Thank you for checking that so quickly. Knowing he cannot bear weight helps us protect the ankle joint from further strain."
-3. INTELLIGENT STEP DEDUCTION (first_aid_steps):
-   - It is NOT every time that you should show steps. Sometimes just talk with the user until they are ready.
-   - If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [].
-   - ONLY output action steps when there are concrete, immediate physical actions the bystander needs to take right now (such as applying firm direct pressure to heavy bleeding or clearing an obstructed airway).
+4. ADAPTIVE STEP & CARD DEDUCTION:
+   - Do NOT output action steps, multiple-choice questions, or red flags on every turn.
+   - NATURAL CONVERSATION: If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [] and 'assessment_questions': [].
+   - ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now (e.g. applying firm direct pressure to bleeding wound, opening obstructed airway).
+   - TARGETED QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when functional capacity (such as weight-bearing or breathing) is not yet verified.
+   - SELECTIVE RED FLAGS ('red_flags'): ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding). For mild cases, sprains, or chats, keep 'red_flags': [].
 
-4. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
-   - Explain the physiological mechanism in plain, accessible language without technical jargon.
-   - Weave your explanation naturally so the bystander understands why each precaution matters.
-4. TARGETED ASSESSMENT QUESTIONS (assessment_questions):
-   - When assessing acute trauma or injury where functional capacity (such as weight-bearing or breathing) is not yet verified, include 1 targeted multiple-choice question with 2 to 3 simple options to assess severity.
-   - For general conversation, fear reassurance, or once screening is done, keep 'assessment_questions': [].
-
-5. LANGUAGE AND CONTEXT:
-   - Fluently understand Nigerian Pidgin (e.g., 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local vernacular, but formulate ALL output in clear, universally understood, comforting English.
-5. SELECTIVE RED FLAGS (red_flags):
-   - Do NOT show red flags on ordinary or conversational turns.
-   - Keep 'red_flags': [] for all general conversations, sprains, moderate injuries, and check-ins.
-   - ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding).
-
-6. DISPATCH TIMING AND ETA AWARENESS:
+5. DISPATCH TIMING AND ETA AWARENESS:
    - When the user asks about responders arriving, how long it will take, or where the ambulance is, reassure them warmly.
-   - Use comforting conversational approximations such as "in less than 5 minutes" or "in just a few minutes, help is very close" rather than rigid mechanical numbers.
+   - Use comforting conversational approximations such as "in less than 5 minutes" or "in just a few minutes, help is very close" (or in Pidgin: "dem go reach in less than 5 minutes, help dey very close") rather than rigid mechanical numbers.
 
 6. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
-   - Summarize the underlying clinical mechanism for dispatch and responder records.
-   - Keep it professional and clear with zero dashes.
+   - Summarize the underlying clinical mechanism for dispatch and responder records in English with zero dashes.
 
-7. LANGUAGE AND BOUNDARIES:
-   - Fluently understand Nigerian Pidgin (such as 'Driver no dey talk', 'Blood dey rush well well', 'Leg dey pain me well well') and local context, while answering in clear, calming English.
-   - STRICT BOUNDARY: Never provide definitive medical diagnoses or prescribe medications.
+7. STRICT BOUNDARY:
+   - Never provide definitive medical diagnoses or prescribe medications.
 
 OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
 {
@@ -116,9 +84,7 @@ OUTPUT FORMAT: You MUST reply ONLY with valid JSON matching this schema:
   "casualties_count": integer (minimum 1),
   "scene_hazards": [list of strings: e.g. "fuel_leak", "vehicle_fire", "live_wire", "flood_water", "aggressive_crowd"],
   "suspected_trauma": [list of strings: e.g. "head trauma", "arterial bleeding", "fracture", "ankle sprain"],
-  "reassurance_message": "Warm, grounding, empathetic answer acknowledging their specific situation, reassuring them that responders are en route, and offering compassionate presence with zero dashes",
-  "clinical_synthesis": "Plain-language clinical explanation of mechanism and physiology with zero dashes",
-  "reassurance_message": "Short, warm, calming message keeping the user calm with zero dashes",
+  "reassurance_message": "Short, warm, calming message in English or Nigerian Pidgin matching caller language with zero dashes",
   "clinical_synthesis": "Brief clinical mechanism for responder records with zero dashes",
   "first_aid_steps": [ordered list of actionable instructions, or empty list if none needed right now],
   "assessment_questions": [list containing at most 1 question with options, or empty list if none needed right now],
@@ -375,6 +341,12 @@ def _fallback_heuristic_parser(
     trauma = []
     is_sprain_or_joint = any(k in lower for k in ["ankle", "sprain", "twisted", "joint", "twist", "foot", "jogging", "limp", "limping"])
 
+    # Language adaptation check (English primary, adapts to Nigerian Pidgin)
+    is_pidgin = bool(re.search(
+        r"\b(abeg|wetin|dey|don|dey talk|no fit|fit|oya|shey|na|sha|wahala|kuku|person|boku|well well|kpatakpata|sef|am|una|dem|comot|scatter|chook|plenty blood|blood dey|e dey|make you|no go|we dey)\b",
+        lower
+    ))
+
     # 1. Dispatch timing / ETA check
     asking_eta = bool(re.search(
         r"\b(when|how long|where is|where are|ambulance|coming|reach|arrive|how many minutes|far|time|still coming|en route|how far|shey dem dey come)\b",
@@ -383,7 +355,10 @@ def _fallback_heuristic_parser(
     if asking_eta:
         eta_mins = max(1, round((eta_seconds or 720) / 60))
         time_phrase = "in less than 5 minutes" if eta_mins <= 5 else f"in less than {eta_mins} minutes"
-        reassurance = f"The response unit is actively on the way and should reach your location {time_phrase}. Take a gentle breath with me, you are doing well, and I will stay right here beside you until they arrive."
+        if is_pidgin:
+            reassurance = f"The response unit dey road dey speed come meet you sharp sharp, dem go reach your side {time_phrase}. Softly breathe in and out with me, you dey try well well, and I dey right here with you till dem reach."
+        else:
+            reassurance = f"The response unit is actively on the way and should reach your location {time_phrase}. Take a gentle breath with me, you are doing well, and I will stay right here beside you until they arrive."
         return {
             "unresponsive": False,
             "severe_hemorrhage": False,
@@ -446,11 +421,14 @@ def _fallback_heuristic_parser(
     # Intelligently deduce if user is directly answering a multiple-choice option or acknowledging
     # 2. Emotional / Conversational check (talk with user till ready, no steps)
     is_conversational_or_fear = bool(re.search(
-        r"\b(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|i am here|what should i do|don'?t know|frightened|terrified|worried|calm down)\b",
+        r"\b(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|i am here|what should i do|don'?t know|frightened|terrified|worried|calm down|fear dey|i dey fear|wetin i go do|abeg help)\b",
         lower
     ))
     if is_conversational_or_fear and not (severe_hemorrhage or unresponsive or airway_compromise):
-        reassurance = "Take a slow, gentle breath with me. You are safe, help is already moving toward your location, and I am right here beside you. Whenever you feel ready, let me know what you can see."
+        if is_pidgin:
+            reassurance = "No shake at all, take soft breath with me. You dey safe, help already dey road dey come, and I dey right beside you here. When you ready, tell me wetin you dey see."
+        else:
+            reassurance = "Take a slow, gentle breath with me. You are safe, help is already moving toward your location, and I am right here beside you. Whenever you feel ready, let me know what you can see."
         return {
             "unresponsive": False,
             "severe_hemorrhage": False,
@@ -497,50 +475,44 @@ def _fallback_heuristic_parser(
             steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
             steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
 
-    # Contextual Clinical Synthesis
     # Contextual Clinical Synthesis for responder records
     if is_sprain_or_joint:
-        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Weight-bearing capacity provides initial clinical screening under Ottawa Decision Rules."
         synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Ottawa rules apply."
     elif severe_hemorrhage:
-        synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure is mandatory to initiate haemostasis and prevent hypovolemic shock."
         synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure required."
     elif unresponsive:
-        synthesis = "Altered mental status or unconsciousness detected. Maintaining a patent airway and strict cervical spine alignment are the highest clinical priorities."
         synthesis = "Altered mental status or unconsciousness detected. Airway management is prioritized."
     else:
-        synthesis = "Initial emergency triage assessment in progress. Immediate protocol steps focus on scene stabilization and continuous monitoring."
         synthesis = "Emergency triage assessment in progress. Continuous monitoring."
 
-    # Interactive Assessment Questions: ONLY ask when assessing symptoms, never when user just answered
     # Interactive Assessment Questions: ONLY ask when assessing acute physical state
     questions = []
     if not is_answering_option:
         if is_sprain_or_joint:
             questions.append({
-                "question": "Can the person take four steps, even with a limp?",
+                "question": "Can the person take four steps, even with a limp?" if not is_pidgin else "The person fit take four steps at all, even if e dey limp?",
                 "options": [
-                    "A. Yes, can take four steps",
-                    "B. No, completely unable to bear weight",
-                    "C. Can walk with minimal discomfort"
+                    "A. Yes, can take four steps" if not is_pidgin else "A. Yes, e fit take four steps",
+                    "B. No, completely unable to bear weight" if not is_pidgin else "B. No, e no fit put leg for ground at all",
+                    "C. Can walk with minimal discomfort" if not is_pidgin else "C. E fit walk small small"
                 ]
             })
         elif severe_hemorrhage:
             questions.append({
-                "question": "Is the bleeding controlled by continuous direct pressure?",
+                "question": "Is the bleeding controlled by continuous direct pressure?" if not is_pidgin else "The blood dey reduce as you press am?",
                 "options": [
-                    "A. Bleeding is slowing down or stopped",
-                    "B. Bleeding continues to soak through cloths",
-                    "C. Blood is spurting rhythmically"
+                    "A. Bleeding is slowing down or stopped" if not is_pidgin else "A. Blood don dey slow down or e don stop",
+                    "B. Bleeding continues to soak through cloths" if not is_pidgin else "B. Blood still dey soak through the cloth",
+                    "C. Blood is spurting rhythmically" if not is_pidgin else "C. Blood dey rush out like tap"
                 ]
             })
         elif unresponsive:
             questions.append({
-                "question": "Is the casualty breathing normally and continuously?",
+                "question": "Is the casualty breathing normally and continuously?" if not is_pidgin else "The person dey breathe normal and continuous?",
                 "options": [
-                    "A. Breathing normally and regularly",
-                    "B. Gasping, snoring, or struggling to breathe",
-                    "C. No breathing detected at all"
+                    "A. Breathing normally and regularly" if not is_pidgin else "A. E dey breathe normal and steady",
+                    "B. Gasping, snoring, or struggling to breathe" if not is_pidgin else "B. E dey struggle to catch breath",
+                    "C. No breathing detected at all" if not is_pidgin else "C. E no dey breathe at all"
                 ]
             })
 
@@ -562,25 +534,25 @@ def _fallback_heuristic_parser(
                 "Cessation of breathing or irregular agonal breathing"
             ]
 
-    # Reassurance message in clear, calming, empathetic English with zero dashes
+    # Reassurance message adapting dynamically to English or Nigerian Pidgin with zero dashes
     if is_answering_option:
         if is_sprain_or_joint:
-            reassurance = "Thank you for checking that. Keep the joint rested, comfortable, and elevated, and I will stay right here with you until help arrives."
+            reassurance = "Thank you as you check that one. Keep that joint rested, comfortable, and lift am up small, I dey right here with you till help reach." if is_pidgin else "Thank you for checking that. Keep the joint rested, comfortable, and elevated, and I will stay right here with you until help arrives."
         elif severe_hemorrhage:
-            reassurance = "Thank you for holding that pressure. Keep both hands pressed firmly in place, take a deep breath, and I am right here with you."
+            reassurance = "Thank you as you hold that pressure. Press down tight with two hands, take deep breath, I dey with you." if is_pidgin else "Thank you for holding that pressure. Keep both hands pressed firmly in place, take a deep breath, and I am right here with you."
         elif unresponsive:
-            reassurance = "Thank you for staying close. Keep watching their chest gently rise and fall, and I will stay right beside you until the crew arrives."
+            reassurance = "Thank you as you stay close to am. Dey watch the chest make sure say e dey breathe, I dey beside you till the ambulance reach." if is_pidgin else "Thank you for staying close. Keep watching their chest gently rise and fall, and I will stay right beside you until the crew arrives."
         else:
-            reassurance = "You are doing well. Take a slow, gentle breath, and I will stay right here with you until help arrives."
+            reassurance = "You dey try well well. Take soft, gentle breath with me, I dey right here with you till help arrive." if is_pidgin else "You are doing well. Take a slow, gentle breath, and I will stay right here with you until help arrives."
     else:
         if is_sprain_or_joint:
-            reassurance = "Emergency responders have been notified and are actively on the way. Take a slow breath, keep that leg rested and elevated, and I am right here with you."
+            reassurance = "Emergency team don dey come your location now now. Take soft breath, keep that leg rested and lift am up, I dey right here with you." if is_pidgin else "Emergency responders have been notified and are actively on the way. Take a slow breath, keep that leg rested and elevated, and I am right here with you."
         elif severe_hemorrhage:
-            reassurance = "Emergency responders are speeding toward your location. Stay right beside them, maintain steady pressure, and I will stay with you every second."
+            reassurance = "Emergency responders dey speed come your side now now. Stay close to am, hold that pressure tight tight, and I dey with you every second." if is_pidgin else "Emergency responders are speeding toward your location. Stay right beside them, maintain steady pressure, and I will stay with you every second."
         elif unresponsive:
-            reassurance = "Emergency responders are on the way to you. Stay calm and keep their airway open, and I will guide you through every moment until they arrive."
+            reassurance = "Emergency responders dey road dey come your side. Calam down and make sure say e throat open, I go guide you till dem reach." if is_pidgin else "Emergency responders are on the way to you. Stay calm and keep their airway open, and I will guide you through every moment until they arrive."
         else:
-            reassurance = "Emergency responders have been notified and are on the way. Take a slow, gentle breath with me, you are not alone, and I am right here with you."
+            reassurance = "Emergency responders don dey come your side. Take soft, gentle breath with me, you no dey alone, and I dey right here with you." if is_pidgin else "Emergency responders have been notified and are on the way. Take a slow, gentle breath with me, you are not alone, and I am right here with you."
 
     return {
         "unresponsive": unresponsive,

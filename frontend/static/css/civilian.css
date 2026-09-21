@@ -251,32 +251,45 @@ body.civilian {
   box-shadow: 0 2px 10px rgba(13, 110, 110, 0.04);
 }
 .msg__bubble--thinking {
-  padding: 9px 14px;
+  padding: 10px 14px;
   background: color-mix(in srgb, var(--surface) 92%, var(--accent)) !important;
-  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line)) !important;
-}
-.thinking-row {
-  display: flex;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)) !important;
+  border-radius: 18px !important;
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
 }
-.thinking-dot {
-  width: 9px;
-  height: 9px;
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 14px;
+}
+.typing-dots span {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  flex-shrink: 0;
-  animation: calm-pulse 1.8s infinite;
+  opacity: 0.35;
+  animation: typing-bounce 1.4s infinite ease-in-out both;
 }
-@keyframes calm-pulse {
-  0% { transform: scale(0.85); opacity: 0.6; }
-  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
-  100% { transform: scale(0.85); opacity: 0.6; }
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
 }
-.thinking-label {
-  font-size: 12px;
-  color: var(--text-2);
-  font-style: italic;
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+@keyframes typing-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.65);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
 }
 
 /* First-aid step card (Generous Tap Targets) */

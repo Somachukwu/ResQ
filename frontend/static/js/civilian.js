@@ -351,9 +351,10 @@ function showTyping() {
   wrap.innerHTML = `
     <p class="msg__who">ResQ Clinical Guide</p>
     <div class="msg__bubble msg__bubble--thinking">
-      <div class="thinking-row">
-        <span class="thinking-dot"></span>
-        <span class="thinking-label">Evaluating situation &amp; synthesizing guidance...</span>
+      <div class="typing-dots" aria-label="ResQ is typing">
+        <span></span>
+        <span></span>
+        <span></span>
       </div>
     </div>`;
   el.stream.appendChild(wrap);
