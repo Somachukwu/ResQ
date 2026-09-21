@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: resq-emergency-intelligence
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -k gthread --threads 100 --workers 1 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ORS_API_KEY
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false

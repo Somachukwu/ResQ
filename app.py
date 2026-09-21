@@ -698,5 +698,23 @@ def get_route(start_lng, start_lat, end_lng, end_lat):
         return None
 
 
+@app.route("/health")
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "service": "ResQ Emergency Intelligence",
+        "version": "2026.1"
+    }), 200
+
+
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true")
+    socketio.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        debug=debug,
+        use_reloader=False,
+        allow_unsafe_werkzeug=True
+    )
