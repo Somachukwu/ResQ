@@ -163,35 +163,22 @@ function respond(text) {
       state.chatHistory.push({ role: "model", text: data.reassurance_message });
     }
 
-    // 1. Empathic / Reassurance message
-    if (data.reassurance_message) {
-      say("resq", data.reassurance_message);
     // 1. Natural Conversational Response (with integrated clinical insight if provided)
     let replyText = data.reassurance_message || "";
     if (data.clinical_synthesis && !replyText.includes(data.clinical_synthesis)) {
       replyText = replyText ? `${replyText}\n\n${data.clinical_synthesis}` : data.clinical_synthesis;
     }
-
-    // 2. Render Action Steps directly whenever steps are provided
-    // 2. Clinical Synthesis & Mechanism (if provided)
-    if (data.clinical_synthesis) {
-      renderClinicalSynthesis(data.clinical_synthesis);
     if (replyText) {
       say("resq", replyText);
     }
 
-    // 3. Render Action Steps directly whenever steps are provided
-    const steps = (data.first_aid_steps && data.first_aid_steps.length > 0)
     // 2. Action Steps: ONLY rendered when the AI or protocol explicitly dictates immediate physical actions
     const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
       : (matchProtocols(text)[0]?.steps || []);
-      : [];
 
     if (steps.length > 0) {
       const traumaTitles = data.extraction?.suspected_trauma?.length
-        ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")
-        : "Emergency Action Steps";
         ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ")
         : "Action Steps";
       const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Active Guidance";
@@ -199,15 +186,12 @@ function respond(text) {
 
       const p = {
         title: traumaTitles,
-        summary: `${rsiVal} (${tierVal}) · WHO & Nigerian Red Cross Protocol`,
         summary: `${rsiVal} (${tierVal}), WHO and Nigerian Red Cross Protocol`,
         steps: steps
       };
       renderProtocol(p);
     }
 
-    // 3. Render any detected hazards
-    // 4. Interactive Assessment Questions & Quick-Reply Chips (if provided)
     // 3. Interactive Assessment Questions (rendered ONLY when the AI deduces assessment is needed)
     if (data.assessment_questions && data.assessment_questions.length > 0) {
       renderAssessmentQuestions(data.assessment_questions);
@@ -258,20 +242,6 @@ function respond(text) {
   });
 }
 
-function renderClinicalSynthesis(text) {
-  if (!text) return;
-  const card = document.createElement("div");
-  card.className = "clinical-synthesis";
-  card.innerHTML = `
-    <div class="clinical-synthesis__head">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20"/></svg>
-      <span>Clinical Assessment & Mechanism</span>
-    </div>
-    <p class="clinical-synthesis__text">${text}</p>
-  `;
-  el.stream.appendChild(card);
-  scroll();
-}
 
 function renderRedFlags(flags) {
   if (!flags || !flags.length) return;
@@ -449,7 +419,6 @@ function renderProtocol(p) {
       }
       const doneCount = list.querySelectorAll(".step.is-done").length;
       if (doneCount === p.steps.length) {
-        say("resq", "Well done — all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
         say("resq", "Well done, all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
       }
     };
@@ -624,9 +593,19 @@ function watchNetwork() {
     if (el.netHeaderText) el.netHeaderText.textContent = text;
 
     [el.netPulse, el.netHeaderPulse].forEach((p) => {
-      if (!p) return;
-      p.classList.toggle("pulse--teal", on);
-      p.classList.toggle("pulse--red", !on);
+      if (!p || !p.classList) return;
+      if (typeof p.classList.toggle === "function") {
+        p.classList.toggle("pulse--teal", on);
+        p.classList.toggle("pulse--red", !on);
+      } else {
+        if (on) {
+          p.classList.add("pulse--teal");
+          p.classList.remove("pulse--red");
+        } else {
+          p.classList.add("pulse--red");
+          p.classList.remove("pulse--teal");
+        }
+      }
     });
   };
   window.addEventListener("online", paint);

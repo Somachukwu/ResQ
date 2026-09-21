@@ -32,8 +32,8 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/static/css/resq.css?v=2.7" />
-    <link rel="stylesheet" href="/static/css/civilian.css?v=2.7" />
+    <link rel="stylesheet" href="/static/css/resq.css?v=2.8" />
+    <link rel="stylesheet" href="/static/css/civilian.css?v=2.8" />
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
@@ -100,7 +100,7 @@
           <p class="hero__sub">Press once. No sign-up, no forms. ResQ will guide you through the next right action while help makes its way to you.</p>
         </div>
 
-        <button class="sos" id="sos" type="button" onclick="window.startSession && window.startSession()" aria-label="Start emergency triage session">
+        <button class="sos" id="sos" type="button" onclick="window.startSession ? window.startSession() : (window.startSessionFallback && window.startSessionFallback())" aria-label="Start emergency triage session">
           <span class="sos__label">SOS</span>
           <span class="sos__hint">Press for help</span>
         </button>
@@ -179,6 +179,20 @@
       </div>
     </div>
 
-    <script type="module" src="/static/js/civilian.js?v=2.7"></script>
+    <script>
+      window.startSessionFallback = function() {
+        if (window.startSession) {
+          window.startSession();
+          return;
+        }
+        var h = document.getElementById("hero");
+        var s = document.getElementById("session");
+        if (h) h.classList.add("is-hidden");
+        if (s) s.classList.add("is-active");
+        var f = document.getElementById("field");
+        if (f) try { f.focus({ preventScroll: true }); } catch (_) {}
+      };
+    </script>
+    <script type="module" src="/static/js/civilian.js?v=2.8"></script>
   </body>
 </html>
