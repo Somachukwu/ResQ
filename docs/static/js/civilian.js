@@ -539,7 +539,8 @@ function onPhoto(e) {
     formData.append("incident_uuid", state.incidentUuid);
   }
 
-  fetch("/api/civilian/upload-photo", {
+  const photoEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/upload-photo") || "/api/civilian/upload-photo";
+  fetch(photoEndpoint, {
     method: "POST",
     body: formData
   })

@@ -2,6 +2,7 @@
   "name": "ResQ Emergency Intelligence",
   "short_name": "ResQ",
   "description": "Responsive Emergency Systems Intelligence - Offline First Aid & Triage",
+  "start_url": "/civilian",
   "start_url": "./civilian/",
   "display": "standalone",
   "background_color": "#0F1117",
@@ -9,11 +10,13 @@
   "orientation": "portrait",
   "icons": [
     {
+      "src": "/resources/ResQ_Icon.png",
       "src": "./resources/ResQ_Icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
+      "src": "/resources/ResQ_Icon.png",
       "src": "./resources/ResQ_Icon.png",
       "sizes": "512x512",
       "type": "image/png"

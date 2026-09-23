@@ -1,6 +1,15 @@
 /* ResQ Service Worker — Offline First Aid Protocol Caching (S/N 12) */
 const CACHE_NAME = "resq-offline-v10";
 const OFFLINE_URLS = [
+  "/civilian",
+  "/static/css/resq.css",
+  "/static/css/civilian.css",
+  "/static/js/civilian.js",
+  "/static/js/resq-protocols.js",
+  "/static/js/resq-theme.js",
+  "/resources/ResQ_Icon.png",
+  "/resources/ResQ_Logo.png",
+  "/favicon.ico"
   "./",
   "./civilian/",
   "./static/css/resq.css",
@@ -49,6 +58,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
         })
+        .catch(() => caches.match(event.request).then((res) => res || caches.match("/civilian")))
         .catch(() => caches.match(event.request).then((res) => res || caches.match("./civilian/")))
     );
     return;

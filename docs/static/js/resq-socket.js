@@ -20,6 +20,7 @@ class ResQSocket {
             return;
         }
 
+        this.socket = io({
         const serverUrl = window.RESQ_CONFIG?.backendUrl || undefined;
         this.socket = io(serverUrl, {
             transports: ["websocket", "polling"],

@@ -5,7 +5,7 @@
  * pointing all API and WebSocket traffic to the deployed ResQ backend.
  */
 (function () {
-  const DEFAULT_REMOTE_BACKEND = ""; // e.g. "https://resq-backend.onrender.com"
+  const DEFAULT_REMOTE_BACKEND = "https://resq-backend-oj6j.onrender.com";
   
   // Allow manual override via localStorage: localStorage.setItem("resq_backend_url", "https://your-backend.onrender.com")
   const customBackend = localStorage.getItem("resq_backend_url") || DEFAULT_REMOTE_BACKEND;
@@ -18,8 +18,7 @@
   if (customBackend) {
     apiUrl = customBackend.replace(/\/+$/, "");
   } else if (isGitHubPages || isLocalFile) {
-    // When on GitHub Pages without configured backend, default to relative (which will fail gracefully to offline first-aid)
-    apiUrl = "";
+    apiUrl = DEFAULT_REMOTE_BACKEND;
   }
 
   window.RESQ_CONFIG = {
@@ -31,3 +30,4 @@
     }
   };
 })();
+
