@@ -26,6 +26,8 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
 CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 # Remove duplicates while preserving order
 CANDIDATE_MODELS = list(dict.fromkeys(CANDIDATE_MODELS))
 
@@ -164,8 +166,11 @@ def _call_gemini_text(
     contents: List[Dict[str, Any]] = []
 
     # Prepend previous turns from conversation history
+    # Prepend previous turns from conversation history (limit to last 4 turns for low latency)
     if history and isinstance(history, list):
         for turn in history:
+        recent_history = history[-4:]
+        for turn in recent_history:
             role = turn.get("role", "user")
             gemini_role = "model" if role in ("model", "assistant", "resq") else "user"
             msg_text = turn.get("text") or turn.get("content") or ""
@@ -204,6 +209,8 @@ def _call_gemini_text(
             "response_mime_type": "application/json",
             "temperature": 0.45,
             "maxOutputTokens": 1000
+            "temperature": 0.35,
+            "maxOutputTokens": 450
         }
     }
 
