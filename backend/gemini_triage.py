@@ -24,6 +24,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
+CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 # Remove duplicates while preserving order
