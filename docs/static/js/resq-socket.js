@@ -20,7 +20,6 @@ class ResQSocket {
             return;
         }
 
-        this.socket = io({
         const serverUrl = window.RESQ_CONFIG?.backendUrl || undefined;
         this.socket = io(serverUrl, {
             transports: ["websocket", "polling"],
@@ -59,6 +58,7 @@ class ResQSocket {
             "incident:timeline_update", 
             "responder:assigned", 
             "responder:mission_alert", 
+            "responder:acknowledged",
             "telemetry:update", 
             "demo:injected"
         ];
@@ -115,4 +115,3 @@ class ResQSocket {
 
 // Global accessor
 window.ResQSocket = ResQSocket;
-

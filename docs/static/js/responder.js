@@ -91,12 +91,27 @@ setInterval(tickRadio, 1000);
 /* ---------------- acknowledge brief toggle ---------------- */
 let isAcked = false;
 if (el.ackBtn) {
-  el.ackBtn.addEventListener("click", () => {
+  el.ackBtn.addEventListener("click", async () => {
+    if (!activeIncidentUuid) {
+      logLine("Acknowledgement unavailable", "No assigned incident selected");
+      return;
+    }
+    try {
+      const response = await fetch(`/api/incidents/${activeIncidentUuid}/acknowledge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unit_code: assignedUnitCode })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      logLine("Acknowledgement not sent", "Server confirmation required");
+      return;
+    }
     isAcked = !isAcked;
     if (isAcked) {
       el.ackBtn.classList.add("is-acked");
       if (el.ackText) el.ackText.textContent = "Brief acknowledged";
-      logLine("Brief acknowledged by unit", "Dispatch notified via telemetry");
+      logLine("Brief acknowledged by unit", "Dispatch confirmation recorded");
       radioElapsed = 0;
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     } else {
@@ -138,9 +153,10 @@ function broadcastTelemetry() {
       heading: 45.0,
       speed_kmh: 42.0
     })
-  }).catch(() => {});
-
-  if (beats % 4 === 0) logLine("Position beacon transmitted", "GPS lock confirmed");
+  }).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (beats % 4 === 0) logLine("Position beacon transmitted", "Server confirmed");
+  }).catch(() => logLine("Position beacon not delivered", "Retrying on next interval"));
 }
 
 if ("geolocation" in navigator) {

@@ -81,8 +81,14 @@ const FLOODZONES = [
   { name: "Ugwuoba blackspot (FRSC)", lat: 6.3891, lng: 7.2312, r: 2000 },
 ];
 
+/* Demo seed arrays are intentionally cleared before boot. Operational views
+   must be populated from the API, never from decorative sample records. */
+INCIDENTS.length = 0;
+UNITS.length = 0;
+HOSPITALS.length = 0;
+
 /* ---------------- state ---------------- */
-let selected = INCIDENTS[0];
+let selected = null;
 let map;
 const layers = {};
 
@@ -137,14 +143,12 @@ function initMap() {
   });
 
   // Safe corridor from staged unit to the critical incident
-  L.polyline(
-    [
-      [UNITS[0].lat, UNITS[0].lng],
-      [6.3955, 7.2512],
-      [INCIDENTS[0].lat, INCIDENTS[0].lng],
-    ],
-    { color: "#0D6E6E", weight: 3, opacity: 0.85 }
-  ).addTo(layers.responders);
+  if (UNITS[0] && INCIDENTS[0]) {
+    L.polyline(
+      [[UNITS[0].lat, UNITS[0].lng], [6.3955, 7.2512], [INCIDENTS[0].lat, INCIDENTS[0].lng]],
+      { color: "#0D6E6E", weight: 3, opacity: 0.85 }
+    ).addTo(layers.responders);
+  }
 
   // Dynamic predictive models ingestion from backend APIs
   loadFloodRiskLayer(0);
@@ -386,7 +390,7 @@ function renderQueue() {
   } else {
     list.innerHTML = sorted
       .map(
-        (i) => `<div class="incident incident--${i.triage} ${i.id === selected.id ? "is-selected" : ""}" data-id="${i.id}" role="button" tabindex="0">
+        (i) => `<div class="incident incident--${i.triage} ${i.id === selected?.id ? "is-selected" : ""}" data-id="${i.id}" role="button" tabindex="0">
         <!-- Compact Operational Rail: dot and clickable text on same line, no card container -->
         <div class="incident__compact">
           <span class="incident-rail-dot incident-rail-dot--${i.triage}" aria-hidden="true"></span>
@@ -642,42 +646,43 @@ function wireConsoleTabs() {
 function wireDispatchAction() {
   const dispatchBtn = $("#consoleDispatchBtn");
   if (dispatchBtn) {
-    dispatchBtn.addEventListener("click", () => {
-      const unitCode = $("#unitSelect")?.value || "AMB-07";
-      selected.assigned_unit = unitCode;
-      
-      const unit = UNITS.find((u) => u.id === unitCode);
-      if (unit) unit.status = "dispatched";
-      
-      // Call backend assign API to update database and broadcast
-      fetch("/api/responder/assign", {
+    dispatchBtn.addEventListener("click", async () => {
+      if (!selected) return;
+      const unitCode = $("#unitSelect")?.value;
+      if (!unitCode) return;
+      dispatchBtn.disabled = true;
+      const labelSpan = dispatchBtn.querySelector(".dispatch-label");
+      if (labelSpan) labelSpan.textContent = "Confirming dispatch…";
+      try {
+        const response = await fetch("/api/responder/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           incident_uuid: selected.id,
           unit_code: unitCode
         })
-      }).catch(err => console.warn("[Dispatch] Server assign sync note:", err));
-
-      if (window.resqSocket) {
-        window.resqSocket.emit("responder:assign", {
-          incident_uuid: selected.id,
-          unit_code: unitCode
         });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        selected.assigned_unit = unitCode;
+        const unit = UNITS.find((u) => u.id === unitCode);
+        if (unit) unit.status = "dispatched";
+        renderMissionConsole(selected);
+        renderFleet();
+        renderQueue();
+        pushComms("dispatch", `Unit ${unit ? unit.name : unitCode} confirmed for ${selected.id}.`);
+        dispatchBtn.classList.add("is-dispatched");
+        if (labelSpan) labelSpan.textContent = "Dispatched";
+      } catch (error) {
+        pushComms("dispatch", `Dispatch not confirmed: ${error.message}`);
+        if (labelSpan) labelSpan.textContent = "Dispatch failed";
+      } finally {
+        dispatchBtn.disabled = false;
+        setTimeout(() => {
+          dispatchBtn.classList.remove("is-dispatched");
+          if (labelSpan) labelSpan.textContent = "Dispatch Unit";
+        }, 2500);
       }
-
-      renderMissionConsole(selected);
-      renderFleet();
-      renderQueue();
-      pushComms("dispatch", `Unit ${unit ? unit.name : unitCode} assigned to ${selected.id}. Mission brief transmitted.`);
-
-      dispatchBtn.classList.add("is-dispatched");
-      const labelSpan = dispatchBtn.querySelector(".dispatch-label");
-      if (labelSpan) labelSpan.textContent = "Dispatched";
-      setTimeout(() => {
-        dispatchBtn.classList.remove("is-dispatched");
-        if (labelSpan) labelSpan.textContent = "Dispatch Unit";
-      }, 2500);
     });
   }
 }
@@ -713,8 +718,8 @@ const COMMS = {
     { who: "ResQ guidance", text: "Recovery position steps issued. Direct pressure steps issued." },
   ],
   responder: [
-    { who: "AMB-07", text: "Copy. Rolling from Ugwuoba staging point." },
-    { who: "FRSC-12", text: "Fuel spill confirmed. No flares. Lane closure in place." },
+    { who: "AMB-01 [DEMO]", text: "Copy. Rolling from Enugu Urban staging point." },
+    { who: "RESCUE-01 [DEMO]", text: "Scene confirmed. Lane closure in place." },
   ],
 };
 let channel = "civilian";
@@ -1095,26 +1100,53 @@ function wirePaneResizers() {
   attachResizer(resizerRight, false);
 }
 
-/* ---------------- boot ---------------- */
-initMap();
-wireLayerToggles();
-wireRegionSelector();
-wireQueueFilters();
-wireConsoleTabs();
-wireDispatchAction();
-wireWeatherTopBar();
-wirePaneResizers();
-wireQueueCollapse();
-wireFullscreen();
-wireMobileNav();
-wireTacticalBanner();
-updateWeatherWidget("community");
-renderQueue();
-renderMissionConsole(selected);
-renderFleet();
-renderComms();
-setInterval(tickElapsed, 1000);
-setInterval(simulate, 15000);
-setInterval(() => updateWeatherWidget(currentRegion), 60000); // 1-minute meteorological sync
+function toTriage(level) {
+  return level === "critical" ? "red" : level === "urgent" ? "yellow" : "green";
+}
+
+async function loadOperationalState() {
+  const [incidentsResponse, respondersResponse, hospitalsResponse] = await Promise.all([
+    fetch("/api/incidents"), fetch("/api/responders"), fetch("/api/hospitals")
+  ]);
+  if (![incidentsResponse, respondersResponse, hospitalsResponse].every(response => response.ok)) {
+    throw new Error("Operator authentication or live data is unavailable");
+  }
+  const [incidents, responders, hospitals] = await Promise.all([
+    incidentsResponse.json(), respondersResponse.json(), hospitalsResponse.json()
+  ]);
+  INCIDENTS.splice(0, INCIDENTS.length, ...incidents.map(inc => ({
+    id: inc.incident_uuid, rsi: Number(inc.severity_score || 1), triage: toTriage(inc.severity_level),
+    title: inc.title, place: inc.location_name || "Location pending", victims: Number(inc.casualties_count || 1),
+    injuries: inc.type || "Emergency incident", hazards: [], lat: Number(inc.lat), lng: Number(inc.lng),
+    type: inc.type, assigned_unit: inc.assigned_responder_id, started: Date.parse(inc.created_at) || Date.now()
+  })));
+  UNITS.splice(0, UNITS.length, ...responders.map(unit => ({
+    id: unit.unit_code, name: unit.name, type: unit.type, status: unit.status,
+    lat: Number(unit.lat), lng: Number(unit.lng), eta: null, caps: "Live operational unit"
+  })));
+  HOSPITALS.splice(0, HOSPITALS.length, ...hospitals.map(hospital => ({
+    name: hospital.name, caps: `${hospital.capability} · ${hospital.bed_status}`,
+    lat: Number(hospital.lat), lng: Number(hospital.lng)
+  })));
+  selected = INCIDENTS[0] || null;
+}
+
+async function bootstrap() {
+  try {
+    await loadOperationalState();
+  } catch (error) {
+    console.warn("[Dispatcher] Live operational data unavailable:", error);
+    const banner = document.querySelector(".tactical-banner");
+    if (banner) banner.textContent = "Live operational data unavailable. Check operator sign-in and backend connectivity.";
+  }
+  initMap();
+  wireLayerToggles(); wireRegionSelector(); wireQueueFilters(); wireConsoleTabs(); wireDispatchAction();
+  wireWeatherTopBar(); wirePaneResizers(); wireQueueCollapse(); wireFullscreen(); wireMobileNav(); wireTacticalBanner();
+  updateWeatherWidget("community"); renderQueue(); renderMissionConsole(selected); renderFleet(); renderComms();
+  setInterval(tickElapsed, 1000);
+  setInterval(() => updateWeatherWidget(currentRegion), 60000);
+}
+
+bootstrap();
 
 

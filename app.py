@@ -1,4 +1,6 @@
 import os
+import math
+from functools import wraps
 from dotenv import load_dotenv
 
 # Ensure environment variables (.env) are loaded before importing backend modules
@@ -22,6 +24,8 @@ from backend.database import (
     add_incident_update,
     add_scene_hazard
 )
+from backend.database import assign_responder_to_incident, update_responder_telemetry, USING_MYSQL, get_db_connection
+from backend.security import require_role, is_rate_limited, has_operator_token
 import uuid
 import base64
 from backend.socket_events import register_socket_events
@@ -42,9 +46,14 @@ app = Flask(
     static_url_path="/static"
 )
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "resq-emergency-intelligence-secret-key-2026")
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+
+if os.getenv("RESQ_REQUIRE_AUTH", "0").lower() in ("1", "true", "yes") and app.config["SECRET_KEY"] == "resq-emergency-intelligence-secret-key-2026":
+    raise RuntimeError("SECRET_KEY must be configured when RESQ_REQUIRE_AUTH is enabled")
 
 # Initialize real-time SocketIO bus
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+CORS_ORIGINS = {origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5000").split(",") if origin.strip()}
+socketio = SocketIO(app, cors_allowed_origins=list(CORS_ORIGINS), async_mode="threading")
 _orig_socketio_run = socketio.run
 def _guarded_run(*args, **kwargs):
     kwargs.setdefault("allow_unsafe_werkzeug", True)
@@ -58,10 +67,59 @@ init_db()
 
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    origin = request.headers.get("Origin")
+    if origin in CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(self), geolocation=(self), microphone=(self)"
     return response
+
+
+@app.before_request
+def protect_requests():
+    if request.path.startswith("/api/civilian/"):
+        limit = 30
+    elif request.path.startswith("/api/"):
+        limit = 120
+    else:
+        return None
+    if is_rate_limited(limit):
+        return jsonify({"error": "Too many requests. Please try again shortly."}), 429
+    return None
+
+
+@app.errorhandler(413)
+def payload_too_large(_error):
+    return jsonify({"error": "Upload exceeds the 5 MB limit"}), 413
+
+
+@app.errorhandler(ValueError)
+def invalid_request(error):
+    return jsonify({"error": str(error)}), 400
+
+
+def json_object():
+    data = request.get_json(silent=True)
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("JSON request body must be an object")
+    return data
+
+
+def valid_coordinates(lat, lng):
+    try:
+        lat, lng = float(lat), float(lng)
+    except (TypeError, ValueError):
+        raise ValueError("lat and lng must be numeric")
+    if not (math.isfinite(lat) and math.isfinite(lng) and -90 <= lat <= 90 and -180 <= lng <= 180):
+        raise ValueError("Coordinates are outside valid geographic bounds")
+    return lat, lng
 
 
 @app.route("/resources/<path:filename>")
@@ -120,7 +178,9 @@ def responder():
 @app.route("/api/incidents", methods=["GET", "POST"])
 def incidents_api():
     if request.method == "POST":
-        data = request.get_json() or {}
+        data = json_object()
+        data["lat"], data["lng"] = valid_coordinates(data.get("lat"), data.get("lng"))
+        data["casualties_count"] = max(1, min(100, int(data.get("casualties_count", 1))))
         if any(k in data for k in ("unresponsive", "severe_hemorrhage", "airway_compromise", "entrapment")):
             triage = calculate_rsi(
                 unresponsive=data.get("unresponsive", False),
@@ -136,7 +196,8 @@ def incidents_api():
         # Notify connected dispatchers
         socketio.emit("incident:new", incident, room="dispatchers")
         return jsonify(incident), 201
-    
+    if not has_operator_token():
+        return jsonify({"error": "Valid operator credentials required"}), 401
     status = request.args.get("status")
     incidents = get_incidents(status=status)
     return jsonify(incidents)
@@ -144,6 +205,8 @@ def incidents_api():
 
 @app.route("/api/incidents/<incident_uuid>", methods=["GET"])
 def incident_detail_api(incident_uuid):
+    if not has_operator_token():
+        return jsonify({"error": "Valid operator credentials required"}), 401
     incident = get_incident_by_uuid(incident_uuid)
     if not incident:
         return jsonify({"error": "Incident not found"}), 404
@@ -159,6 +222,7 @@ def incident_detail_api(incident_uuid):
 
 
 @app.route("/api/incidents/<incident_uuid>/debrief", methods=["GET"])
+@require_role("dispatcher")
 def incident_debrief_api(incident_uuid):
     """Generates structured clinical debrief and markdown report for resolved or active incidents."""
     incident = get_incident_by_uuid(incident_uuid)
@@ -190,27 +254,21 @@ def incident_debrief_api(incident_uuid):
 
 
 @app.route("/api/responder/assign", methods=["POST"])
+@require_role("dispatcher")
 def assign_responder_api():
     """Assigns an emergency responder unit to an incident and broadcasts real-time telemetry."""
-    data = request.get_json() or {}
+    data = json_object()
     incident_uuid = data.get("incident_uuid")
     unit_code = data.get("unit_code")
 
     if not incident_uuid or not unit_code:
         return jsonify({"error": "incident_uuid and unit_code required"}), 400
 
-    incident = get_incident_by_uuid(incident_uuid)
-    responder = get_responder_by_code(unit_code)
-    if not incident or not responder:
-        return jsonify({"error": "Incident or Responder not found"}), 404
-
-    # Update responder and incident statuses
-    from backend.database import update_responder_status
-    update_responder_status(unit_code, status="assigned", incident_id=incident_uuid)
-    updated_inc = update_incident(incident_uuid, {
-        "status": "dispatched",
-        "assigned_responder_id": unit_code
-    })
+    updated_inc, responder, assignment_error = assign_responder_to_incident(incident_uuid, unit_code)
+    if assignment_error == "not_found":
+        return jsonify({"error": "Incident or responder not found"}), 404
+    if assignment_error:
+        return jsonify({"error": assignment_error.replace("_", " ")}), 409
 
     # Log dispatch audit update
     add_incident_update(
@@ -226,10 +284,11 @@ def assign_responder_api():
         "unit_code": unit_code,
         "responder_name": responder["name"],
         "status": "dispatched",
-        "timestamp": incident["updated_at"]
+        "timestamp": updated_inc["updated_at"]
     }
     socketio.emit("responder:assigned", payload, room="dispatchers")
     socketio.emit("responder:assigned", payload, room="responders")
+    socketio.emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
 
     return jsonify({
         "status": "success",
@@ -239,9 +298,10 @@ def assign_responder_api():
 
 
 @app.route("/api/responder-telemetry", methods=["POST"])
+@require_role("responder")
 def responder_telemetry_beacon_api():
     """Ingests periodic GPS beacon from active responder unit and emits live tracking event."""
-    data = request.get_json() or {}
+    data = json_object()
     unit_code = data.get("unit_code")
     lat = data.get("lat")
     lng = data.get("lng")
@@ -250,9 +310,17 @@ def responder_telemetry_beacon_api():
 
     if not unit_code or lat is None or lng is None:
         return jsonify({"error": "unit_code, lat, lng required"}), 400
+    lat, lng = valid_coordinates(lat, lng)
+    try:
+        heading = float(heading)
+        speed_kmh = float(speed_kmh)
+    except (TypeError, ValueError):
+        return jsonify({"error": "heading and speed_kmh must be numeric"}), 400
+    if not 0 <= heading < 360 or not 0 <= speed_kmh <= 250:
+        return jsonify({"error": "telemetry values outside safe bounds"}), 400
 
-    from backend.database import update_responder_telemetry
-    update_responder_telemetry(unit_code, lat=lat, lng=lng, heading=heading, speed_kmh=speed_kmh)
+    if not update_responder_telemetry(unit_code, lat=lat, lng=lng, heading=heading, speed_kmh=speed_kmh):
+        return jsonify({"error": "Responder not found"}), 404
 
     # Broadcast live pin update to dispatcher and responder GIS screens
     beacon_payload = {
@@ -262,23 +330,43 @@ def responder_telemetry_beacon_api():
         "heading": heading,
         "speed_kmh": speed_kmh
     }
-    socketio.emit("responder:beacon", beacon_payload, room="dispatchers")
+    socketio.emit("telemetry:update", beacon_payload, room="dispatchers")
     socketio.emit("responder:beacon", beacon_payload, room="responders")
 
     return jsonify({"status": "beacon_recorded", "data": beacon_payload})
 
 
 @app.route("/api/responders", methods=["GET"])
+@require_role("dispatcher")
 def responders_api():
     responders = get_responders()
     return jsonify(responders)
 
 
 @app.route("/api/hospitals", methods=["GET"])
+@require_role("dispatcher")
 def hospitals_api():
     capability = request.args.get("capability")
     hospitals = get_hospitals(capability=capability)
     return jsonify(hospitals)
+
+
+@app.route("/api/incidents/<incident_uuid>/acknowledge", methods=["POST"])
+@require_role("responder")
+def acknowledge_brief_api(incident_uuid):
+    """Persist a responder's acknowledgement instead of treating it as UI state."""
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    data = json_object()
+    unit_code = data.get("unit_code")
+    if not unit_code or incident.get("assigned_responder_id") != unit_code:
+        return jsonify({"error": "This unit is not assigned to the incident"}), 403
+    add_incident_update(incident_uuid, "responder", f"Unit {unit_code} acknowledged the mission brief.", "acknowledgement")
+    payload = {"incident_uuid": incident_uuid, "unit_code": unit_code, "status": "acknowledged"}
+    socketio.emit("responder:acknowledged", payload, room="dispatchers")
+    socketio.emit("responder:acknowledged", payload, room=f"incident_{incident_uuid}")
+    return jsonify({"status": "acknowledged", "data": payload})
 
 
 @app.route("/api/weather", methods=["GET"])
@@ -291,8 +379,11 @@ def weather_api():
 
 
 @app.route("/api/demo/inject", methods=["POST"])
+@require_role("dispatcher")
 def demo_inject_api():
-    data = request.get_json() or {}
+    if os.getenv("RESQ_ENABLE_DEMO", "1" if os.getenv("RESQ_REQUIRE_AUTH", "0").lower() not in ("1", "true", "yes") else "0").lower() not in ("1", "true", "yes"):
+        return jsonify({"error": "Synthetic scenarios are disabled"}), 403
+    data = json_object()
     scenario = data.get("scenario", "crash")
     
     if scenario == "flood":
@@ -310,21 +401,27 @@ def demo_inject_api():
 
 @app.route("/api/nearest-hospital", methods=["POST"])
 def nearest_hospital():
-    data = request.get_json() or {}
+    if not has_operator_token():
+        return jsonify({"error": "Valid operator credentials required"}), 401
+    data = json_object()
     civilian_lat = data.get("lat")
     civilian_lng = data.get("lng")
     incident_type = data.get("incident_type", "general")
 
-    if not civilian_lat or not civilian_lng:
+    if civilian_lat is None or civilian_lng is None:
         return jsonify({"error": "Location coordinates required"}), 400
+    civilian_lat, civilian_lng = valid_coordinates(civilian_lat, civilian_lng)
 
-    all_hospitals = get_hospitals()
+    # Seed data is advisory only. Facility readiness must be supplied by a verified feed.
+    all_hospitals = [h for h in get_hospitals() if h.get("bed_status") not in {"unavailable", "closed"}]
     if incident_type == "trauma":
         candidates = [h for h in all_hospitals if h["capability"] == "trauma"]
         if not candidates:
             candidates = all_hospitals
     else:
         candidates = all_hospitals
+    if not candidates:
+        return jsonify({"error": "No eligible hospital records are available"}), 503
 
     results = []
     for hospital in candidates:
@@ -364,13 +461,15 @@ def nearest_hospital():
         rsi_score=data.get("rsi_score", 4.0)
     )
 
+    recommended = next((r["hospital"] for r in results if r["hospital"]["name"] == survival_eval["recommended_hospital"]), None)
+    probability = float(str(survival_eval["predicted_survival_probability"]).rstrip("%")) / 100
     return jsonify({
-        "recommended_hospital": survival_eval["recommended_hospital"],
+        "recommended_hospital": recommended,
         "capability": survival_eval["recommended_facility_tier"],
         "distance_km": survival_eval["optimal_distance_km"],
         "duration_mins": survival_eval["optimal_duration_mins"],
         "geometry": survival_eval["geometry"],
-        "predicted_survival_probability": survival_eval["predicted_survival_probability"],
+        "predicted_survival_probability": probability,
         "survival_utility_score": survival_eval["survival_utility_score"],
         "clinical_tradeoff_active": survival_eval["clinical_tradeoff_active"],
         "clinical_justification": survival_eval["clinical_justification"],
@@ -383,7 +482,7 @@ def nearest_hospital():
 @app.route("/api/analysis/severity", methods=["POST"])
 def severity_analysis_api():
     """Computes ResQ Severity Index (1.0-5.0) and clinical START triage."""
-    data = request.get_json() or {}
+    data = json_object()
     result = calculate_rsi(
         unresponsive=data.get("unresponsive", False),
         severe_hemorrhage=data.get("severe_hemorrhage", False),
@@ -433,7 +532,7 @@ def corridor_risk_api():
 @app.route("/api/analysis/golden-hour", methods=["POST"])
 def golden_hour_analysis_api():
     """Evaluates exponential survival decay curves and capability trade-offs for hospital options."""
-    data = request.get_json() or {}
+    data = json_object()
     candidates = data.get("candidates", [])
     incident_type = data.get("incident_type", "trauma")
     rsi_score = data.get("rsi_score", 4.0)
@@ -447,14 +546,16 @@ def golden_hour_analysis_api():
 
 @app.route("/api/responder-eta", methods=["POST"])
 def responder_eta():
-    data = request.get_json() or {}
+    data = json_object()
     responder_lat = data.get("responder_lat")
     responder_lng = data.get("responder_lng")
     incident_lat = data.get("incident_lat")
     incident_lng = data.get("incident_lng")
 
-    if not all([responder_lat, responder_lng, incident_lat, incident_lng]):
+    if any(value is None for value in (responder_lat, responder_lng, incident_lat, incident_lng)):
         return jsonify({"error": "All coordinates required"}), 400
+    responder_lat, responder_lng = valid_coordinates(responder_lat, responder_lng)
+    incident_lat, incident_lng = valid_coordinates(incident_lat, incident_lng)
 
     route_data = get_route(
         start_lng=responder_lng,
@@ -489,13 +590,17 @@ def civilian_chat_api():
     telemetry via Gemini 2.0 Flash / local fallback, computes RSI triage score,
     creates/updates an incident in the database, and emits real-time WebSocket events.
     """
-    data = request.get_json() or {}
+    data = json_object()
     message = (data.get("message") or "").strip()
     lat = data.get("lat")
     lng = data.get("lng")
     incident_uuid = data.get("incident_uuid")
     photo_b64 = data.get("photo_b64")
     history = data.get("history") or []
+    if not isinstance(history, list) or len(history) > 8:
+        raise ValueError("history must contain at most eight message objects")
+    if len(message) > 4000:
+        raise ValueError("message exceeds the 4,000 character limit")
     eta_seconds = data.get("eta_seconds")
     if eta_seconds is not None:
         try:
@@ -506,11 +611,7 @@ def civilian_chat_api():
     if not message and not photo_b64:
         return jsonify({"error": "Message or photo required"}), 400
 
-    # 1. Multimodal AI Extraction (English + Nigerian Pidgin)
-    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64)
-    # 1. Multimodal AI Extraction (English + Nigerian Pidgin + Multi-turn context)
-    extraction = extract_telemetry_and_guidance(bystander_text=message, scene_photo_base64=photo_b64, history=history)
-    # 1. Multimodal AI Extraction (English + Nigerian Pidgin + Multi-turn context + ETA awareness)
+    # One bounded AI request per user turn.
     extraction = extract_telemetry_and_guidance(
         bystander_text=message,
         scene_photo_base64=photo_b64,
@@ -545,6 +646,8 @@ def civilian_chat_api():
         if not loc_name or loc_name in ("Civilian Telemetry Point", "Enugu"):
             loc_name = resolved_geo.get("location_name", "Enugu Urban Corridor")
 
+        if lat is not None and lng is not None:
+            lat, lng = valid_coordinates(lat, lng)
         incident_data = {
             "incident_uuid": incident_uuid,
             "title": f"Bystander SOS: {trauma_str}",
@@ -569,7 +672,8 @@ def civilian_chat_api():
             "severity_level": new_level,
             "casualties_count": max(int(incident["casualties_count"] or 1), extraction["casualties_count"])
         }
-        if lat and lng:
+        if lat is not None and lng is not None:
+            lat, lng = valid_coordinates(lat, lng)
             update_data["lat"] = lat
             update_data["lng"] = lng
             if not incident.get("location_name") or incident.get("location_name") in ("Civilian Telemetry Point", "Enugu"):
@@ -651,10 +755,17 @@ def civilian_upload_photo_api():
         photo_bytes = photo_file.read()
         mime_type = photo_file.mimetype or "image/jpeg"
 
+    if len(photo_bytes) > app.config["MAX_CONTENT_LENGTH"]:
+        return jsonify({"error": "Upload exceeds the 5 MB limit"}), 413
+    if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+        return jsonify({"error": "Only JPEG, PNG, and WebP images are accepted"}), 400
+
     vision_result = analyze_scene_photo(photo_bytes=photo_bytes, mime_type=mime_type)
 
     # Bind hazard to incident if active
     if incident_uuid:
+        if not get_incident_by_uuid(incident_uuid):
+            return jsonify({"error": "Incident not found"}), 404
         for h in vision_result.get("hazards_detected", []):
             add_scene_hazard(
                 incident_uuid=incident_uuid,
@@ -708,10 +819,15 @@ def get_route(start_lng, start_lat, end_lng, end_lat):
 
 @app.route("/health")
 def health_check():
+    try:
+        conn = get_db_connection(); conn.close()
+    except Exception:
+        return jsonify({"status": "unhealthy", "service": "ResQ Emergency Intelligence"}), 503
     return jsonify({
         "status": "healthy",
         "service": "ResQ Emergency Intelligence",
-        "version": "2026.1"
+        "version": "2026.2",
+        "database": "mysql" if USING_MYSQL else "sqlite-development-only"
     }), 200
 
 

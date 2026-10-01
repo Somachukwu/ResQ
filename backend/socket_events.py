@@ -1,3 +1,4 @@
+import os
 from flask import request
 from flask_socketio import emit, join_room, leave_room
 from .database import (
@@ -7,30 +8,45 @@ from .database import (
     get_incident_by_uuid,
     get_incident_updates,
     get_scene_hazards,
-    update_responder_status,
     update_responder_telemetry,
-    get_responder_by_code
+    assign_responder_to_incident
 )
 from .synthetic_injector import inject_expressway_crash, inject_urban_flood
+from .security import AUTH_REQUIRED, role_from_socket_auth
 
 def register_socket_events(socketio):
+    connection_roles = {}
     
     @socketio.on("connect")
-    def handle_connect():
+    def handle_connect(auth=None):
+        role = role_from_socket_auth(auth)
+        if role is None:
+            return False
+        connection_roles[request.sid] = role
         print(f"[WebSocket] Client connected: {request.sid}")
         emit("connection:acknowledged", {"status": "connected", "sid": request.sid})
 
     @socketio.on("disconnect")
     def handle_disconnect():
+        connection_roles.pop(request.sid, None)
         print(f"[WebSocket] Client disconnected: {request.sid}")
 
     @socketio.on("join")
     def handle_join(data):
         room = data.get("room")
-        if room:
+        role = connection_roles.get(request.sid)
+        allowed = (
+            (room == "dispatchers" and role in ("dispatcher", "development")) or
+            (room == "responders" and role in ("responder", "development")) or
+            (room and room.startswith("responder_") and role in ("responder", "development")) or
+            (room and room.startswith("incident_") and role in ("dispatcher", "responder", "development"))
+        )
+        if room and allowed:
             join_room(room)
             print(f"[WebSocket] Client {request.sid} joined room: {room}")
             emit("room:joined", {"room": room}, to=request.sid)
+        elif room:
+            emit("error", {"error": "Room access denied"}, to=request.sid)
 
     @socketio.on("leave")
     def handle_leave(data):
@@ -42,6 +58,9 @@ def register_socket_events(socketio):
     @socketio.on("incident:create")
     def handle_incident_create(data):
         """Civilian creates a new emergency incident"""
+        if AUTH_REQUIRED:
+            emit("error", {"error": "Use the protected HTTP SOS endpoint"}, to=request.sid)
+            return
         import uuid
         incident_uuid = data.get("incident_uuid") or f"INC-{uuid.uuid4().hex[:8].upper()}"
         data["incident_uuid"] = incident_uuid
@@ -55,6 +74,9 @@ def register_socket_events(socketio):
     @socketio.on("incident:msg")
     def handle_incident_message(data):
         """Civilian or AI sends a chat update to the incident timeline"""
+        if AUTH_REQUIRED:
+            emit("error", {"error": "Use the protected HTTP SOS endpoint"}, to=request.sid)
+            return
         incident_uuid = data.get("incident_uuid")
         source = data.get("source", "civilian")
         content = data.get("content", "")
@@ -77,12 +99,17 @@ def register_socket_events(socketio):
     @socketio.on("responder:assign")
     def handle_responder_assign(data):
         """Dispatcher assigns a responder to an incident"""
+        if connection_roles.get(request.sid) not in ("dispatcher", "development"):
+            emit("error", {"error": "Dispatcher role required"}, to=request.sid)
+            return
         incident_uuid = data.get("incident_uuid")
         unit_code = data.get("unit_code")
 
         if incident_uuid and unit_code:
-            update_incident(incident_uuid, {"assigned_responder_id": unit_code, "status": "dispatched"})
-            update_responder_status(unit_code, "assigned", incident_uuid)
+            incident, responder, assignment_error = assign_responder_to_incident(incident_uuid, unit_code)
+            if assignment_error:
+                emit("error", {"error": assignment_error}, to=request.sid)
+                return
             
             payload = {
                 "incident_uuid": incident_uuid,
@@ -97,6 +124,9 @@ def register_socket_events(socketio):
     @socketio.on("responder:telemetry")
     def handle_responder_telemetry(data):
         """Responder broadcasts 15-second GPS position and telemetry"""
+        if connection_roles.get(request.sid) not in ("responder", "development"):
+            emit("error", {"error": "Responder role required"}, to=request.sid)
+            return
         unit_code = data.get("unit_code")
         lat = data.get("lat")
         lng = data.get("lng")
@@ -104,7 +134,9 @@ def register_socket_events(socketio):
         speed_kmh = data.get("speed_kmh", 0.0)
 
         if unit_code and lat is not None and lng is not None:
-            update_responder_telemetry(unit_code, lat, lng, heading, speed_kmh)
+            if not update_responder_telemetry(unit_code, lat, lng, heading, speed_kmh):
+                emit("error", {"error": "Responder not found"}, to=request.sid)
+                return
             payload = {
                 "unit_code": unit_code,
                 "lat": lat,
@@ -117,6 +149,12 @@ def register_socket_events(socketio):
     @socketio.on("demo:inject")
     def handle_demo_inject(data):
         """Synthetic incident injection trigger"""
+        if connection_roles.get(request.sid) not in ("dispatcher", "development"):
+            emit("error", {"error": "Dispatcher role required"}, to=request.sid)
+            return
+        if AUTH_REQUIRED and os.getenv("RESQ_ENABLE_DEMO", "0").lower() not in ("1", "true", "yes"):
+            emit("error", {"error": "Synthetic scenarios are disabled"}, to=request.sid)
+            return
         scenario = data.get("scenario", "crash")
         if scenario == "flood":
             incident = inject_urban_flood()
@@ -126,4 +164,3 @@ def register_socket_events(socketio):
         emit("incident:new", incident, room="dispatchers")
         emit("demo:injected", incident, to=request.sid)
         print(f"[WebSocket] Synthetic demo injected: {incident['incident_uuid']}")
-

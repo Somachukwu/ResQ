@@ -24,8 +24,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
-CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 PREFERRED_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CANDIDATE_MODELS = [PREFERRED_MODEL, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 # Remove duplicates while preserving order
@@ -165,10 +163,8 @@ def _call_gemini_text(
     """Calls Google Gemini generateContent endpoint across supported candidate models with multi-turn context and ETA awareness."""
     contents: List[Dict[str, Any]] = []
 
-    # Prepend previous turns from conversation history
-    # Prepend previous turns from conversation history (limit to last 4 turns for low latency)
+    # Keep the prompt bounded so one long conversation cannot exhaust latency or token budgets.
     if history and isinstance(history, list):
-        for turn in history:
         recent_history = history[-4:]
         for turn in recent_history:
             role = turn.get("role", "user")
@@ -207,8 +203,6 @@ def _call_gemini_text(
         "contents": contents,
         "generationConfig": {
             "response_mime_type": "application/json",
-            "temperature": 0.45,
-            "maxOutputTokens": 1000
             "temperature": 0.35,
             "maxOutputTokens": 450
         }

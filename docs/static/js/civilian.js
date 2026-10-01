@@ -45,6 +45,7 @@ const icons = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
   warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
 };
+const escapeHTML = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 
 /* ---------------- boot ---------------- */
 try {
@@ -272,7 +273,7 @@ function renderRedFlags(flags) {
       <span>Immediate Warning Signs (Red Flags)</span>
     </div>
     <ul class="red-flags-card__list">
-      ${flags.map(f => `<li>${f}</li>`).join("")}
+      ${flags.map(f => `<li>${escapeHTML(f)}</li>`).join("")}
     </ul>
   `;
   el.stream.appendChild(card);
@@ -290,7 +291,7 @@ function renderAssessmentQuestions(questions) {
     card.innerHTML = `
       <div class="assessment-card__prompt">
         <span class="assessment-card__num">${idx + 1}</span>
-        <p class="assessment-card__question">${q.question}</p>
+        <p class="assessment-card__question">${escapeHTML(q.question)}</p>
       </div>
       <div class="assessment-chips"></div>
     `;
@@ -376,8 +377,8 @@ function renderProtocol(p) {
   head.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);gap:12px;";
   head.innerHTML = `
     <div style="flex:1;min-width:0;">
-      <h2 style="font-size:0.95rem;font-weight:600;color:var(--text);margin:0;">${p.title}</h2>
-      <p style="font-size:0.75rem;color:var(--text-3);margin:2px 0 0 0;">${p.summary}</p>
+      <h2 style="font-size:0.95rem;font-weight:600;color:var(--text);margin:0;">${escapeHTML(p.title)}</h2>
+      <p style="font-size:0.75rem;color:var(--text-3);margin:2px 0 0 0;">${escapeHTML(p.summary)}</p>
     </div>
     <span class="badge badge--teal" style="font-size:0.7rem;font-weight:600;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);white-space:nowrap;border:1px solid var(--accent);">Action Steps</span>`;
   card.appendChild(head);
@@ -466,7 +467,8 @@ function renderProtocol(p) {
 function renderHazard(text) {
   const n = document.createElement("div");
   n.className = "hazard-note";
-  n.innerHTML = `${icons.warn}<span><b>Hazard sent to responders.</b> ${text}.</span>`;
+  n.innerHTML = `${icons.warn}<span><b>Hazard reported to dispatch.</b> </span>`;
+  n.querySelector("span").append(document.createTextNode(`${text}.`));
   el.stream.appendChild(n);
   scroll();
 }
@@ -642,7 +644,7 @@ function dispatchResponder() {
   el.liveActions.classList.add("is-active");
   say(
     "resq",
-    "Help is actively on the way. An emergency response unit has been dispatched to your coordinates, and I am right here with you to guide every step until they arrive. Take a slow, gentle breath."
+    "Your emergency report and location have been sent to dispatch. Keep following the safety guidance, but do not assume a responder is assigned until dispatch confirms it."
   );
   tickEta();
 }

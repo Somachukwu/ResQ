@@ -134,10 +134,14 @@ class TestGeminiTriage(unittest.TestCase):
 
     def test_civilian_photo_upload_endpoint(self):
         """POST /api/civilian/upload-photo handles multipart upload and logs hazard."""
+        created = self.client.post("/api/incidents", json={
+            "title": "Photo validation incident", "lat": 6.4474, "lng": 7.5098
+        })
+        incident_uuid = json.loads(created.data)["incident_uuid"]
         dummy_file = (io.BytesIO(b"dummy image content"), "scene.jpg")
         res = self.client.post(
             "/api/civilian/upload-photo",
-            data={"photo": dummy_file, "incident_uuid": "INC-TEST-001"},
+            data={"photo": dummy_file, "incident_uuid": incident_uuid},
             content_type="multipart/form-data"
         )
         self.assertEqual(res.status_code, 200)
