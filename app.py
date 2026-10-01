@@ -52,7 +52,8 @@ if os.getenv("RESQ_REQUIRE_AUTH", "0").lower() in ("1", "true", "yes") and app.c
     raise RuntimeError("SECRET_KEY must be configured when RESQ_REQUIRE_AUTH is enabled")
 
 # Initialize real-time SocketIO bus
-CORS_ORIGINS = {origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5000").split(",") if origin.strip()}
+_DEFAULT_CORS = "https://somachukwu.github.io,http://localhost:5000,http://127.0.0.1:5000"
+CORS_ORIGINS = {origin.strip() for origin in os.getenv("CORS_ORIGINS", _DEFAULT_CORS).split(",") if origin.strip()}
 socketio = SocketIO(app, cors_allowed_origins=list(CORS_ORIGINS), async_mode="threading")
 _orig_socketio_run = socketio.run
 def _guarded_run(*args, **kwargs):
