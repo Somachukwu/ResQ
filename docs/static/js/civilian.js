@@ -1,4 +1,4 @@
-/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
+﻿/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
 import "./resq-theme.js";
 import { PROTOCOLS, cacheProtocols, readCachedProtocols, matchProtocols, detectHazards } from "./resq-protocols.js";
 
@@ -158,7 +158,12 @@ function respond(text) {
   .then((data) => {
     thinking.remove();
     if (data.incident_uuid) {
+      const isNewIncident = !state.incidentUuid;
       state.incidentUuid = data.incident_uuid;
+      // Join the incident socket room so dispatcher messages arrive live
+      if (isNewIncident && window._resqCivSocket) {
+        window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
+      }
     }
 
     // Record model turn in local history
@@ -706,3 +711,55 @@ function wireKeyboardAccommodation() {
   });
 }
 
+
+/* ---------------- WebSocket: dispatcher messages + live ETA updates ---------------- */
+(function initCivilianSocket() {
+  if (typeof io === "undefined") return;
+  const serverUrl = window.RESQ_CONFIG?.backendUrl || undefined;
+  const sock = io(serverUrl, { transports: ["websocket", "polling"], reconnection: true });
+  window._resqCivSocket = sock;
+
+  // If we already have an incident uuid (page reload with state), re-join the room
+  sock.on("connect", () => {
+    if (state.incidentUuid) {
+      sock.emit("join", { room: incident_ });
+    }
+  });
+
+  // Dispatcher sends a direct message to the civilian
+  sock.on("dispatcher:message", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    say("dispatch", data.message || "Dispatch is with you. Stay calm.");
+  });
+
+  // Server pushes updated ETA as the ambulance moves
+  sock.on("civilian:eta_update", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    const secs = parseInt(data.eta_seconds, 10);
+    if (!isNaN(secs) && secs >= 0) {
+      state.etaSeconds = secs;
+    }
+  });
+})();
+
+/* ---------------- say() dispatcher bubble style ---------------- */
+(function patchSayForDispatcher() {
+  const _origSay = window._resqSay;
+  // Render a "dispatch" role differently in the stream
+  const _say = window.say;
+  if (typeof _say !== "function") return;
+  window.say = function(role, text) {
+    if (role === "dispatch") {
+      const bubble = document.createElement("div");
+      bubble.className = "msg msg--dispatch";
+      const p = document.createElement("p");
+      p.className = "msg__text";
+      p.style.cssText = "color:var(--accent);font-style:italic;";
+      p.textContent = "\uD83D\uDCE1 Dispatch: " + text;
+      bubble.appendChild(p);
+      if (el.stream) { el.stream.appendChild(bubble); scroll(); }
+      return;
+    }
+    _say(role, text);
+  };
+})();

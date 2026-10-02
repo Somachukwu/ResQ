@@ -145,7 +145,7 @@ def create_incident(data):
 
 
 def update_incident(incident_uuid, updates):
-    allowed = {"status", "severity_level", "severity_score", "escalation_status", "casualties_count", "trapped_count", "assigned_responder_id", "recommended_hospital_id", "location_name", "title", "lat", "lng"}
+    allowed = {"status", "severity_level", "severity_score", "escalation_status", "casualties_count", "trapped_count", "assigned_responder_id", "recommended_hospital_id", "location_name", "title", "lat", "lng", "route_geometry"}
     fields, values = [], []
     for key, value in updates.items():
         if key in allowed: fields.append(f"{key} = ?"); values.append(value)
@@ -161,6 +161,18 @@ def update_incident(incident_uuid, updates):
     finally:
         cursor.close(); conn.close()
     return get_incident_by_uuid(incident_uuid)
+
+
+def get_incident_conversation(incident_uuid):
+    """Returns civilian chat messages and AI responses for a given incident, ordered chronologically."""
+    rows = _query_all(
+        "SELECT * FROM incident_updates WHERE incident_uuid = ? AND source IN ('civilian', 'ai_system') ORDER BY id ASC",
+        (incident_uuid,)
+    )
+    for row in rows:
+        try: row["metadata"] = json.loads(row["metadata_json"]) if row.get("metadata_json") else None
+        except (TypeError, json.JSONDecodeError): row["metadata"] = None
+    return rows
 
 
 def assign_responder_to_incident(incident_uuid, unit_code):

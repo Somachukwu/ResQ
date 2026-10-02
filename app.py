@@ -24,7 +24,7 @@ from backend.database import (
     add_incident_update,
     add_scene_hazard
 )
-from backend.database import assign_responder_to_incident, update_responder_telemetry, USING_MYSQL, get_db_connection
+from backend.database import assign_responder_to_incident, update_responder_telemetry, USING_MYSQL, get_db_connection, get_incident_conversation
 from backend.security import require_role, is_rate_limited, has_operator_token
 import uuid
 import base64
@@ -279,6 +279,43 @@ def assign_responder_api():
         content=f"Unit {unit_code} ({responder['name']}) dispatched to incident site."
     )
 
+    # Compute road route from responder current position to incident
+    route_data = None
+    route_geometry = None
+    if responder.get("lat") and responder.get("lng") and updated_inc.get("lat") and updated_inc.get("lng"):
+        route_data = get_route(
+            start_lng=float(responder["lng"]),
+            start_lat=float(responder["lat"]),
+            end_lng=float(updated_inc["lng"]),
+            end_lat=float(updated_inc["lat"])
+        )
+        if route_data:
+            route_geometry = route_data.get("geometry")
+            # Store geometry on incident for responder to retrieve on load
+            import json as _json
+            update_incident(incident_uuid, {"route_geometry": _json.dumps(route_geometry)})
+
+    # Compute nearest hospital for this incident
+    hospital_data = None
+    all_h = [h for h in get_hospitals() if h.get("bed_status") not in {"unavailable", "closed"}]
+    inc_type = updated_inc.get("type", "general")
+    candidates = [h for h in all_h if h["capability"] == "trauma"] if inc_type in ("road_traffic_accident", "trauma") else all_h
+    if not candidates:
+        candidates = all_h
+    if candidates:
+        results = []
+        for hospital in candidates[:3]:
+            h_route = get_route(float(updated_inc["lng"]), float(updated_inc["lat"]), float(hospital["lng"]), float(hospital["lat"]))
+            if h_route:
+                results.append({"hospital": hospital, "distance_km": round(h_route["distance"]/1000, 2), "duration_mins": round(h_route["duration"]/60, 1)})
+        if not results:
+            import math as _math
+            for hospital in candidates[:3]:
+                approx_km = round(((hospital["lat"]-float(updated_inc["lat"]))**2 + (hospital["lng"]-float(updated_inc["lng"]))**2)**0.5 * 111, 2)
+                results.append({"hospital": hospital, "distance_km": approx_km, "duration_mins": round(approx_km/40*60, 1)})
+        results.sort(key=lambda x: x["duration_mins"])
+        hospital_data = results[0] if results else None
+
     # Broadcast to dispatchers, responders, and civilian room
     payload = {
         "incident_uuid": incident_uuid,
@@ -289,13 +326,147 @@ def assign_responder_api():
     }
     socketio.emit("responder:assigned", payload, room="dispatchers")
     socketio.emit("responder:assigned", payload, room="responders")
-    socketio.emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
+
+    # Push full mission brief (route + hospital) to the specific responder unit
+    mission_payload = {
+        "incident_uuid": incident_uuid,
+        "unit_code": unit_code,
+        "incident": updated_inc,
+        "route_geometry": route_geometry,
+        "route_distance_km": round(route_data["distance"]/1000, 2) if route_data else None,
+        "route_duration_mins": round(route_data["duration"]/60, 1) if route_data else None,
+        "recommended_hospital": hospital_data["hospital"] if hospital_data else None,
+        "hospital_duration_mins": hospital_data["duration_mins"] if hospital_data else None,
+        "hospital_distance_km": hospital_data["distance_km"] if hospital_data else None,
+    }
+    socketio.emit("responder:mission_alert", mission_payload, room=f"responder_{unit_code}")
 
     return jsonify({
         "status": "success",
         "incident": updated_inc,
-        "responder": get_responder_by_code(unit_code)
+        "responder": get_responder_by_code(unit_code),
+        "route_geometry": route_geometry,
+        "recommended_hospital": hospital_data["hospital"] if hospital_data else None,
+        "hospital_duration_mins": hospital_data["duration_mins"] if hospital_data else None,
     })
+
+
+@app.route("/api/incidents/<incident_uuid>/dispatcher-message", methods=["POST"])
+@require_role("dispatcher")
+def dispatcher_message_api(incident_uuid):
+    """Dispatcher sends a direct message to the civilian in an active incident room."""
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    data = json_object()
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message required"}), 400
+    if len(message) > 1000:
+        raise ValueError("Message exceeds 1,000 character limit")
+    add_incident_update(incident_uuid, "dispatcher", message, "direct_message")
+    socketio.emit("dispatcher:message", {"incident_uuid": incident_uuid, "message": message}, room=f"incident_{incident_uuid}")
+    socketio.emit("incident:timeline_update", {"incident_uuid": incident_uuid, "source": "dispatcher", "content": message}, room="dispatchers")
+    return jsonify({"status": "sent"})
+
+
+@app.route("/api/incidents/<incident_uuid>/conversation", methods=["GET"])
+def incident_conversation_api(incident_uuid):
+    """Returns the civilian-AI conversation log for an incident (for dispatcher and responder intel view)."""
+    if not has_operator_token():
+        return jsonify({"error": "Valid operator credentials required"}), 401
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    return jsonify(get_incident_conversation(incident_uuid))
+
+
+@app.route("/api/incidents/<incident_uuid>/route-change", methods=["POST"])
+@require_role("dispatcher")
+def route_change_api(incident_uuid):
+    """Dispatcher pushes a route change instruction to the assigned responder."""
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    unit_code = incident.get("assigned_responder_id")
+    if not unit_code:
+        return jsonify({"error": "No responder currently assigned to this incident"}), 409
+    data = json_object()
+    note = (data.get("note") or "").strip()
+    new_route = data.get("route_geometry")
+    if not note:
+        return jsonify({"error": "note required"}), 400
+    add_incident_update(incident_uuid, "dispatcher", f"Route change: {note}", "route_change")
+    change_payload = {
+        "incident_uuid": incident_uuid,
+        "unit_code": unit_code,
+        "note": note,
+        "route_geometry": new_route
+    }
+    socketio.emit("responder:route_change", change_payload, room=f"responder_{unit_code}")
+    socketio.emit("incident:timeline_update", {"incident_uuid": incident_uuid, "source": "dispatcher", "content": f"Route change instruction sent: {note}"}, room="dispatchers")
+    return jsonify({"status": "sent", "unit_code": unit_code})
+
+
+_simulation_threads = {}
+
+@app.route("/api/demo/simulate-movement", methods=["POST"])
+@require_role("dispatcher")
+def simulate_movement_api():
+    """Starts a GPS simulation that moves the responder unit along a route for demo purposes."""
+    import threading
+    import time as _time
+    data = json_object()
+    unit_code = data.get("unit_code")
+    incident_uuid = data.get("incident_uuid")
+    waypoints = data.get("waypoints")  # list of {lat, lng}
+    interval_s = max(3, min(15, int(data.get("interval_s", 5))))
+
+    if not unit_code or not incident_uuid or not waypoints or len(waypoints) < 2:
+        return jsonify({"error": "unit_code, incident_uuid, and at least 2 waypoints required"}), 400
+
+    # Stop any existing simulation for this unit
+    _simulation_threads.pop(unit_code, None)
+    stop_event = threading.Event()
+    _simulation_threads[unit_code] = stop_event
+
+    def _run():
+        total = len(waypoints)
+        for idx, wp in enumerate(waypoints):
+            if stop_event.is_set():
+                break
+            try:
+                lat, lng = float(wp["lat"]), float(wp["lng"])
+                update_responder_telemetry(unit_code, lat=lat, lng=lng, heading=45.0, speed_kmh=60.0)
+                eta_remaining = max(0, int((total - idx - 1) * interval_s))
+                beacon = {"unit_code": unit_code, "lat": lat, "lng": lng, "heading": 45.0, "speed_kmh": 60.0}
+                socketio.emit("telemetry:update", beacon, room="dispatchers")
+                socketio.emit("responder:beacon", beacon, room="responders")
+                socketio.emit("civilian:eta_update", {"incident_uuid": incident_uuid, "eta_seconds": eta_remaining}, room=f"incident_{incident_uuid}")
+            except Exception as ex:
+                print(f"[SimGPS] Error at waypoint {idx}: {ex}")
+            if idx < total - 1:
+                _time.sleep(interval_s)
+        _simulation_threads.pop(unit_code, None)
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return jsonify({"status": "simulation_started", "unit_code": unit_code, "waypoints": len(waypoints), "interval_s": interval_s})
+
+
+@app.route("/api/demo/stop-simulation", methods=["POST"])
+@require_role("dispatcher")
+def stop_simulation_api():
+    """Stops an active GPS simulation for a responder unit."""
+    data = json_object()
+    unit_code = data.get("unit_code")
+    if not unit_code:
+        return jsonify({"error": "unit_code required"}), 400
+    ev = _simulation_threads.pop(unit_code, None)
+    if ev:
+        ev.set()
+        return jsonify({"status": "stopped"})
+    return jsonify({"status": "no_simulation_running"})
 
 
 @app.route("/api/responder-telemetry", methods=["POST"])

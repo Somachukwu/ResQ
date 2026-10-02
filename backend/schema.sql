@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     trapped_count INTEGER DEFAULT 0,
     assigned_responder_id VARCHAR(50),
     recommended_hospital_id INTEGER,
+    route_geometry TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

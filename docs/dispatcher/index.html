@@ -327,6 +327,27 @@
               </div>
             </div>
 
+            <!-- Route Change Action -->
+            <div class="dispatch-action-box" style="padding-top:0;border-top:none;">
+              <button class="btn btn--ghost btn--compact" id="routeChangeBtn" type="button" style="width:100%;font-size:11px;gap:6px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+                Suggest Route Change to Responder
+              </button>
+            </div>
+
+            <!-- Civilian Intel Feed -->
+            <div class="console-section" style="flex:1;display:flex;flex-direction:column;min-height:130px">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <span class="pulse pulse--teal" aria-hidden="true"></span>
+                  Civilian AI Conversation
+                </span>
+              </div>
+              <div id="civilianIntelLog" style="flex:1;overflow-y:auto;font-size:.8rem;display:flex;flex-direction:column;gap:4px;min-height:90px;padding:4px 0;">
+                <p style="opacity:.5;font-size:.78rem;">Select an incident to view conversation</p>
+              </div>
+            </div>
+
             <!-- Live Communications Timeline -->
             <div class="console-section" style="flex:1;display:flex;flex-direction:column;min-height:160px">
               <div class="console-section__head">

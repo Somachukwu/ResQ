@@ -1,1 +1,1 @@
-web: python app.py
+web: gunicorn -k gthread --threads 8 --workers 1 --bind 0.0.0.0:$PORT app:app

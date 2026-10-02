@@ -5,7 +5,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn -k gthread --threads 8 --workers 1 --bind 0.0.0.0:$PORT app:app
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -13,8 +13,6 @@ services:
         value: 3.12.0
       - key: SECRET_KEY
         generateValue: true
-      - key: CORS_ORIGINS
-        value: https://somachukwu.github.io,http://localhost:5000
       - key: GEMINI_API_KEY
         sync: false
       - key: ORS_API_KEY

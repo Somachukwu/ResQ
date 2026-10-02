@@ -406,3 +406,10 @@ a { color: inherit; }
 *:not(.leaflet-container)::-webkit-scrollbar { width: 8px; height: 8px; }
 *:not(.leaflet-container)::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 99px; }
 *:not(.leaflet-container)::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== Intel Panel (shared: dispatcher civilian intel + responder intel) ===== */
+.intel-line { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.intel-line--civilian { border-left: 3px solid var(--text-3); }
+.intel-line--ai { border-left: 3px solid var(--accent); }
+.intel-who { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+.intel-text { font-size: .82rem; line-height: 1.45; margin: 0; }
