@@ -165,7 +165,7 @@
         <section class="mapwrap" id="mapWrap" aria-label="Tactical GIS map">
           <div id="map"></div>
 
-          <!-- Map layer toggles â€” top-left -->
+          <!-- Map layer toggles — top-left -->
           <div class="layers" role="group" aria-label="Map layers">
             <label class="layer-toggle is-on" data-layer="incidents" data-tone="incident">
               <input type="checkbox" checked /><span class="dot"></span> Incidents
@@ -176,14 +176,17 @@
             <label class="layer-toggle is-on" data-layer="hospitals" data-tone="hospital">
               <input type="checkbox" checked /><span class="dot"></span> Hospital capability
             </label>
-            <label class="layer-toggle is-on" data-layer="flood" data-tone="flood">
-              <input type="checkbox" checked /><span class="dot"></span> Flood risk zones
+            <label class="layer-toggle" data-layer="flood" data-tone="flood">
+              <input type="checkbox" /><span class="dot"></span> Flood risk zones
             </label>
             <label class="layer-toggle is-on" data-layer="corridors" data-tone="corridor">
               <input type="checkbox" checked /><span class="dot"></span> Crash corridors (FRSC)
             </label>
-            <label class="layer-toggle" data-layer="satellite">
-              <input type="checkbox" /><span class="dot"></span> Satellite imagery
+            <label class="layer-toggle" data-layer="satellite" title="Toggle Google High-Resolution Satellite Hybrid">
+              <input type="checkbox" /><span class="dot"></span> Google Satellite
+            </label>
+            <label class="layer-toggle" data-layer="traffic" title="Toggle Live Google Traffic">
+              <input type="checkbox" /><span class="dot"></span> Live Traffic
             </label>
           </div>
 

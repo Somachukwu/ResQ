@@ -112,15 +112,33 @@ function initMap() {
   map = L.map("map", { zoomControl: false, attributionControl: true }).setView([6.42, 7.38], 10);
   L.control.zoom({ position: "bottomright" }).addTo(map);
 
-  layers.base = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap",
-  }).addTo(map);
+  // Google Maps base layers
+  layers.googleStreets = L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+    maxZoom: 20,
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Maps"
+  });
 
-  layers.satellite = L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 19, attribution: "© Esri" }
-  );
+  layers.googleSatellite = L.tileLayer("https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
+    maxZoom: 20,
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Maps Satellite"
+  });
+
+  layers.googleTraffic = L.tileLayer("https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}", {
+    maxZoom: 20,
+    subdomains: ["0", "1", "2", "3"],
+    attribution: "&copy; Google Traffic"
+  });
+
+  layers.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap"
+  });
+
+  // Default active base layer: Google Maps Streets
+  layers.base = layers.googleStreets;
+  layers.base.addTo(map);
 
   layers.incidents = L.layerGroup().addTo(map);
   layers.responders = L.layerGroup().addTo(map);
@@ -349,10 +367,20 @@ function wireLayerToggles() {
       if (key === "satellite") {
         if (input.checked) {
           map.removeLayer(layers.base);
-          layers.satellite.addTo(map);
-        } else {
-          map.removeLayer(layers.satellite);
+          layers.base = layers.googleSatellite;
           layers.base.addTo(map);
+        } else {
+          map.removeLayer(layers.base);
+          layers.base = layers.googleStreets;
+          layers.base.addTo(map);
+        }
+        return;
+      }
+      if (key === "traffic") {
+        if (input.checked) {
+          layers.googleTraffic.addTo(map);
+        } else {
+          map.removeLayer(layers.googleTraffic);
         }
         return;
       }
