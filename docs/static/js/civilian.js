@@ -621,30 +621,47 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
     fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "start", type: type })
+      body: JSON.stringify({ action: "start", type: type, caller: "civilian", title: "Direct Scene Caller" })
     }).catch(() => {});
   }
 }
+
+let civCallTimerInterval = null;
+let civCallSeconds = 0;
 
 function showVoiceBridgeModal(statusText) {
   let modal = document.getElementById("voiceBridgeModal");
   if (!modal) {
     modal = document.createElement("div");
     modal.id = "voiceBridgeModal";
-    modal.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:92%;max-width:440px;background:var(--surface-2);border:2px solid var(--accent);border-radius:18px;padding:16px 20px;z-index:99999;box-shadow:0 12px 40px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:space-between;gap:14px;";
+    modal.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:92%;max-width:440px;background:var(--surface-2);border:2px solid #22c55e;border-radius:18px;padding:14px 18px;z-index:99999;box-shadow:0 12px 40px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:space-between;gap:14px;";
     document.body.appendChild(modal);
   }
+  civCallSeconds = 0;
+  if (civCallTimerInterval) clearInterval(civCallTimerInterval);
+  civCallTimerInterval = setInterval(() => {
+    civCallSeconds += 1;
+    const m = Math.floor(civCallSeconds / 60);
+    const s = civCallSeconds % 60;
+    const timerEl = document.getElementById("civVoiceTimer");
+    if (timerEl) timerEl.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, 1000);
+
   modal.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;">
-      <span class="pulse pulse--teal" style="width:14px;height:14px;"></span>
+      <span class="pulse pulse--teal" style="width:14px;height:14px;background:#22c55e;flex-shrink:0;"></span>
       <div>
-        <strong style="font-size:0.9rem;color:var(--text);display:block;">📞 Voice Link Active</strong>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <strong style="font-size:0.9rem;color:var(--text);">Audio Link Active</strong>
+          <span id="civVoiceTimer" style="font-size:0.85rem;font-weight:700;color:#22c55e;font-variant-numeric:tabular-nums;">00:00</span>
+        </div>
         <span style="font-size:0.75rem;color:var(--text-2);">${statusText}</span>
       </div>
     </div>
-    <button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">End Call</button>
+    <button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;flex-shrink:0;">End Call</button>
   `;
   document.getElementById("endVoiceBtn")?.addEventListener("click", () => {
+    if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
     modal.remove();
     if (state.incidentUuid) {
       fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {

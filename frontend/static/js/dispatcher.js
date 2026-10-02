@@ -831,6 +831,35 @@ function pushComms(target, text, who = null) {
   renderComms();
 }
 
+let voiceCallTimerInterval = null;
+let voiceCallSeconds = 0;
+
+function startVoiceCallUI(title) {
+  const modal = $("#voiceCallModal");
+  const target = $("#voiceCallTargetName");
+  const timer = $("#voiceCallTimer");
+  if (modal) modal.classList.remove("hidden");
+  if (target) target.textContent = title || "Bystander on Scene";
+  voiceCallSeconds = 0;
+  if (timer) timer.textContent = "00:00";
+  if (voiceCallTimerInterval) clearInterval(voiceCallTimerInterval);
+  voiceCallTimerInterval = setInterval(() => {
+    voiceCallSeconds += 1;
+    const m = Math.floor(voiceCallSeconds / 60);
+    const s = voiceCallSeconds % 60;
+    if (timer) timer.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, 1000);
+}
+
+function endVoiceCallUI() {
+  const modal = $("#voiceCallModal");
+  if (modal) modal.classList.add("hidden");
+  if (voiceCallTimerInterval) {
+    clearInterval(voiceCallTimerInterval);
+    voiceCallTimerInterval = null;
+  }
+}
+
 function wireComms() {
   const chanCiv = $("#channelCivBtn");
   const chanResp = $("#channelRespBtn");
@@ -838,32 +867,35 @@ function wireComms() {
   const commsForm = $("#commsForm");
 
   if (chanCiv && chanResp) {
-    chanCiv.addEventListener("click", () => {
+    chanCiv.onclick = (e) => {
+      e.preventDefault();
       channel = "civilian";
       chanCiv.classList.add("is-active");
       chanResp.classList.remove("is-active");
       if (commsInput) commsInput.placeholder = "Type direct instruction to bystander...";
       renderComms();
-    });
-    chanResp.addEventListener("click", () => {
+    };
+    chanResp.onclick = (e) => {
+      e.preventDefault();
       channel = "responder";
       chanResp.classList.add("is-active");
       chanCiv.classList.remove("is-active");
       if (commsInput) commsInput.placeholder = "Type tactical instruction to responder crew...";
       renderComms();
-    });
+    };
   }
 
   if (commsForm) {
-    commsForm.addEventListener("submit", async (e) => {
+    commsForm.onsubmit = async (e) => {
       e.preventDefault();
       if (!commsInput || !commsInput.value.trim()) return;
       const text = commsInput.value.trim();
       commsInput.value = "";
 
-      if (channel === "civilian" && selected && selected.id) {
+      const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
+      if (channel === "civilian" && incId) {
         try {
-          await fetch(`/api/incidents/${selected.id}/dispatcher-message`, {
+          await fetch(`/api/incidents/${incId}/dispatcher-message`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text })
@@ -873,13 +905,13 @@ function wireComms() {
         }
         COMMS.civilian.push({ who: "Commander", text, me: true });
         renderComms();
-      } else if (channel === "responder" && selected && selected.id) {
+      } else if (channel === "responder" && incId) {
         try {
           await fetch("/api/responder/route-change", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              incident_uuid: selected.id,
+              incident_uuid: incId,
               new_route: text,
               note: text
             })
@@ -893,66 +925,104 @@ function wireComms() {
         COMMS[channel].push({ who: "Commander", text, me: true });
         renderComms();
       }
-    });
+    };
   }
 
   // Direct Call Bystander Button
   const callCivBtn = $("#callCivilianBtn");
   if (callCivBtn) {
-    callCivBtn.addEventListener("click", async () => {
-      if (!selected) {
-        alert("Select an incident before initiating voice call.");
+    callCivBtn.onclick = async (e) => {
+      e.preventDefault();
+      const inc = selected || INCIDENTS[0];
+      if (!inc) {
+        alert("No active incident to connect audio.");
         return;
       }
+      startVoiceCallUI(`Bystander at ${inc.place || inc.id}`);
+      COMMS.civilian.push({ who: "Voice System", text: `Connecting direct audio bridge to caller at ${inc.id}...` });
+      renderComms();
       try {
-        const res = await fetch(`/api/incidents/${selected.id}/call-bridge`, {
+        await fetch(`/api/incidents/${inc.id}/call-bridge`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "command_connect",
-            title: "Direct Command Voice Bridge"
+            caller: "command",
+            title: `Emergency Command Call Bridge · ${inc.id}`
           })
         });
-        if (res.ok) {
-          COMMS.civilian.push({ who: "Voice System", text: "📞 Direct tactical voice bridge connected with caller on scene." });
-          renderComms();
-          alert(`Direct voice bridge established with caller at ${selected.id}. Audio line connected.`);
-        }
       } catch (err) {
         console.warn("Direct call error:", err);
       }
-    });
+    };
   }
 
-  // Route Change button
+  const endCallBtn = $("#endVoiceCallBtn");
+  if (endCallBtn) {
+    endCallBtn.onclick = async () => {
+      endVoiceCallUI();
+      const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
+      if (incId) {
+        try {
+          await fetch(`/api/incidents/${incId}/call-bridge`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "end" })
+          });
+        } catch (_) {}
+      }
+      COMMS.civilian.push({ who: "Voice System", text: "Voice call disconnected." });
+      renderComms();
+    };
+  }
+
+  // Route Change Detour Modal wiring
   const routeBtn = $("#routeChangeBtn");
-  if (routeBtn) {
-    routeBtn.addEventListener("click", async () => {
-      if (!selected) {
-        alert("Select an incident first.");
-        return;
-      }
-      const suggestion = prompt("Enter detour / route directive for responder crew:", "Detour via Independence Layout to bypass waterlogged sector");
-      if (!suggestion || !suggestion.trim()) return;
-      try {
-        const res = await fetch("/api/responder/route-change", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            incident_uuid: selected.id,
-            new_route: suggestion.trim(),
-            note: suggestion.trim()
-          })
-        });
-        if (res.ok) {
-          COMMS.responder.push({ who: "Commander", text: `Detour Order: ${suggestion.trim()}`, me: true });
-          renderComms();
-          alert("Route change instruction transmitted to responder unit.");
-        }
-      } catch (err) {
-        console.warn("Route change error:", err);
-      }
+  const routeModal = $("#routeChangeModal");
+  const closeRouteBtn = $("#closeRouteModalBtn");
+  const cancelRouteBtn = $("#cancelRouteModalBtn");
+  const routeForm = $("#routeChangeForm");
+  const routeInput = $("#routeDirectiveInput");
+
+  if (routeBtn && routeModal) {
+    routeBtn.onclick = (e) => {
+      e.preventDefault();
+      routeModal.classList.remove("hidden");
+    };
+    if (closeRouteBtn) closeRouteBtn.onclick = () => routeModal.classList.add("hidden");
+    if (cancelRouteBtn) cancelRouteBtn.onclick = () => routeModal.classList.add("hidden");
+
+    $$(".route-preset-btn", routeModal).forEach((btn) => {
+      btn.onclick = () => {
+        if (routeInput) routeInput.value = btn.textContent.trim().replace(/^[^\w\s]+\s*/, "");
+      };
     });
+
+    if (routeForm) {
+      routeForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const directive = routeInput?.value.trim();
+        if (!directive) return;
+        const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
+        routeModal.classList.add("hidden");
+        try {
+          await fetch("/api/responder/route-change", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              incident_uuid: incId,
+              new_route: directive,
+              note: directive
+            })
+          });
+        } catch (err) {
+          console.warn("Route change transmission error:", err);
+        }
+        COMMS.responder.push({ who: "Commander", text: `Detour Directive: ${directive}`, me: true });
+        renderComms();
+        if (routeInput) routeInput.value = "";
+      };
+    }
   }
 }
 
@@ -1087,7 +1157,11 @@ if (window.ResQSocket) {
   });
 
   resqSocket.on("incident:chat_turn", (data) => {
+    console.log("[Dispatcher] Live chat turn received:", data);
     const turnId = data.incident_uuid || data.incident_id;
+    if (!selected && INCIDENTS.length > 0) {
+      selected = INCIDENTS.find(i => i.id === turnId) || INCIDENTS[0];
+    }
     const inc = INCIDENTS.find(i => i.id === turnId);
     if (inc && data.casualties_count != null) {
       inc.victims = Number(data.casualties_count);
@@ -1101,12 +1175,19 @@ if (window.ResQSocket) {
     renderQueue();
 
     if (data.civilian_message) {
-      COMMS.civilian.push({ who: "Caller / Bystander", text: data.civilian_message });
+      COMMS.civilian.push({ who: "Caller on Scene", text: data.civilian_message });
     }
     if (data.ai_instruction) {
-      COMMS.civilian.push({ who: "ResQ AI", text: data.ai_instruction });
+      COMMS.civilian.push({ who: "ResQ Guidance", text: data.ai_instruction });
     }
     renderComms();
+  });
+
+  resqSocket.on("dispatcher:message", (data) => {
+    if (data.sender !== "Commander") {
+      COMMS.civilian.push({ who: data.sender || "Commander", text: data.message });
+      renderComms();
+    }
   });
 
   resqSocket.on("incident:update", (data) => {
@@ -1162,7 +1243,15 @@ if (window.ResQSocket) {
   });
 
   resqSocket.on("call_bridge:event", (data) => {
-    pushComms("civilian", `📞 Voice Call Event: ${data.title} (${data.action})`);
+    console.log("[Dispatcher] Call bridge event:", data);
+    if (data.active) {
+      startVoiceCallUI(data.title || "Scene Audio Link");
+      COMMS.civilian.push({ who: "Voice System", text: `Voice bridge connected: ${data.title || 'Audio channel open'}` });
+    } else {
+      endVoiceCallUI();
+      COMMS.civilian.push({ who: "Voice System", text: "Voice bridge closed." });
+    }
+    renderComms();
   });
 }
 
