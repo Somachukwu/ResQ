@@ -1,4 +1,4 @@
-﻿/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
+/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
 import "./resq-theme.js";
 import { PROTOCOLS, cacheProtocols, readCachedProtocols, matchProtocols, detectHazards } from "./resq-protocols.js";
 
@@ -732,18 +732,28 @@ function showVoiceBridgeModal(statusText) {
 
   // Direct message from Commander
   sock.on("dispatcher:message", (data) => {
-    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    if (data.incident_uuid && state.incidentUuid && data.incident_uuid !== state.incidentUuid) return;
+    if (data.incident_uuid && !state.incidentUuid) {
+      state.incidentUuid = data.incident_uuid;
+      sock.emit("join", { room: `incident_${state.incidentUuid}` });
+    }
     say("commander", data.message || "Commander is monitoring your scene.");
     if (navigator.vibrate) navigator.vibrate(50);
   });
 
   // Voice Link Bridge Event
   sock.on("call_bridge:event", (data) => {
-    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    if (data.incident_uuid && state.incidentUuid && data.incident_uuid !== state.incidentUuid) return;
+    if (data.incident_uuid && !state.incidentUuid) {
+      state.incidentUuid = data.incident_uuid;
+      sock.emit("join", { room: `incident_${state.incidentUuid}` });
+    }
     if (data.active) {
-      showVoiceBridgeModal("Connected directly with Emergency Commander & Ambulance Crew.");
+      showVoiceBridgeModal(data.title || "Connected directly with Emergency Commander & Ambulance Crew.");
     } else {
-      document.getElementById("voiceBridgeModal")?.remove();
+      const modal = document.getElementById("voiceBridgeModal");
+      if (modal) modal.remove();
+      if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
     }
   });
 })();

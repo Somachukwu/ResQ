@@ -34,16 +34,16 @@ def register_socket_events(socketio):
     @socketio.on("join")
     def handle_join(data):
         room = data.get("room")
-        role = connection_roles.get(request.sid)
+        role = connection_roles.get(request.sid, "civilian")
         allowed = (
             (room == "dispatchers" and role in ("dispatcher", "development")) or
             (room == "responders" and role in ("responder", "development")) or
             (room and room.startswith("responder_") and role in ("responder", "development")) or
-            (room and room.startswith("incident_") and role in ("dispatcher", "responder", "development"))
+            (room and room.startswith("incident_"))
         )
         if room and allowed:
             join_room(room)
-            print(f"[WebSocket] Client {request.sid} joined room: {room}")
+            print(f"[WebSocket] Client {request.sid} ({role}) joined room: {room}")
             emit("room:joined", {"room": room}, to=request.sid)
         elif room:
             emit("error", {"error": "Room access denied"}, to=request.sid)

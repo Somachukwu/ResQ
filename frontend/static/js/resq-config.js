@@ -29,9 +29,6 @@
       return apiUrl ? apiUrl + path : path;
     }
   };
-
-  // Keep modules using relative /api paths working from GitHub Pages without
-  // changing non-API requests such as static assets and map tiles.
   const nativeFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     const url = typeof input === "string" && input.startsWith("/api/") && apiUrl ? apiUrl + input : input;
@@ -43,16 +40,10 @@
     }
     return nativeFetch(url, init);
   };
-
-  // The responder page calls io() directly. Point argument-less calls at the
-  // configured backend and send its short-lived operator token when present.
   if (apiUrl && typeof window.io === "function") {
     const nativeIo = window.io;
     window.io = function (url, options) {
-      if (typeof url !== "string") {
-        options = url || {};
-        url = apiUrl;
-      }
+      if (typeof url !== "string") { options = url || {}; url = apiUrl; }
       const token = sessionStorage.getItem("resq_api_token");
       return nativeIo(url, { ...(options || {}), auth: token ? { token } : undefined });
     };
