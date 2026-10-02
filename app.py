@@ -1,6 +1,5 @@
 import os
 import math
-import time
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -257,96 +256,6 @@ def edit_incident_api(incident_uuid):
     socketio.emit("incident:update", dict(updated), room="responders")
     socketio.emit("incident:update", dict(updated), room=f"incident_{incident_uuid}")
     return jsonify({"status": "success", "incident": updated})
-
-
-@app.route("/api/incidents/<incident_uuid>/dispatcher-message", methods=["POST"])
-def dispatcher_message_api(incident_uuid):
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    data = json_object()
-    message = str(data.get("message") or "").strip()
-    if not message:
-        return jsonify({"error": "Message required"}), 400
-
-    add_incident_update(
-        incident_uuid=incident_uuid,
-        source="dispatcher",
-        update_type="comms",
-        content=message
-    )
-
-    payload = {
-        "incident_uuid": incident_uuid,
-        "message": message,
-        "sender": "Commander",
-        "timestamp": time.time()
-    }
-    socketio.emit("dispatcher:message", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("dispatcher:message", payload, room="dispatchers")
-    socketio.emit("dispatcher:message", payload, room="responders")
-    return jsonify({"status": "success", "message": message})
-
-
-@app.route("/api/incidents/<incident_uuid>/call-bridge", methods=["POST"])
-def call_bridge_api(incident_uuid):
-    data = json_object()
-    action = str(data.get("action") or "start").strip().lower()
-    call_type = str(data.get("type") or "voice").strip()
-    title = str(data.get("title") or "Tactical Voice Bridge").strip()
-
-    incident = get_incident_by_uuid(incident_uuid)
-    is_active = action not in ("end", "stop", "disconnect", "hangup")
-    caller = str(data.get("caller") or "command")
-
-    add_incident_update(
-        incident_uuid=incident_uuid,
-        source=caller,
-        update_type="call_bridge",
-        content=f"Voice bridge event: {action} ({title})"
-    )
-
-    payload = {
-        "incident_uuid": incident_uuid,
-        "active": is_active,
-        "action": action,
-        "type": call_type,
-        "title": title,
-        "caller": caller,
-        "timestamp": time.time()
-    }
-    socketio.emit("call_bridge:event", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("call_bridge:event", payload, room="dispatchers")
-    socketio.emit("call_bridge:event", payload, room="responders")
-    return jsonify({"status": "success", "active": is_active, "incident_uuid": incident_uuid})
-
-
-@app.route("/api/responder/route-change", methods=["POST"])
-def responder_route_change_api():
-    data = json_object()
-    incident_uuid = data.get("incident_uuid")
-    new_route = str(data.get("new_route") or "Detour instructed by command").strip()
-    note = str(data.get("note") or new_route).strip()
-
-    if incident_uuid:
-        add_incident_update(
-            incident_uuid=incident_uuid,
-            source="dispatcher",
-            update_type="route_change",
-            content=f"Tactical route change: {new_route}"
-        )
-
-    payload = {
-        "incident_uuid": incident_uuid,
-        "new_route": new_route,
-        "note": note,
-        "timestamp": time.time()
-    }
-    socketio.emit("responder:route_change", payload, room="responders")
-    socketio.emit("responder:route_change", payload, room="dispatchers")
-    if incident_uuid:
-        socketio.emit("responder:route_change", payload, room=f"incident_{incident_uuid}")
-    return jsonify({"status": "success", "new_route": new_route, "incident_uuid": incident_uuid})
 
 
 @app.route("/api/incidents/<incident_uuid>/debrief", methods=["GET"])
@@ -846,21 +755,6 @@ def civilian_chat_api():
     # 6. Real-time WebSocket Dispatch Broadcast
     socket_payload = dict(incident)
     socketio.emit("incident:new" if is_new else "incident:update", socket_payload, room="dispatchers")
-
-    chat_payload = {
-        "incident_uuid": incident_uuid,
-        "civilian_message": message,
-        "ai_instruction": extraction.get("reassurance_message") or (extraction["first_aid_steps"][0] if extraction.get("first_aid_steps") else ""),
-        "first_aid_steps": extraction.get("first_aid_steps", []),
-        "casualties_count": int(extraction.get("casualties_count") or incident.get("casualties_count") or 1),
-        "rsi_score": triage.get("rsi_score"),
-        "triage_tier": triage.get("triage_tier"),
-        "scene_hazards": extraction.get("scene_hazards", []),
-        "timestamp": time.time()
-    }
-    socketio.emit("incident:chat_turn", chat_payload, room="dispatchers")
-    socketio.emit("incident:chat_turn", chat_payload, room="responders")
-    socketio.emit("incident:chat_turn", chat_payload, room=f"incident_{incident_uuid}")
 
     return jsonify({
         "status": "success",

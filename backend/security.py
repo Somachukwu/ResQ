@@ -38,7 +38,7 @@ def role_from_socket_auth(auth):
         expected = os.getenv(f"RESQ_{role.upper()}_TOKEN", "")
         if expected and hmac.compare_digest(str(token), expected):
             return role
-    return "civilian"
+    return None
 
 
 def has_operator_token():
