@@ -69,6 +69,10 @@ def init_db():
                 if statement.strip(): cursor.execute(statement)
         else:
             cursor.executescript(schema)
+            try:
+                cursor.execute("ALTER TABLE incidents ADD COLUMN route_geometry TEXT")
+            except Exception:
+                pass
         cursor.execute("SELECT COUNT(*) AS count FROM hospitals")
         if _count(cursor.fetchone()) == 0:
             cursor.executemany("INSERT INTO hospitals (name, capability, emergency_ready, lat, lng, bed_status, phone) VALUES (?, ?, ?, ?, ?, ?, ?)", [
@@ -134,8 +138,8 @@ def create_incident(data):
     incident_uuid = data.get("incident_uuid") or f"INC-{uuid.uuid4().hex[:12].upper()}"
     conn = get_db_connection(); cursor = conn.cursor()
     try:
-        cursor.execute("""INSERT INTO incidents (incident_uuid, title, type, status, severity_level, severity_score, escalation_status, lat, lng, location_name, casualties_count, trapped_count, assigned_responder_id, recommended_hospital_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""", (
-            incident_uuid, data.get("title", "Emergency Incident"), data.get("type", "road_traffic_accident"), data.get("status", "reported"), data.get("severity_level", "moderate"), data.get("severity_score", 2.5), data.get("escalation_status", "steady"), data.get("lat"), data.get("lng"), data.get("location_name", "Location pending"), data.get("casualties_count", 1), data.get("trapped_count", 0), data.get("assigned_responder_id"), data.get("recommended_hospital_id")))
+        cursor.execute("""INSERT INTO incidents (incident_uuid, title, type, status, severity_level, severity_score, escalation_status, lat, lng, location_name, casualties_count, trapped_count, assigned_responder_id, recommended_hospital_id, route_geometry, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""", (
+            incident_uuid, data.get("title", "Emergency Incident"), data.get("type", "road_traffic_accident"), data.get("status", "reported"), data.get("severity_level", "moderate"), data.get("severity_score", 2.5), data.get("escalation_status", "steady"), data.get("lat"), data.get("lng"), data.get("location_name", "Location pending"), data.get("casualties_count", 1), data.get("trapped_count", 0), data.get("assigned_responder_id"), data.get("recommended_hospital_id"), data.get("route_geometry")))
         conn.commit()
     except Exception:
         conn.rollback(); raise
@@ -164,9 +168,9 @@ def update_incident(incident_uuid, updates):
 
 
 def get_incident_conversation(incident_uuid):
-    """Returns civilian chat messages and AI responses for a given incident, ordered chronologically."""
+    """Returns civilian chat messages, dispatcher direct messages, and AI responses for an incident in order."""
     rows = _query_all(
-        "SELECT * FROM incident_updates WHERE incident_uuid = ? AND source IN ('civilian', 'ai_system') ORDER BY id ASC",
+        "SELECT * FROM incident_updates WHERE incident_uuid = ? AND (source IN ('civilian', 'dispatcher', 'ai_system') OR update_type IN ('chat', 'triage', 'direct_message', 'route_change')) ORDER BY id ASC",
         (incident_uuid,)
     )
     for row in rows:

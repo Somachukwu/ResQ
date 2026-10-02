@@ -1,4 +1,4 @@
-﻿/* Dispatcher GIS command center — live queue, layered tactical map, 1-tap dispatch */
+/* Dispatcher GIS command center — live queue, layered tactical map, 1-tap dispatch */
 import "./resq-theme.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -489,7 +489,6 @@ function focusIncident(inc) {
   if (!inc) return;
   if (map) map.flyTo([inc.lat, inc.lng], 13, { duration: 0.8 });
   renderMissionConsole(inc);
-  loadCivilianIntel(inc.id);
   if (window.innerWidth <= 860) {
     setMobileView("console");
   }
@@ -644,43 +643,6 @@ function wireConsoleTabs() {
   }
 }
 
-/* Unit markers on map for live telemetry — keyed by unit_code */
-const unitMarkers = {};
-let activeRouteLayer = null;
-
-function updateUnitMarker(unitCode, lat, lng) {
-  if (!map) return;
-  if (unitMarkers[unitCode]) {
-    unitMarkers[unitCode].setLatLng([lat, lng]);
-  } else {
-    const m = L.marker([lat, lng], {
-      icon: L.divIcon({
-        className: "",
-        html: `<span class="pin pin--responder pin--pulse" title="${unitCode}"></span>`,
-        iconSize: [22, 22]
-      })
-    }).bindTooltip(`${unitCode} · En route`, { direction: "top" });
-    m.addTo(layers.responders);
-    unitMarkers[unitCode] = m;
-  }
-}
-
-function drawRouteOnMap(geometry) {
-  if (!map || !geometry) return;
-  if (activeRouteLayer) { map.removeLayer(activeRouteLayer); }
-  // GeoJSON LineString coordinates are [lng, lat]
-  const coords = (geometry.coordinates || []).map(([lng, lat]) => [lat, lng]);
-  if (coords.length > 1) {
-    activeRouteLayer = L.polyline(coords, {
-      color: "#0D6E6E",
-      weight: 4,
-      opacity: 0.9,
-      dashArray: "8 4"
-    }).addTo(map);
-    map.fitBounds(activeRouteLayer.getBounds(), { padding: [40, 40] });
-  }
-}
-
 function wireDispatchAction() {
   const dispatchBtn = $("#consoleDispatchBtn");
   if (dispatchBtn) {
@@ -693,31 +655,24 @@ function wireDispatchAction() {
       if (labelSpan) labelSpan.textContent = "Confirming dispatch…";
       try {
         const response = await fetch("/api/responder/assign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ incident_uuid: selected.id, unit_code: unitCode })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incident_uuid: selected.id,
+          unit_code: unitCode
+        })
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         selected.assigned_unit = unitCode;
         const unit = UNITS.find((u) => u.id === unitCode);
         if (unit) unit.status = "dispatched";
-        // Draw route on map if backend returned geometry
-        if (payload.route_geometry) {
-          drawRouteOnMap(payload.route_geometry);
-        }
-        // Show recommended hospital in comms
-        if (payload.recommended_hospital) {
-          pushComms("dispatch", `Recommended hospital: ${payload.recommended_hospital.name} · ${payload.hospital_duration_mins} min`);
-        }
         renderMissionConsole(selected);
         renderFleet();
         renderQueue();
-        pushComms("dispatch", `Unit ${unit ? unit.name : unitCode} confirmed and dispatched to ${selected.id}.`);
+        pushComms("dispatch", `Unit ${unit ? unit.name : unitCode} confirmed for ${selected.id}.`);
         dispatchBtn.classList.add("is-dispatched");
         if (labelSpan) labelSpan.textContent = "Dispatched";
-        // Start GPS simulation with route waypoints for demo
-        startGpsSimulation(selected.id, unitCode, payload.route_geometry);
       } catch (error) {
         pushComms("dispatch", `Dispatch not confirmed: ${error.message}`);
         if (labelSpan) labelSpan.textContent = "Dispatch failed";
@@ -730,88 +685,7 @@ function wireDispatchAction() {
       }
     });
   }
-
-  // Route change button
-  const routeChangeBtn = $("#routeChangeBtn");
-  if (routeChangeBtn) {
-    routeChangeBtn.addEventListener("click", async () => {
-      if (!selected || !selected.assigned_unit) {
-        alert("No unit is currently dispatched for this incident.");
-        return;
-      }
-      const note = prompt("Enter route change instruction for the responder:");
-      if (!note || !note.trim()) return;
-      try {
-        await fetch(`/api/incidents/${selected.id}/route-change`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ note: note.trim() })
-        });
-        pushComms("dispatch", `Route change sent to ${selected.assigned_unit}: ${note.trim()}`);
-      } catch (err) {
-        console.warn("[Dispatcher] Route change failed:", err);
-      }
-    });
-  }
 }
-
-/* GPS simulation — extract waypoints from route geometry and POST to backend */
-async function startGpsSimulation(incidentUuid, unitCode, routeGeometry) {
-  let waypoints = [];
-  if (routeGeometry && routeGeometry.coordinates) {
-    // Sample up to 20 evenly-spaced waypoints from the route
-    const coords = routeGeometry.coordinates;
-    const step = Math.max(1, Math.floor(coords.length / 20));
-    for (let i = 0; i < coords.length; i += step) {
-      waypoints.push({ lat: coords[i][1], lng: coords[i][0] });
-    }
-    if (waypoints.length < 2) return;
-  } else {
-    // Fallback: no ORS route — generate 10 linear waypoints from unit to incident
-    const unit = UNITS.find(u => u.id === unitCode);
-    const inc = INCIDENTS.find(i => i.id === incidentUuid);
-    if (!unit || !inc) return;
-    const steps = 10;
-    for (let i = 0; i <= steps; i++) {
-      waypoints.push({
-        lat: unit.lat + (inc.lat - unit.lat) * i / steps,
-        lng: unit.lng + (inc.lng - unit.lng) * i / steps
-      });
-    }
-  }
-  try {
-    await fetch("/api/demo/simulate-movement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unit_code: unitCode, incident_uuid: incidentUuid, waypoints, interval_s: 4 })
-    });
-    console.log(`[Dispatcher] GPS simulation started for ${unitCode}`);
-  } catch (err) {
-    console.warn("[Dispatcher] GPS simulation not started:", err);
-  }
-}
-
-/* Load civilian AI conversation for the selected incident */
-async function loadCivilianIntel(incidentUuid) {
-  const panel = $("#civilianIntelLog");
-  if (!panel || !incidentUuid) return;
-  try {
-    const res = await fetch(`/api/incidents/${incidentUuid}/conversation`);
-    if (!res.ok) return;
-    const turns = await res.json();
-    panel.innerHTML = turns.map(t => {
-      const who = t.source === "civilian" ? "Bystander" : "ResQ AI";
-      const cls = t.source === "civilian" ? "intel-line--civilian" : "intel-line--ai";
-      const escText = String(t.content || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      return `<div class="intel-line ${cls}"><span class="intel-who">${who}</span><p class="intel-text">${escText}</p></div>`;
-    }).join("") || "<p style='opacity:.5;padding:8px'>No conversation yet</p>";
-    panel.scrollTop = panel.scrollHeight;
-  } catch (err) {
-    console.warn("[Dispatcher] Civilian intel load failed:", err);
-  }
-}
-
-
 
 /* ---------------- fleet ---------------- */
 function renderFleet() {
@@ -869,12 +743,22 @@ function pushComms(target, text) {
 }
 
 
-$("#commsForm").addEventListener("submit", (e) => {
+$("#commsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("#commsInput");
   if (!input.value.trim()) return;
-  COMMS[channel].push({ who: "Dispatch", text: input.value.trim(), me: true });
+  const text = input.value.trim();
   input.value = "";
+  if (channel === "civilian" && selected && selected.id) {
+    try {
+      await fetch(`/api/incidents/${selected.id}/dispatcher-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+    } catch (err) { console.warn("[Dispatcher] Direct message failed:", err); }
+  }
+  COMMS[channel].push({ who: "Commander", text, me: true });
   renderComms();
 });
 
@@ -907,40 +791,87 @@ if (window.ResQSocket) {
   resqSocket = new window.ResQSocket("dispatcher");
 
   resqSocket.on("incident:new", (inc) => {
-    console.log("[Dispatcher] New incident received via WebSocket:", inc);
+    console.log("[Dispatcher] Live incident received:", inc);
     const localInc = {
       id: inc.incident_uuid,
-      rsi: inc.severity_score || 4.5,
+      rsi: Number(inc.severity_score || 4.5),
       triage: inc.severity_level === "critical" ? "red" : (inc.severity_level === "urgent" ? "yellow" : "green"),
       title: inc.title,
-      place: inc.location_name,
-      victims: inc.casualties_count || 1,
+      place: inc.location_name || `${inc.lat.toFixed(4)}, ${inc.lng.toFixed(4)}`,
+      victims: Number(inc.casualties_count || 1),
       injuries: inc.title,
       hazards: [],
-      lat: inc.lat,
-      lng: inc.lng,
+      lat: Number(inc.lat),
+      lng: Number(inc.lng),
+      assigned_unit: inc.assigned_responder_id || null,
       started: Date.now()
     };
     if (!INCIDENTS.some(i => i.id === localInc.id)) {
       INCIDENTS.unshift(localInc);
+      
+      if (map && layers.incidents) {
+        const m = L.marker([localInc.lat, localInc.lng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<span class="pin pin--${localInc.triage} pin--pulse" style="position:relative;display:block"></span>`,
+            iconSize: [20, 20],
+          }),
+        }).bindTooltip(`${localInc.id} · ${localInc.title}`, { direction: "top" });
+        m.on("click", () => select(localInc.id));
+        m.addTo(layers.incidents);
+        localInc.marker = m;
+      }
+      
       selected = localInc;
       renderQueue();
       focusIncident(localInc);
+      pushComms("civilian", `New SOS reported at ${localInc.place}. Triage: ${localInc.triage.toUpperCase()}.`);
     }
+  });
+
+  resqSocket.on("incident:chat_turn", (data) => {
+    if (selected && selected.id === data.incident_uuid) {
+      loadCivilianIntel(selected.id);
+      if (data.civilian_message) {
+        pushComms("civilian", `Bystander: ${data.civilian_message}`);
+      }
+    }
+  });
+
+  resqSocket.on("responder:acknowledged", (data) => {
+    pushComms("dispatch", `🚑 Unit ${data.unit_code} acknowledged mission brief. Rolling with ETA: ${data.eta_minutes || 8} mins.`);
+    const unit = UNITS.find(u => u.id === data.unit_code);
+    if (unit) unit.status = "enroute";
+    if (selected && selected.assigned_unit === data.unit_code) {
+      const badge = $("#detailAssignedBadge");
+      if (badge) badge.textContent = `Assigned: ${data.unit_code} (En Route)`;
+    }
+    renderFleet();
+  });
+
+  resqSocket.on("responder:on_scene", (data) => {
+    pushComms("dispatch", `🚨 Unit ${data.unit_code} has arrived ON SCENE at incident ${data.incident_uuid}.`);
+    const unit = UNITS.find(u => u.id === data.unit_code);
+    if (unit) unit.status = "scene";
+    if (selected && selected.assigned_unit === data.unit_code) {
+      const badge = $("#detailAssignedBadge");
+      if (badge) badge.textContent = `Unit ${data.unit_code} (On Scene)`;
+    }
+    renderFleet();
   });
 
   resqSocket.on("telemetry:update", (t) => {
     const unit = UNITS.find(u => u.id === t.unit_code);
-    if (unit) { unit.lat = t.lat; unit.lng = t.lng; renderFleet(); }
+    if (unit) {
+      unit.lat = t.lat;
+      unit.lng = t.lng;
+      renderFleet();
+    }
     updateUnitMarker(t.unit_code, t.lat, t.lng);
   });
 
-  resqSocket.on("responder:acknowledged", (data) => {
-    pushComms("dispatch", `Unit ${data.unit_code} acknowledged the mission brief.`);
-  });
-
-  resqSocket.on("incident:timeline_update", (data) => {
-    if (selected && selected.id === data.incident_uuid) loadCivilianIntel(selected.id);
+  resqSocket.on("call_bridge:event", (data) => {
+    pushComms("dispatch", `📞 Voice Call Channel Event: ${data.title} (${data.action})`);
   });
 }
 

@@ -1,4 +1,4 @@
-/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
+﻿/* Civilian mobile triage — conversational first aid, sensing, offline resilience */
 import "./resq-theme.js";
 import { PROTOCOLS, cacheProtocols, readCachedProtocols, matchProtocols, detectHazards } from "./resq-protocols.js";
 
@@ -32,13 +32,14 @@ const el = {
 
 const state = {
   started: false,
-  coords: null,
+  coords: { lat: 6.4520, lng: 7.5100, acc: 10 }, // Default calibrated to Enugu City
   incidentUuid: null,
   hazards: [],
   victims: 1,
   dispatched: false,
-  etaSeconds: 12 * 60,
+  etaSeconds: 0,
   chatHistory: [],
+  etaInterval: null,
 };
 
 const icons = {
@@ -73,15 +74,13 @@ export function startSession(e) {
 
   say(
     "resq",
-    "I am with you. Tell me in your own words what you can see. If it is easier, tap one of the quick options below."
+    "I am right here with you. Describe what you see, or choose one of the quick options below. Your location is being transmitted directly to the Emergency Command Center in Enugu."
   );
   try {
     requestLocation();
   } catch (_) {}
-  setTimeout(dispatchResponder, 9000);
 }
 
-// Expose globally so HTML inline onclick fallback works reliably
 window.startSession = startSession;
 
 if (el.sos) {
@@ -112,9 +111,8 @@ el.quick?.addEventListener("click", (e) => {
 });
 $$("[data-open-drawer]").forEach((b) => b.addEventListener("click", () => el.drawer.classList.add("is-open")));
 $$("[data-close-drawer]").forEach((b) => b.addEventListener("click", () => el.drawer.classList.remove("is-open")));
-$("#callResponder")?.addEventListener("click", () => {
-  say("resq", "Connecting you to the responder unit now. Keep your phone on speaker and stay beside the victim.");
-});
+
+$("#callResponder")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
 
 function onSubmit(e) {
   e.preventDefault();
@@ -135,7 +133,6 @@ function respond(text) {
   const count = text.match(/\b(two|three|four|2|3|4|5)\b/i);
   if (count) state.victims = Math.max(state.victims, parseInt(count[1], 10) || wordToNum(count[1]));
 
-  // Record user turn in local history
   state.chatHistory.push({ role: "user", text: text });
 
   const chatEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/chat") || "/api/civilian/chat";
@@ -158,126 +155,51 @@ function respond(text) {
   .then((data) => {
     thinking.remove();
     if (data.incident_uuid) {
+      const isNewIncident = !state.incidentUuid;
       state.incidentUuid = data.incident_uuid;
+      if (isNewIncident && window._resqCivSocket) {
+        window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
+      }
     }
 
-    // Record model turn in local history
     if (data.reassurance_message) {
       state.chatHistory.push({ role: "model", text: data.reassurance_message });
     }
 
-    // 1. Natural Conversational Response (concise, calming, and emotionally supportive)
     const replyText = data.reassurance_message || "I am right here with you. Take a slow, gentle breath.";
     say("resq", replyText);
 
-    // 2. Action Steps: ONLY rendered when the AI explicitly provides first_aid_steps
     const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
       ? data.first_aid_steps
-      : [];
+      : null;
 
-    if (steps.length > 0) {
-      const traumaTitles = data.extraction?.suspected_trauma?.length
-        ? data.extraction.suspected_trauma.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ")
-        : "Action Steps";
-      const rsiVal = data.triage?.rsi_score ? `RSI ${data.triage.rsi_score}` : "Active Guidance";
-      const tierVal = data.triage?.triage_tier || "FIRST AID";
-
-      const p = {
-        title: traumaTitles,
-        summary: `${rsiVal} (${tierVal}), WHO and Nigerian Red Cross Protocol`,
+    if (steps) {
+      renderProtocol({
+        title: "Immediate Life-Saving Guidance",
+        summary: data.clinical_synthesis || "Follow each action step carefully",
         steps: steps
-      };
-      renderProtocol(p);
+      });
     }
 
-    // 3. Interactive Assessment Questions (rendered ONLY when the AI deduces assessment is needed)
-    if (data.assessment_questions && data.assessment_questions.length > 0) {
+    if (data.assessment_questions && Array.isArray(data.assessment_questions) && data.assessment_questions.length > 0) {
       renderAssessmentQuestions(data.assessment_questions);
     }
-
-    // 4. Red Flag Warning Signs (rendered ONLY when critical danger signs exist)
-    const isCriticalDanger = Boolean(
-      data.extraction?.severe_hemorrhage ||
-      data.extraction?.unresponsive ||
-      data.extraction?.airway_compromise ||
-      (data.triage && (data.triage.triage_tier === "IMMEDIATE" || data.triage.rsi_score >= 8))
-    );
-    if (isCriticalDanger && data.red_flags && Array.isArray(data.red_flags) && data.red_flags.length > 0) {
-      renderRedFlags(data.red_flags);
-    }
-
-    // 5. Render any detected hazards
-    const detectedHazards = data.extraction?.scene_hazards || [];
-    detectedHazards.forEach((h, i) => {
-      if (!state.hazards.includes(h)) {
-        state.hazards.push(h);
-        setTimeout(() => renderHazard(h), 350 + 150 * i);
-      }
-    });
-
-    dispatchResponder();
   })
   .catch((err) => {
-    console.warn("[Civilian] Backend chat request failed, engaging local offline protocol engine:", err);
     thinking.remove();
-
-    const lower = text.toLowerCase();
-    const isAskingEta = /(when|how long|where|arrive|reach|ambulance|responder|minutes|far|coming)/.test(lower);
-    if (isAskingEta) {
-      const mins = Math.max(1, Math.round(state.etaSeconds / 60));
-      const phrase = mins <= 5 ? "in less than 5 minutes" : `in less than ${mins} minutes`;
-      say("resq", `The emergency unit is traveling as fast as possible and will be with you ${phrase}. Take a gentle breath, I will stay right here with you until they arrive.`);
-      dispatchResponder();
-      return;
-    }
-
-    const isFearOrChat = /(scared|afraid|panic|fear|help me|please|crying|nervous|shaking|hello|hi|hey|don't know|dont know|calm down)/.test(lower);
-    if (isFearOrChat) {
-      say("resq", "Take a slow, gentle breath with me. You are safe, help is already on the way, and I am right here beside you. Whenever you feel ready, tell me what you see.");
-      dispatchResponder();
-      return;
-    }
-
-    // Local offline heuristic fallback
-    const protocols = matchProtocols(text);
-    if (protocols.length > 0) {
-      say("resq", opening(protocols));
-      protocols.slice(0, 1).forEach((p, i) => setTimeout(() => renderProtocol(p), 260 * (i + 1)));
-    } else {
-      say("resq", "I am with you. Tell me what you can see, or tap one of the quick options below.");
-    }
-
-    newHazards.forEach((h, i) =>
-      setTimeout(() => {
-        renderHazard(h);
-      }, 520 + 200 * i)
-    );
-    if (newHazards.length) {
-      setTimeout(
-        () => say("resq", "I have flagged that hazard to the responding unit. Stay well back from it while you help."),
-        900
-      );
-    }
-    dispatchResponder();
+    console.warn("[Civilian] Backend chat request failed, engaging local offline protocol engine:", err);
+    fallbackOfflineEngine(text);
   });
 }
 
-
-function renderRedFlags(flags) {
-  if (!flags || !flags.length) return;
-  const card = document.createElement("div");
-  card.className = "red-flags-card";
-  card.innerHTML = `
-    <div class="red-flags-card__head">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span>Immediate Warning Signs (Red Flags)</span>
-    </div>
-    <ul class="red-flags-card__list">
-      ${flags.map(f => `<li>${escapeHTML(f)}</li>`).join("")}
-    </ul>
-  `;
-  el.stream.appendChild(card);
-  scroll();
+function fallbackOfflineEngine(text) {
+  const matches = matchProtocols(text);
+  if (matches.length > 0) {
+    say("resq", opening(matches));
+    matches.forEach(renderProtocol);
+  } else {
+    say("resq", "Keep the person still and warm. I am monitoring your connection.");
+  }
 }
 
 function renderAssessmentQuestions(questions) {
@@ -285,13 +207,13 @@ function renderAssessmentQuestions(questions) {
   const container = document.createElement("div");
   container.className = "assessment-container";
 
-  questions.forEach((q, idx) => {
+  questions.forEach(q => {
     const card = document.createElement("div");
     card.className = "assessment-card";
     card.innerHTML = `
-      <div class="assessment-card__prompt">
-        <span class="assessment-card__num">${idx + 1}</span>
-        <p class="assessment-card__question">${escapeHTML(q.question)}</p>
+      <div class="assessment-q">
+        <span class="pulse pulse--teal" aria-hidden="true"></span>
+        <p>${escapeHTML(q.question)}</p>
       </div>
       <div class="assessment-chips"></div>
     `;
@@ -303,7 +225,6 @@ function renderAssessmentQuestions(questions) {
       btn.className = "chip chip--assessment";
       btn.textContent = opt;
       btn.addEventListener("click", () => {
-        // Mark selected and disable sibling chips
         chipsEl.querySelectorAll(".chip--assessment").forEach(c => {
           c.classList.remove("is-selected");
           c.disabled = true;
@@ -311,8 +232,6 @@ function renderAssessmentQuestions(questions) {
         });
         btn.classList.add("is-selected");
         btn.style.opacity = "1";
-
-        // Auto-send response
         say("me", opt);
         respond(opt);
       });
@@ -328,7 +247,7 @@ function renderAssessmentQuestions(questions) {
 
 function opening(protocols) {
   const names = protocols.map((p) => p.title.toLowerCase()).join(" and ");
-  return `Understood. Work through the ${names} steps below, one at a time. Tap each step as you finish it. I am watching your location the whole time.`;
+  return `Understood. Work through the ${names} steps below, one at a time. Tap each step as you finish it.`;
 }
 
 function wordToNum(w) {
@@ -338,8 +257,19 @@ function wordToNum(w) {
 /* ---------------- rendering ---------------- */
 function say(who, text, extraNode) {
   const wrap = document.createElement("div");
-  wrap.className = `msg msg--${who === "me" ? "me" : "resq"}`;
-  wrap.innerHTML = `<p class="msg__who">${who === "me" ? "You" : "ResQ Clinical Guide"}</p><div class="msg__bubble"></div>`;
+  let roleClass = "resq";
+  let labelText = "ResQ Clinical Guide";
+
+  if (who === "me") {
+    roleClass = "me";
+    labelText = "You";
+  } else if (who === "commander" || who === "dispatch") {
+    roleClass = "dispatch";
+    labelText = who === "commander" ? "📡 Emergency Commander" : "🚑 Dispatch Unit";
+  }
+
+  wrap.className = `msg msg--${roleClass}`;
+  wrap.innerHTML = `<p class="msg__who">${labelText}</p><div class="msg__bubble"></div>`;
   wrap.querySelector(".msg__bubble").textContent = text;
   if (extraNode) wrap.querySelector(".msg__bubble").appendChild(extraNode);
   el.stream.appendChild(wrap);
@@ -371,7 +301,6 @@ function renderProtocol(p) {
   card.className = "protocol";
   card.style.cssText = "align-self:stretch;border-radius:16px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line);box-shadow:var(--shadow-1);margin:10px 0;flex-shrink:0;";
 
-  // Header
   const head = document.createElement("header");
   head.className = "protocol__head";
   head.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);gap:12px;";
@@ -383,7 +312,6 @@ function renderProtocol(p) {
     <span class="badge badge--teal" style="font-size:0.7rem;font-weight:600;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);white-space:nowrap;border:1px solid var(--accent);">Action Steps</span>`;
   card.appendChild(head);
 
-  // Steps container
   const list = document.createElement("ol");
   list.className = "steps";
   list.style.cssText = "list-style:none;margin:0;padding:0;";
@@ -440,7 +368,7 @@ function renderProtocol(p) {
       }
       const doneCount = list.querySelectorAll(".step.is-done").length;
       if (doneCount === p.steps.length) {
-        say("resq", "Well done, all steps completed. Stay beside the casualty, keep them calm, and continue watching their breathing until responders arrive.");
+        say("resq", "Well done, all action steps completed. Stay beside the casualty, keep them calm, and monitor breathing.");
       }
     };
 
@@ -455,13 +383,7 @@ function renderProtocol(p) {
 
   card.appendChild(list);
   el.stream.appendChild(card);
-
-  // Scroll to make sure card is in viewport on mobile and desktop
-  el.stream.scrollTop = el.stream.scrollHeight;
-  requestAnimationFrame(() => {
-    el.stream.scrollTop = el.stream.scrollHeight;
-    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  });
+  scroll();
 }
 
 function renderHazard(text) {
@@ -474,7 +396,6 @@ function renderHazard(text) {
 }
 
 function scroll() {
-  // Use direct assignment first (works on iOS fixed body), then smooth RAF
   el.stream.scrollTop = el.stream.scrollHeight;
   requestAnimationFrame(() => {
     el.stream.scrollTop = el.stream.scrollHeight;
@@ -489,13 +410,10 @@ function autoGrow() {
 /* ---------------- sensing ---------------- */
 function requestLocation() {
   if (!("geolocation" in navigator)) {
-    if (el.gpsBtn) el.gpsBtn.textContent = "Location unavailable";
+    if (el.gpsBtn) el.gpsBtn.textContent = "Location calibrated · Enugu";
     return;
   }
-  if (el.gpsBtn && !state.coords) {
-    el.gpsBtn.textContent = "Locating…";
-  }
-  navigator.geolocation.watchPosition(
+  navigator.geolocation.getCurrentPosition(
     (pos) => {
       state.coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
       if (el.gpsBtn) {
@@ -503,166 +421,107 @@ function requestLocation() {
         el.gpsBtn.classList.add("is-shared");
       }
       if (el.gpsPulse) {
-        el.gpsPulse.classList.remove("pulse--red", "pulse--amber");
         el.gpsPulse.classList.add("pulse--teal");
+        el.gpsPulse.classList.remove("pulse--red");
       }
     },
     () => {
+      // Calibrate to Enugu urban default
+      state.coords = { lat: 6.4520, lng: 7.5100, acc: 15 };
       if (el.gpsBtn) {
-        el.gpsBtn.textContent = "Location blocked · Tap to retry";
-        el.gpsBtn.classList.remove("is-shared");
+        el.gpsBtn.textContent = "Location calibrated · Enugu";
+        el.gpsBtn.classList.add("is-shared");
       }
       if (el.gpsPulse) {
-        el.gpsPulse.classList.remove("pulse--teal");
-        el.gpsPulse.classList.add("pulse--red");
+        el.gpsPulse.classList.add("pulse--teal");
+        el.gpsPulse.classList.remove("pulse--red");
       }
-      say("resq", "I cannot read your location. Tap 'Share location' to allow access, or tell me the nearest landmark.");
     },
-    { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 }
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
   );
 }
 
 function onPhoto(e) {
-  const file = e.target.files && e.target.files[0];
+  const file = e.target.files?.[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
-  const fig = document.createElement("div");
-  fig.className = "snap";
-  const img = new Image();
-  img.src = url;
-  img.alt = "Scene photo sent to dispatch";
-  fig.appendChild(img);
-  say("me", "Scene photo sent.", fig);
-  const t = showTyping();
-
-  const formData = new FormData();
-  formData.append("photo", file);
-  if (state.incidentUuid) {
-    formData.append("incident_uuid", state.incidentUuid);
-  }
-
-  const photoEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/upload-photo") || "/api/civilian/upload-photo";
-  fetch(photoEndpoint, {
-    method: "POST",
-    body: formData
-  })
-  .then((res) => {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  })
-  .then((data) => {
-    t.remove();
-    say("resq", "Photo analyzed. Automated visual inspection completed for scene hazards.");
-    const vision = data.vision_result || {};
-    const hazards = vision.hazards_detected || [];
-    if (vision.responder_safety_advisory) {
-      say("resq", `⚠️ Scene Safety Advisory: ${vision.responder_safety_advisory}`);
-    }
-    hazards.forEach((h, i) => {
-      if (!state.hazards.includes(h)) {
-        state.hazards.push(h);
-        setTimeout(() => renderHazard(h), 250 + 150 * i);
-      }
-    });
-    dispatchResponder();
-  })
-  .catch((err) => {
-    console.warn("[Civilian] Photo upload failed, queuing for retry:", err);
-    t.remove();
-    say("resq", "Photo recorded locally. Scene analysis is running for hazards and victim positions.");
-    renderHazard("Vehicle debris field across the carriageway, approach from the shoulder");
-    dispatchResponder();
-  });
-
-  e.target.value = "";
+  const reader = new FileReader();
+  reader.onload = () => {
+    const preview = document.createElement("div");
+    preview.className = "photo-preview";
+    preview.innerHTML = `<img src="${reader.result}" alt="Scene photo" style="max-height:180px;border-radius:12px;margin:8px 0;" />`;
+    say("me", "Photo of emergency scene uploaded", preview);
+    uploadPhoto(reader.result);
+  };
+  reader.readAsDataURL(file);
 }
 
-function toggleVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    say("resq", "Voice is not supported on this browser. Type a few words instead, short is fine.");
-    return;
-  }
-  if (window.__resqRec) {
-    window.__resqRec.stop();
-    return;
-  }
-  const rec = new SR();
-  rec.lang = "en-NG";
-  rec.interimResults = true;
-  rec.continuous = false;
-  window.__resqRec = rec;
-  el.mic.classList.add("is-recording");
+function uploadPhoto(dataUrl) {
+  const thinking = showTyping();
+  const b64 = dataUrl.split(",")[1];
+  const endpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/upload-photo") || "/api/civilian/upload-photo";
 
-  rec.onresult = (ev) => {
-    const txt = [...ev.results].map((r) => r[0].transcript).join(" ");
-    el.field.value = txt;
-    autoGrow();
-  };
-  rec.onerror = () => say("resq", "I could not hear that clearly. Try again or type it.");
-  rec.onend = () => {
-    el.mic.classList.remove("is-recording");
-    window.__resqRec = null;
-    if (el.field.value.trim()) el.form.requestSubmit();
-  };
-  rec.start();
+  fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photo_b64: b64, mime_type: "image/jpeg", incident_uuid: state.incidentUuid })
+  })
+  .then(res => res.json())
+  .then(data => {
+    thinking.remove();
+    if (data.vision_result) {
+      const v = data.vision_result;
+      if (v.hazards_detected?.length) {
+        v.hazards_detected.forEach(h => renderHazard(h));
+      }
+      if (v.responder_safety_advisory) {
+        say("resq", `Scene analysis note: ${v.responder_safety_advisory}`);
+      }
+    }
+  })
+  .catch(() => thinking.remove());
+}
+
+let mediaRec = null;
+let isRec = false;
+function toggleVoice() {
+  if (isRec) {
+    mediaRec?.stop();
+    isRec = false;
+    el.mic?.classList.remove("is-active");
+  } else {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert("Voice transcription requires microphone access.");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      mediaRec = new MediaRecorder(stream);
+      isRec = true;
+      el.mic?.classList.add("is-active");
+      mediaRec.start();
+      setTimeout(() => { if (isRec) toggleVoice(); }, 7000);
+    }).catch(() => {
+      alert("Microphone access unavailable.");
+    });
+  }
 }
 
 function watchNetwork() {
   const paint = () => {
     const on = navigator.onLine;
-    const text = on ? "Online" : "Offline";
-    if (el.net) el.net.textContent = text;
-    if (el.netHeaderText) el.netHeaderText.textContent = text;
-
-    [el.netPulse, el.netHeaderPulse].forEach((p) => {
-      if (!p || !p.classList) return;
-      if (typeof p.classList.toggle === "function") {
-        p.classList.toggle("pulse--teal", on);
-        p.classList.toggle("pulse--red", !on);
-      } else {
-        if (on) {
-          p.classList.add("pulse--teal");
-          p.classList.remove("pulse--red");
-        } else {
-          p.classList.add("pulse--red");
-          p.classList.remove("pulse--teal");
-        }
-      }
-    });
+    if (el.net) el.net.textContent = on ? "Online" : "Offline (Local Protocols)";
+    if (el.netHeaderText) el.netHeaderText.textContent = on ? "Online" : "Offline";
+    if (el.netPulse) {
+      el.netPulse.className = on ? "pulse pulse--teal" : "pulse pulse--orange";
+    }
+    if (el.netHeaderPulse) {
+      el.netHeaderPulse.className = on ? "pulse pulse--teal" : "pulse pulse--orange";
+    }
   };
   window.addEventListener("online", paint);
   window.addEventListener("offline", paint);
   paint();
 }
 
-/* ---------------- dispatch reassurance ---------------- */
-function dispatchResponder() {
-  if (state.dispatched) return;
-  state.dispatched = true;
-  el.reassure.classList.add("is-visible");
-  el.liveActions.classList.add("is-active");
-  say(
-    "resq",
-    "Your emergency report and location have been sent to dispatch. Keep following the safety guidance, but do not assume a responder is assigned until dispatch confirms it."
-  );
-  tickEta();
-}
-
-function tickEta() {
-  const paint = () => {
-    const m = Math.floor(state.etaSeconds / 60);
-    const s = String(state.etaSeconds % 60).padStart(2, "0");
-    el.eta.textContent = `${m}:${s}`;
-  };
-  paint();
-  setInterval(() => {
-    if (state.etaSeconds > 0) state.etaSeconds -= 1;
-    paint();
-  }, 1000);
-}
-
-/* ---------------- first-aid library ---------------- */
 function renderOfflineLibrary() {
   const data = readCachedProtocols() || PROTOCOLS;
   el.drawerList.innerHTML = Object.values(data)
@@ -680,7 +539,6 @@ function renderOfflineLibrary() {
     .join("");
 }
 
-/* ---------------- mobile viewport & keyboard accommodation ---------------- */
 function wireKeyboardAccommodation() {
   const updateViewport = () => {
     if (!window.visualViewport) return;
@@ -690,13 +548,11 @@ function wireKeyboardAccommodation() {
       el.stream.scrollTop = el.stream.scrollHeight;
     }
   };
-
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewport);
     window.visualViewport.addEventListener("scroll", updateViewport);
     updateViewport();
   }
-
   el.field.addEventListener("focus", () => {
     setTimeout(() => {
       updateViewport();
@@ -706,3 +562,140 @@ function wireKeyboardAccommodation() {
   });
 }
 
+/* ---------------- Synchronized ETA Ticker ---------------- */
+function startSynchronizedEtaTicker() {
+  if (state.etaInterval) clearInterval(state.etaInterval);
+  const updateDisplay = () => {
+    if (!el.eta) return;
+    if (state.etaSeconds <= 0) {
+      el.eta.textContent = "Arrived on Scene";
+      return;
+    }
+    const m = Math.floor(state.etaSeconds / 60);
+    const s = String(state.etaSeconds % 60).padStart(2, "0");
+    el.eta.textContent = `${m}:${s}`;
+  };
+  updateDisplay();
+  state.etaInterval = setInterval(() => {
+    if (state.etaSeconds > 0) {
+      state.etaSeconds -= 1;
+      updateDisplay();
+    }
+  }, 1000);
+}
+
+/* ---------------- Voice Link Call Bridge Modal ---------------- */
+function triggerVoiceBridge(type = "civilian_to_command") {
+  if (!state.incidentUuid) {
+    alert("Please send your emergency report first so Command can link your voice channel.");
+    return;
+  }
+  const endpoint = `/api/incidents/${state.incidentUuid}/call-bridge`;
+  fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "start", type: type })
+  }).then(r => r.json()).catch(err => console.warn("Voice link trigger note:", err));
+  showVoiceBridgeModal("Connecting to Emergency Command & Responder Bridge...");
+}
+
+function showVoiceBridgeModal(statusText) {
+  let modal = document.getElementById("voiceBridgeModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "voiceBridgeModal";
+    modal.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:92%;max-width:440px;background:var(--surface-2);border:2px solid var(--accent);border-radius:18px;padding:16px 20px;z-index:99999;box-shadow:0 12px 40px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:space-between;gap:14px;";
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="pulse pulse--teal" style="width:14px;height:14px;"></span>
+      <div>
+        <strong style="font-size:0.9rem;color:var(--text);display:block;">📞 Voice Link Active</strong>
+        <span style="font-size:0.75rem;color:var(--text-2);">${statusText}</span>
+      </div>
+    </div>
+    <button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">End Call</button>
+  `;
+  document.getElementById("endVoiceBtn")?.addEventListener("click", () => {
+    modal.remove();
+    if (state.incidentUuid) {
+      fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end" })
+      }).catch(() => {});
+    }
+  });
+}
+
+/* ---------------- WebSocket: Synchronous Multi-Role Integration ---------------- */
+(function initCivilianSocket() {
+  if (typeof io === "undefined") return;
+  const serverUrl = window.RESQ_CONFIG?.backendUrl || undefined;
+  const sock = io(serverUrl, { transports: ["websocket", "polling"], reconnection: true });
+  window._resqCivSocket = sock;
+
+  sock.on("connect", () => {
+    if (state.incidentUuid) {
+      sock.emit("join", { room: `incident_${state.incidentUuid}` });
+    }
+  });
+
+  // Responder Acknowledged & Rolling -> Official Confirmation
+  sock.on("civilian:dispatch_confirmed", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    state.dispatched = true;
+    if (el.reassure) el.reassure.classList.add("is-visible");
+    if (el.liveActions) el.liveActions.classList.add("is-active");
+
+    const etaSec = parseInt(data.eta_seconds, 10) || (parseInt(data.eta_minutes, 10) * 60) || 480;
+    state.etaSeconds = etaSec;
+    startSynchronizedEtaTicker();
+
+    const unit = data.unit_code || "AMB-01";
+    const mins = data.eta_minutes || Math.round(etaSec / 60);
+    say("dispatch", `Unit ${unit} has acknowledged your mission and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
+    if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
+  });
+
+  // Dynamic ETA update as ambulance moves
+  sock.on("civilian:eta_update", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    const secs = parseInt(data.eta_seconds, 10);
+    if (!isNaN(secs)) {
+      state.etaSeconds = secs;
+      if (el.eta) {
+        const m = Math.floor(secs / 60);
+        const s = String(secs % 60).padStart(2, "0");
+        el.eta.textContent = `${m}:${s}`;
+      }
+    }
+  });
+
+  // Unit arrived on scene
+  sock.on("responder:on_scene", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    state.etaSeconds = 0;
+    if (el.eta) el.eta.textContent = "Arrived on Scene";
+    say("dispatch", `Ambulance unit ${data.unit_code || "AMB-01"} has arrived on scene. Look out for the flashing beacon and direct the crew.`);
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  });
+
+  // Direct message from Commander
+  sock.on("dispatcher:message", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    say("commander", data.message || "Commander is monitoring your scene.");
+    if (navigator.vibrate) navigator.vibrate(50);
+  });
+
+  // Voice Link Bridge Event
+  sock.on("call_bridge:event", (data) => {
+    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+    if (data.active) {
+      showVoiceBridgeModal("Connected directly with Emergency Commander & Ambulance Crew.");
+    } else {
+      document.getElementById("voiceBridgeModal")?.remove();
+    }
+  });
+})();

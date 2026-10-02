@@ -39,7 +39,7 @@ def register_socket_events(socketio):
             (room == "dispatchers" and role in ("dispatcher", "development")) or
             (room == "responders" and role in ("responder", "development")) or
             (room and room.startswith("responder_") and role in ("responder", "development")) or
-            (room and room.startswith("incident_") and role in ("dispatcher", "responder", "development"))
+            (room and room.startswith("incident_") and role in ("civilian", "dispatcher", "responder", "development"))
         )
         if room and allowed:
             join_room(room)

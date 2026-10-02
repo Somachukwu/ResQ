@@ -718,8 +718,8 @@ const COMMS = {
     { who: "ResQ guidance", text: "Recovery position steps issued. Direct pressure steps issued." },
   ],
   responder: [
-    { who: "AMB-07", text: "Copy. Rolling from Ugwuoba staging point." },
-    { who: "FRSC-12", text: "Fuel spill confirmed. No flares. Lane closure in place." },
+    { who: "AMB-01 [DEMO]", text: "Copy. Rolling from Enugu Urban staging point." },
+    { who: "RESCUE-01 [DEMO]", text: "Scene confirmed. Lane closure in place." },
   ],
 };
 let channel = "civilian";
@@ -743,12 +743,22 @@ function pushComms(target, text) {
 }
 
 
-$("#commsForm").addEventListener("submit", (e) => {
+$("#commsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("#commsInput");
   if (!input.value.trim()) return;
-  COMMS[channel].push({ who: "Dispatch", text: input.value.trim(), me: true });
+  const text = input.value.trim();
   input.value = "";
+  if (channel === "civilian" && selected && selected.id) {
+    try {
+      await fetch(`/api/incidents/${selected.id}/dispatcher-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+    } catch (err) { console.warn("[Dispatcher] Direct message failed:", err); }
+  }
+  COMMS[channel].push({ who: "Commander", text, me: true });
   renderComms();
 });
 
@@ -781,26 +791,73 @@ if (window.ResQSocket) {
   resqSocket = new window.ResQSocket("dispatcher");
 
   resqSocket.on("incident:new", (inc) => {
-    console.log("[Dispatcher] New incident received via WebSocket:", inc);
+    console.log("[Dispatcher] Live incident received:", inc);
     const localInc = {
       id: inc.incident_uuid,
-      rsi: inc.severity_score || 4.5,
+      rsi: Number(inc.severity_score || 4.5),
       triage: inc.severity_level === "critical" ? "red" : (inc.severity_level === "urgent" ? "yellow" : "green"),
       title: inc.title,
-      place: inc.location_name,
-      victims: inc.casualties_count || 1,
+      place: inc.location_name || `${inc.lat.toFixed(4)}, ${inc.lng.toFixed(4)}`,
+      victims: Number(inc.casualties_count || 1),
       injuries: inc.title,
       hazards: [],
-      lat: inc.lat,
-      lng: inc.lng,
+      lat: Number(inc.lat),
+      lng: Number(inc.lng),
+      assigned_unit: inc.assigned_responder_id || null,
       started: Date.now()
     };
     if (!INCIDENTS.some(i => i.id === localInc.id)) {
       INCIDENTS.unshift(localInc);
+      
+      if (map && layers.incidents) {
+        const m = L.marker([localInc.lat, localInc.lng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<span class="pin pin--${localInc.triage} pin--pulse" style="position:relative;display:block"></span>`,
+            iconSize: [20, 20],
+          }),
+        }).bindTooltip(`${localInc.id} · ${localInc.title}`, { direction: "top" });
+        m.on("click", () => select(localInc.id));
+        m.addTo(layers.incidents);
+        localInc.marker = m;
+      }
+      
       selected = localInc;
       renderQueue();
       focusIncident(localInc);
+      pushComms("civilian", `New SOS reported at ${localInc.place}. Triage: ${localInc.triage.toUpperCase()}.`);
     }
+  });
+
+  resqSocket.on("incident:chat_turn", (data) => {
+    if (selected && selected.id === data.incident_uuid) {
+      loadCivilianIntel(selected.id);
+      if (data.civilian_message) {
+        pushComms("civilian", `Bystander: ${data.civilian_message}`);
+      }
+    }
+  });
+
+  resqSocket.on("responder:acknowledged", (data) => {
+    pushComms("dispatch", `🚑 Unit ${data.unit_code} acknowledged mission brief. Rolling with ETA: ${data.eta_minutes || 8} mins.`);
+    const unit = UNITS.find(u => u.id === data.unit_code);
+    if (unit) unit.status = "enroute";
+    if (selected && selected.assigned_unit === data.unit_code) {
+      const badge = $("#detailAssignedBadge");
+      if (badge) badge.textContent = `Assigned: ${data.unit_code} (En Route)`;
+    }
+    renderFleet();
+  });
+
+  resqSocket.on("responder:on_scene", (data) => {
+    pushComms("dispatch", `🚨 Unit ${data.unit_code} has arrived ON SCENE at incident ${data.incident_uuid}.`);
+    const unit = UNITS.find(u => u.id === data.unit_code);
+    if (unit) unit.status = "scene";
+    if (selected && selected.assigned_unit === data.unit_code) {
+      const badge = $("#detailAssignedBadge");
+      if (badge) badge.textContent = `Unit ${data.unit_code} (On Scene)`;
+    }
+    renderFleet();
   });
 
   resqSocket.on("telemetry:update", (t) => {
@@ -810,6 +867,11 @@ if (window.ResQSocket) {
       unit.lng = t.lng;
       renderFleet();
     }
+    updateUnitMarker(t.unit_code, t.lat, t.lng);
+  });
+
+  resqSocket.on("call_bridge:event", (data) => {
+    pushComms("dispatch", `📞 Voice Call Channel Event: ${data.title} (${data.action})`);
   });
 }
 

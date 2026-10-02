@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
@@ -26,22 +26,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../resources/ResQ_Icon.png" />
+    <link rel="icon" type="image/x-icon" href="../favicon.ico" />
+    <link rel="apple-touch-icon" href="../resources/ResQ_Icon.png" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/static/css/resq.css" />
-    <link rel="stylesheet" href="/static/css/dispatcher.css?v=2.3" />
+    <link rel="stylesheet" href="../static/css/resq.css" />
+    <link rel="stylesheet" href="../static/css/dispatcher.css?v=2.3" />
   </head>
 
   <body class="dispatcher">
     <div class="cmd">
-      <!-- TOP COMMAND BAR — Sleek, compact & pro-grade -->
+      <!-- TOP COMMAND BAR â€” Sleek, compact & pro-grade -->
       <header class="topbar">
         <div class="topbar__left">
-          <a class="resq-mark" href="/">
-            <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
-            <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> · CAD</span></span>
+          <a class="resq-mark" href="../">
+            <img src="../resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
+            <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> Â· CAD</span></span>
           </a>
 
           <!-- Full KPI strip (desktop) -->
@@ -59,7 +59,7 @@
             <span class="weather-pill__icon" id="weatherIcon" aria-hidden="true">
               <svg class="wx-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="8" y1="20" x2="8.01" y2="20"/><line x1="12" y1="18" x2="12.01" y2="18"/><line x1="12" y1="22" x2="12.01" y2="22"/><line x1="16" y1="16" x2="16.01" y2="16"/><line x1="16" y1="20" x2="16.01" y2="20"/></svg>
             </span>
-            <span class="weather-pill__temp" id="weatherTemp">--°C</span>
+            <span class="weather-pill__temp" id="weatherTemp">--Â°C</span>
             <span class="weather-pill__cond" id="weatherCondition">Weather</span>
             <span class="badge badge--escalation badge--steady" id="weatherTrend">STEADY</span>
             <button class="weather-collapse-btn" id="weatherCollapseBtn" type="button" aria-label="Toggle meteorological report" aria-expanded="false">
@@ -119,7 +119,7 @@
         </div>
       </header>
 
-      <!-- Mobile Command Nav Switcher (≤860px) — 1-word captions (Requirement 1) -->
+      <!-- Mobile Command Nav Switcher (â‰¤860px) â€” 1-word captions (Requirement 1) -->
       <nav class="mobile-command-nav" id="mobileNav" role="tablist" aria-label="Command view switcher">
         <button class="mobile-nav-tab is-active" data-view="queue" type="button" role="tab" aria-selected="true">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></svg>
@@ -168,7 +168,7 @@
         <section class="mapwrap" id="mapWrap" aria-label="Tactical GIS map">
           <div id="map"></div>
 
-          <!-- Map layer toggles — top-left -->
+          <!-- Map layer toggles â€” top-left -->
           <div class="layers" role="group" aria-label="Map layers">
             <label class="layer-toggle is-on" data-layer="incidents" data-tone="incident">
               <input type="checkbox" checked /><span class="dot"></span> Incidents
@@ -203,7 +203,7 @@
             <button class="tactical-banner__close" id="tacticalBannerCloseBtn" type="button" aria-label="Dismiss alert">&times;</button>
           </div>
 
-          <!-- Mandatory IEEE Region Selector (S/N 14) — BOTTOM-CENTER of map -->
+          <!-- Mandatory IEEE Region Selector (S/N 14) â€” BOTTOM-CENTER of map -->
           <div class="region-selector" role="radiogroup" aria-label="Geographic region scale filter">
             <button class="region-btn is-active" data-region="community" type="button" title="View Community Level (Enugu Urban)">
               <span class="region-btn__tag">Community</span>
@@ -219,7 +219,7 @@
             </button>
           </div>
 
-          <!-- Map Legend — bottom-left -->
+          <!-- Map Legend â€” bottom-left -->
           <div class="map-legend">
             <span><i style="background: var(--triage-red)"></i>Critical (P1)</span>
             <span><i style="background: var(--triage-orange)"></i>Urgent (P2)</span>
@@ -259,7 +259,7 @@
               <h3 class="brief-card__title" id="detailTitle">Select an incident from the queue</h3>
               <p class="brief-card__place" id="detailPlace">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span id="detailCoordsText">–</span>
+                <span id="detailCoordsText">â€“</span>
               </p>
             </div>
 
@@ -270,9 +270,9 @@
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                   Casualties &amp; Triage
                 </span>
-                <span class="badge" id="detailVictimCount">–</span>
+                <span class="badge" id="detailVictimCount">â€“</span>
               </div>
-              <div class="casualty-box" id="detailInjuries">–</div>
+              <div class="casualty-box" id="detailInjuries">â€“</div>
             </div>
 
             <!-- Scene Hazards -->
@@ -300,12 +300,12 @@
                 <div class="facility-card__main">
                   <div class="facility-card__name" id="detailHospital">ESUTH Parklane</div>
                   <div class="facility-card__caps" id="detailHospitalCaps">
-                    <span class="facility-cap-tag">Level 1 trauma</span> ·
-                    <span class="facility-cap-tag">ICU</span> ·
+                    <span class="facility-cap-tag">Level 1 trauma</span> Â·
+                    <span class="facility-cap-tag">ICU</span> Â·
                     <span class="facility-cap-tag">Blood bank</span>
                   </div>
                 </div>
-                <div class="facility-card__eta" id="detailHospitalEta">8.4 mins · 92% Survival</div>
+                <div class="facility-card__eta" id="detailHospitalEta">8.4 mins Â· 92% Survival</div>
               </div>
             </div>
 
@@ -324,6 +324,31 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   <span class="dispatch-label">Dispatch Unit</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Tactical Radio & Voice Bridge Actions -->
+            <div class="dispatch-action-box" style="padding-top:0;border-top:none;display:flex;flex-direction:column;gap:6px;">
+              <button class="btn btn--ghost btn--compact" id="bridgeCallBtn" type="button" style="width:100%;font-size:11px;gap:6px;color:var(--accent);border-color:var(--accent);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Bridge Voice Link (Civilian ↔ Responder)
+              </button>
+              <button class="btn btn--ghost btn--compact" id="routeChangeBtn" type="button" style="width:100%;font-size:11px;gap:6px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+                Suggest Route Change to Responder
+              </button>
+            </div>
+
+            <!-- Civilian Intel Feed -->
+            <div class="console-section" style="flex:1;display:flex;flex-direction:column;min-height:130px">
+              <div class="console-section__head">
+                <span class="console-section__label">
+                  <span class="pulse pulse--teal" aria-hidden="true"></span>
+                  Civilian AI Conversation
+                </span>
+              </div>
+              <div id="civilianIntelLog" style="flex:1;overflow-y:auto;font-size:.8rem;display:flex;flex-direction:column;gap:4px;min-height:90px;padding:4px 0;">
+                <p style="opacity:.5;font-size:.78rem;">Select an incident to view conversation</p>
               </div>
             </div>
 
@@ -355,8 +380,10 @@
     <!-- Leaflet & Real-Time Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="/static/js/resq-config.js"></script>
-    <script src="/static/js/resq-socket.js"></script>
-    <script type="module" src="/static/js/dispatcher.js?v=2.3"></script>
+    <script src="../static/js/resq-config.js"></script>
+    <script src="../static/js/resq-socket.js"></script>
+    <script type="module" src="../static/js/dispatcher.js?v=2.3"></script>
   </body>
 </html>
+
+
