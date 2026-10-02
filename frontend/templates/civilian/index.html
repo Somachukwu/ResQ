@@ -6,11 +6,11 @@
     <title>ResQ Civilian</title>
     <meta
       name="description"
-      content="ResQ guides an untrained bystander through life-saving first aid while silently sharing location, photos and hazards with emergency dispatch."
+      content="ResQ guides an untrained bystander through life saving first aid while silently sharing location, photos and hazards with emergency dispatch."
     />
     <meta name="theme-color" content="#0D6E6E" />
     <meta property="og:title" content="ResQ Civilian" />
-    <meta property="og:description" content="One tap for help. Calm, plain-language first aid that keeps working offline." />
+    <meta property="og:description" content="One tap for help. Calm, plain language first aid that keeps working offline." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
@@ -28,16 +28,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/resources/ResQ_Icon.png" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/resources/ResQ_Icon.png" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/static/css/resq.css?v=3.1" />
-    <link rel="stylesheet" href="/static/css/civilian.css?v=3.1" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../resources/ResQ_Icon.png" />
+    <link rel="icon" type="image/x-icon" href="../favicon.ico" />
+    <link rel="apple-touch-icon" href="../resources/ResQ_Icon.png" />
+    <link rel="manifest" href="../manifest.json" />
+    <link rel="stylesheet" href="../static/css/resq.css?v=3.1" />
+    <link rel="stylesheet" href="../static/css/civilian.css?v=3.1" />
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js").catch(function(err) {
+          navigator.serviceWorker.register("../sw.js").catch(function(err) {
             console.log("ServiceWorker registration note:", err);
           });
         });
@@ -48,8 +48,8 @@
   <body class="civilian">
     <div class="shell">
       <header class="c-header">
-        <a class="resq-mark" href="/">
-          <img src="/resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
+        <a class="resq-mark" href="../">
+          <img src="../resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
           <span>
             <span class="resq-mark__name">Res<span>Q</span></span>
           </span>
@@ -97,7 +97,7 @@
       <main class="hero" id="hero">
         <div class="stack">
           <h1 class="hero__title">You are not alone.<br /><em style="color: var(--teal); font-style: normal;">We are with you.</em></h1>
-          <p class="hero__sub">Press once. No sign-up, no forms. ResQ will guide you through the next right action while help makes its way to you.</p>
+          <p class="hero__sub">Press once. No sign up, no forms. ResQ will guide you through the next right action while help makes its way to you.</p>
         </div>
 
         <button class="sos" id="sos" type="button" onclick="window.startSession ? window.startSession() : (window.startSessionFallback && window.startSessionFallback())" aria-label="Start emergency triage session">
@@ -193,8 +193,8 @@
         if (f) try { f.focus({ preventScroll: true }); } catch (_) {}
       };
     </script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/static/js/resq-config.js"></script>
-    <script type="module" src="/static/js/civilian.js?v=3.2"></script>
+    <script src="../static/js/resq-config.js"></script>
+    <script type="module" src="../static/js/civilian.js?v=3.1"></script>
   </body>
 </html>
+

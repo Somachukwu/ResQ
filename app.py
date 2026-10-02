@@ -254,84 +254,10 @@ def incident_debrief_api(incident_uuid):
     return jsonify(debrief)
 
 
-_active_simulations = {}
-
-def _start_movement_simulation(incident_uuid, unit_code, waypoints, interval_s=3):
-    """Advances responder unit along route waypoints and broadcasts telemetry & ETA updates."""
-    import threading
-    import time as _time
-
-    # Stop any previous simulation for this unit
-    old_stop = _active_simulations.pop(unit_code, None)
-    if old_stop:
-        old_stop.set()
-
-    stop_event = threading.Event()
-    _active_simulations[unit_code] = stop_event
-
-    def _sim_worker():
-        total_pts = len(waypoints)
-        for idx, pt in enumerate(waypoints):
-            if stop_event.is_set():
-                break
-            try:
-                lat, lng = float(pt["lat"]), float(pt["lng"])
-                # Calculate heading if there is a next point
-                heading = 45.0
-                if idx < total_pts - 1:
-                    import math as _m
-                    dlat = float(waypoints[idx+1]["lat"]) - lat
-                    dlng = float(waypoints[idx+1]["lng"]) - lng
-                    heading = (_m.degrees(_m.atan2(dlng, dlat)) + 360) % 360
-
-                update_responder_telemetry(unit_code, lat=lat, lng=lng, heading=round(heading, 1), speed_kmh=48.0)
-                
-                # ETA in seconds remaining to scene
-                pts_remaining = total_pts - 1 - idx
-                eta_sec = max(0, pts_remaining * interval_s)
-                
-                beacon = {
-                    "unit_code": unit_code,
-                    "lat": lat,
-                    "lng": lng,
-                    "heading": round(heading, 1),
-                    "speed_kmh": 48.0 if pts_remaining > 0 else 0.0,
-                    "incident_uuid": incident_uuid,
-                    "eta_seconds": eta_sec,
-                    "eta_minutes": max(1, round(eta_sec / 60)) if eta_sec > 0 else 0
-                }
-                socketio.emit("telemetry:update", beacon, room="dispatchers")
-                socketio.emit("responder:beacon", beacon, room="responders")
-                socketio.emit("civilian:eta_update", {
-                    "incident_uuid": incident_uuid,
-                    "unit_code": unit_code,
-                    "eta_seconds": eta_sec,
-                    "eta_minutes": beacon["eta_minutes"]
-                }, room=f"incident_{incident_uuid}")
-
-                if pts_remaining == 0:
-                    # Arrived on scene
-                    update_incident(incident_uuid, {"status": "on_scene"})
-                    add_incident_update(incident_uuid, "responder", f"Unit {unit_code} has arrived on scene.", "status_change")
-                    on_scene_payload = {"incident_uuid": incident_uuid, "unit_code": unit_code, "status": "on_scene"}
-                    socketio.emit("responder:on_scene", on_scene_payload, room="dispatchers")
-                    socketio.emit("responder:on_scene", on_scene_payload, room=f"incident_{incident_uuid}")
-                    socketio.emit("responder:on_scene", on_scene_payload, room="responders")
-            except Exception as ex:
-                print(f"[Simulation Error] {unit_code}: {ex}")
-
-            if idx < total_pts - 1:
-                _time.sleep(interval_s)
-        _active_simulations.pop(unit_code, None)
-
-    t = threading.Thread(target=_sim_worker, daemon=True)
-    t.start()
-
-
 @app.route("/api/responder/assign", methods=["POST"])
 @require_role("dispatcher")
 def assign_responder_api():
-    """Commander approves and dispatches an emergency responder unit to the incident."""
+    """Assigns an emergency responder unit to an incident and broadcasts real-time telemetry."""
     data = json_object()
     incident_uuid = data.get("incident_uuid")
     unit_code = data.get("unit_code")
@@ -350,272 +276,32 @@ def assign_responder_api():
         incident_uuid=incident_uuid,
         source="dispatcher",
         update_type="dispatch",
-        content=f"Commander dispatched Unit {unit_code} ({responder['name']}) to incident site. Awaiting crew acknowledgement."
+        content=f"Unit {unit_code} ({responder['name']}) dispatched to incident site."
     )
 
-    # Compute road route from responder current position to civilian incident
-    resp_lat = float(responder.get("lat") or 6.4480)
-    resp_lng = float(responder.get("lng") or 7.5150)
-    inc_lat = float(updated_inc.get("lat") or 6.4474)
-    inc_lng = float(updated_inc.get("lng") or 7.5098)
-
-    route_data = get_route(
-        start_lng=resp_lng,
-        start_lat=resp_lat,
-        end_lng=inc_lng,
-        end_lat=inc_lat
-    )
-    route_geometry = route_data.get("geometry") if route_data else None
-    if route_geometry:
-        update_incident(incident_uuid, {"route_geometry": json.dumps(route_geometry)})
-
-    # Capability-matched hospital destination (Enugu)
-    all_hospitals = [h for h in get_hospitals() if h.get("bed_status") not in {"unavailable", "closed"}]
-    inc_type = updated_inc.get("type", "general")
-    candidates = [h for h in all_hospitals if h["capability"] == "trauma"] if inc_type in ("road_traffic_accident", "trauma") else all_hospitals
-    if not candidates:
-        candidates = all_hospitals
-    
-    hospital_data = None
-    if candidates:
-        h_results = []
-        for h in candidates[:3]:
-            h_route = get_route(inc_lng, inc_lat, float(h["lng"]), float(h["lat"]))
-            if h_route:
-                h_results.append({"hospital": h, "distance_km": round(h_route["distance"]/1000, 2), "duration_mins": round(h_route["duration"]/60, 1)})
-            else:
-                import math as _m
-                approx_km = round(((_m.hypot(h["lat"] - inc_lat, h["lng"] - inc_lng)) * 111 * 1.2), 2)
-                h_results.append({"hospital": h, "distance_km": approx_km, "duration_mins": round(approx_km / 40 * 60, 1)})
-        h_results.sort(key=lambda x: x["duration_mins"])
-        hospital_data = h_results[0] if h_results else None
-
-    # Retrieve conversation history to present to responder
-    conversation_turns = get_incident_conversation(incident_uuid)
-
-    # Mission alert payload sent to the specific responder cockpit
-    mission_payload = {
+    # Broadcast to dispatchers, responders, and civilian room
+    payload = {
         "incident_uuid": incident_uuid,
         "unit_code": unit_code,
-        "incident": updated_inc,
-        "responder": responder,
-        "route_geometry": route_geometry,
-        "route_distance_km": round(route_data["distance"]/1000, 2) if route_data else round(((resp_lat-inc_lat)**2 + (resp_lng-inc_lng)**2)**0.5 * 111, 2),
-        "route_duration_mins": round(route_data["duration"]/60, 1) if route_data else 8.0,
-        "recommended_hospital": hospital_data["hospital"] if hospital_data else None,
-        "hospital_duration_mins": hospital_data["duration_mins"] if hospital_data else 8.4,
-        "hospital_distance_km": hospital_data["distance_km"] if hospital_data else 4.2,
-        "conversation": conversation_turns
+        "responder_name": responder["name"],
+        "status": "dispatched",
+        "timestamp": updated_inc["updated_at"]
     }
-    socketio.emit("responder:assigned", mission_payload, room="dispatchers")
-    socketio.emit("responder:assigned", mission_payload, room="responders")
-    socketio.emit("responder:mission_alert", mission_payload, room=f"responder_{unit_code}")
-    socketio.emit("responder:mission_alert", mission_payload, room="responders")
+    socketio.emit("responder:assigned", payload, room="dispatchers")
+    socketio.emit("responder:assigned", payload, room="responders")
+    socketio.emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
 
     return jsonify({
         "status": "success",
         "incident": updated_inc,
-        "responder": get_responder_by_code(unit_code),
-        "route_geometry": route_geometry,
-        "recommended_hospital": hospital_data["hospital"] if hospital_data else None,
-        "hospital_duration_mins": hospital_data["duration_mins"] if hospital_data else 8.4
+        "responder": get_responder_by_code(unit_code)
     })
-
-
-@app.route("/api/incidents/<incident_uuid>/acknowledge", methods=["POST"])
-@require_role("responder")
-def acknowledge_brief_api(incident_uuid):
-    """
-    Triggered when Responder clicks 'Acknowledge Brief'.
-    This activates real ETA computation, starts the live movement simulation,
-    and transmits the confirmed ETA to the Civilian portal.
-    """
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    data = json_object()
-    unit_code = data.get("unit_code") or incident.get("assigned_responder_id")
-    if not unit_code or incident.get("assigned_responder_id") != unit_code:
-        return jsonify({"error": "This unit is not assigned to the incident"}), 403
-
-    responder = get_responder_by_code(unit_code)
-    resp_lat = float(responder.get("lat") or 6.4480)
-    resp_lng = float(responder.get("lng") or 7.5150)
-    inc_lat = float(incident.get("lat") or 6.4474)
-    inc_lng = float(incident.get("lng") or 7.5098)
-
-    # Compute road route and waypoints
-    route_data = get_route(start_lng=resp_lng, start_lat=resp_lat, end_lng=inc_lng, end_lat=inc_lat)
-    
-    waypoints = []
-    if route_data and route_data.get("geometry") and route_data["geometry"].get("coordinates"):
-        coords = route_data["geometry"]["coordinates"]
-        step = max(1, len(coords) // 18)
-        for i in range(0, len(coords), step):
-            waypoints.append({"lat": coords[i][1], "lng": coords[i][0]})
-        if not any(w["lat"] == inc_lat and w["lng"] == inc_lng for w in waypoints):
-            waypoints.append({"lat": inc_lat, "lng": inc_lng})
-    else:
-        # Generate 14 realistic intermediate waypoints along Enugu road corridor
-        steps = 14
-        for i in range(steps + 1):
-            fraction = i / steps
-            # Add realistic minor curve deviation
-            import math as _m
-            curve = _m.sin(fraction * _m.pi) * 0.003
-            waypoints.append({
-                "lat": round(resp_lat + (inc_lat - resp_lat) * fraction + curve, 6),
-                "lng": round(resp_lng + (inc_lng - resp_lng) * fraction - curve, 6)
-            })
-
-    total_dist_km = round(route_data["distance"]/1000, 2) if route_data else round((((resp_lat-inc_lat)**2 + (resp_lng-inc_lng)**2)**0.5 * 111 * 1.2), 2)
-    eta_minutes = max(2, round(route_data["duration"]/60, 1) if route_data else max(3, round(total_dist_km / 35 * 60)))
-    eta_seconds = int(eta_minutes * 60)
-
-    # Record acknowledgement in audit log
-    add_incident_update(
-        incident_uuid=incident_uuid,
-        source="responder",
-        update_type="acknowledgement",
-        content=f"Unit {unit_code} acknowledged mission brief. Rolling to scene with estimated arrival in {int(eta_minutes)} minutes."
-    )
-
-    # Start live movement ticker along the waypoints
-    _start_movement_simulation(incident_uuid, unit_code, waypoints, interval_s=3)
-
-    # Broadcast acknowledgement to Commander & Responder
-    ack_payload = {
-        "incident_uuid": incident_uuid,
-        "unit_code": unit_code,
-        "status": "en_route",
-        "eta_minutes": eta_minutes,
-        "eta_seconds": eta_seconds,
-        "total_distance_km": total_dist_km
-    }
-    socketio.emit("responder:acknowledged", ack_payload, room="dispatchers")
-    socketio.emit("responder:acknowledged", ack_payload, room="responders")
-
-    # Send official dispatch confirmation with live ETA to Civilian
-    civ_payload = {
-        "incident_uuid": incident_uuid,
-        "unit_code": unit_code,
-        "responder_name": responder["name"],
-        "status": "en_route",
-        "eta_minutes": eta_minutes,
-        "eta_seconds": eta_seconds,
-        "total_distance_km": total_dist_km,
-        "responder_lat": resp_lat,
-        "responder_lng": resp_lng,
-        "message": f"Unit {unit_code} has confirmed dispatch and is rolling to your location. Estimated arrival: {int(eta_minutes)} minutes."
-    }
-    socketio.emit("civilian:dispatch_confirmed", civ_payload, room=f"incident_{incident_uuid}")
-    socketio.emit("civilian:dispatch_confirmed", civ_payload, room="dispatchers")
-
-    return jsonify({"status": "acknowledged", "data": ack_payload, "civilian_notified": True})
-
-
-@app.route("/api/incidents/<incident_uuid>/dispatcher-message", methods=["POST"])
-@require_role("dispatcher")
-def dispatcher_message_api(incident_uuid):
-    """Commander sends a direct instruction or update to the civilian at the scene."""
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    data = json_object()
-    message = (data.get("message") or "").strip()
-    if not message:
-        return jsonify({"error": "message required"}), 400
-    add_incident_update(incident_uuid, "dispatcher", message, "direct_message")
-    
-    payload = {"incident_uuid": incident_uuid, "message": message, "sender": "Commander"}
-    socketio.emit("dispatcher:message", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("incident:timeline_update", {"incident_uuid": incident_uuid, "source": "dispatcher", "content": message}, room="dispatchers")
-    return jsonify({"status": "sent", "payload": payload})
-
-
-@app.route("/api/incidents/<incident_uuid>/route-change", methods=["POST"])
-@require_role("dispatcher")
-def route_change_api(incident_uuid):
-    """Commander pushes a dynamic route change / detour advice to the assigned responder."""
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    unit_code = incident.get("assigned_responder_id")
-    if not unit_code:
-        return jsonify({"error": "No unit assigned"}), 409
-    data = json_object()
-    note = (data.get("note") or "").strip()
-    if not note:
-        return jsonify({"error": "note required"}), 400
-    add_incident_update(incident_uuid, "dispatcher", f"Route change instruction: {note}", "route_change")
-    payload = {"incident_uuid": incident_uuid, "unit_code": unit_code, "note": note}
-    socketio.emit("responder:route_change", payload, room=f"responder_{unit_code}")
-    socketio.emit("responder:route_change", payload, room="responders")
-    return jsonify({"status": "sent", "payload": payload})
-
-
-@app.route("/api/incidents/<incident_uuid>/call-bridge", methods=["POST"])
-def call_bridge_api(incident_uuid):
-    """Establishes or controls a direct voice channel / call bridge between Civilian, Command, and Responder."""
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    data = json_object()
-    action = data.get("action", "start") # start, end
-    channel_type = data.get("type", "3way_bridge") # civilian_to_command, command_to_responder, 3way_bridge
-    unit_code = incident.get("assigned_responder_id")
-
-    payload = {
-        "incident_uuid": incident_uuid,
-        "unit_code": unit_code,
-        "action": action,
-        "channel_type": channel_type,
-        "title": "Encrypted Emergency Voice Link" if action == "start" else "Call Ended",
-        "active": action == "start"
-    }
-    # Broadcast to all 3 rooms
-    socketio.emit("call_bridge:event", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("call_bridge:event", payload, room="dispatchers")
-    if unit_code:
-        socketio.emit("call_bridge:event", payload, room=f"responder_{unit_code}")
-    socketio.emit("call_bridge:event", payload, room="responders")
-
-    add_incident_update(
-        incident_uuid=incident_uuid,
-        source="dispatcher",
-        update_type="comms",
-        content=f"Voice link bridge {action}ed: {channel_type}"
-    )
-    return jsonify({"status": "success", "data": payload})
-
-
-@app.route("/api/incidents/<incident_uuid>/conversation", methods=["GET"])
-def incident_conversation_api(incident_uuid):
-    """Returns the full chronological conversation log between Civilian, AI, and Commander."""
-    if not has_operator_token():
-        return jsonify({"error": "Valid operator credentials required"}), 401
-    incident = get_incident_by_uuid(incident_uuid)
-    if not incident:
-        return jsonify({"error": "Incident not found"}), 404
-    return jsonify(get_incident_conversation(incident_uuid))
-
-
-@app.route("/api/responders", methods=["GET"])
-@require_role("dispatcher")
-def responders_api():
-    return jsonify(get_responders())
-
-
-@app.route("/api/hospitals", methods=["GET"])
-@require_role("dispatcher")
-def hospitals_api():
-    capability = request.args.get("capability")
-    return jsonify(get_hospitals(capability=capability))
 
 
 @app.route("/api/responder-telemetry", methods=["POST"])
 @require_role("responder")
 def responder_telemetry_beacon_api():
+    """Ingests periodic GPS beacon from active responder unit and emits live tracking event."""
     data = json_object()
     unit_code = data.get("unit_code")
     lat = data.get("lat")
@@ -631,10 +317,13 @@ def responder_telemetry_beacon_api():
         speed_kmh = float(speed_kmh)
     except (TypeError, ValueError):
         return jsonify({"error": "heading and speed_kmh must be numeric"}), 400
+    if not 0 <= heading < 360 or not 0 <= speed_kmh <= 250:
+        return jsonify({"error": "telemetry values outside safe bounds"}), 400
 
     if not update_responder_telemetry(unit_code, lat=lat, lng=lng, heading=heading, speed_kmh=speed_kmh):
         return jsonify({"error": "Responder not found"}), 404
 
+    # Broadcast live pin update to dispatcher and responder GIS screens
     beacon_payload = {
         "unit_code": unit_code,
         "lat": lat,
@@ -646,6 +335,39 @@ def responder_telemetry_beacon_api():
     socketio.emit("responder:beacon", beacon_payload, room="responders")
 
     return jsonify({"status": "beacon_recorded", "data": beacon_payload})
+
+
+@app.route("/api/responders", methods=["GET"])
+@require_role("dispatcher")
+def responders_api():
+    responders = get_responders()
+    return jsonify(responders)
+
+
+@app.route("/api/hospitals", methods=["GET"])
+@require_role("dispatcher")
+def hospitals_api():
+    capability = request.args.get("capability")
+    hospitals = get_hospitals(capability=capability)
+    return jsonify(hospitals)
+
+
+@app.route("/api/incidents/<incident_uuid>/acknowledge", methods=["POST"])
+@require_role("responder")
+def acknowledge_brief_api(incident_uuid):
+    """Persist a responder's acknowledgement instead of treating it as UI state."""
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    data = json_object()
+    unit_code = data.get("unit_code")
+    if not unit_code or incident.get("assigned_responder_id") != unit_code:
+        return jsonify({"error": "This unit is not assigned to the incident"}), 403
+    add_incident_update(incident_uuid, "responder", f"Unit {unit_code} acknowledged the mission brief.", "acknowledgement")
+    payload = {"incident_uuid": incident_uuid, "unit_code": unit_code, "status": "acknowledged"}
+    socketio.emit("responder:acknowledged", payload, room="dispatchers")
+    socketio.emit("responder:acknowledged", payload, room=f"incident_{incident_uuid}")
+    return jsonify({"status": "acknowledged", "data": payload})
 
 
 @app.route("/api/weather", methods=["GET"])
@@ -996,20 +718,6 @@ def civilian_chat_api():
     # 6. Real-time WebSocket Dispatch Broadcast
     socket_payload = dict(incident)
     socketio.emit("incident:new" if is_new else "incident:update", socket_payload, room="dispatchers")
-    
-    # Broadcast live chat turn to all portals
-    chat_turn_payload = {
-        "incident_uuid": incident_uuid,
-        "civilian_message": message,
-        "reassurance_message": extraction["reassurance_message"],
-        "first_aid_steps": extraction["first_aid_steps"],
-        "severity_score": triage["rsi_score"],
-        "severity_level": triage["priority_label"],
-        "timestamp": incident["updated_at"]
-    }
-    socketio.emit("incident:chat_turn", chat_turn_payload, room="dispatchers")
-    socketio.emit("incident:chat_turn", chat_turn_payload, room="responders")
-    socketio.emit("incident:chat_turn", chat_turn_payload, room=f"incident_{incident_uuid}")
 
     return jsonify({
         "status": "success",
@@ -1079,48 +787,35 @@ def civilian_upload_photo_api():
 
 
 def get_route(start_lng, start_lat, end_lng, end_lat):
-    """Computes driving route via OpenRouteService or generates realistic road trajectory."""
-    if ORS_API_KEY:
-        try:
-            url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
-            headers = {"Authorization": ORS_API_KEY, "Content-Type": "application/json"}
-            body = {"coordinates": [[start_lng, start_lat], [end_lng, end_lat]]}
-            response = requests.post(url, json=body, headers=headers, timeout=5)
-            if response.ok:
-                data = response.json()
-                feature = data["features"][0]
-                summary = feature["properties"]["segments"][0]
-                return {
-                    "distance": summary["distance"],
-                    "duration": summary["duration"],
-                    "geometry": feature["geometry"]
-                }
-        except Exception as e:
-            print(f"ORS API fallback engaged: {e}")
+    if not ORS_API_KEY:
+        return None
 
-    # High-accuracy road simulation fallback for Enugu urban corridor
-    import math as _m
-    dist_km = round(_m.hypot(end_lat - start_lat, end_lng - start_lng) * 111.0 * 1.25, 2)
-    duration_s = round((dist_km / 42.0) * 3600.0)
-    
-    # Generate 16 curve coordinates for GeoJSON LineString [lng, lat]
-    num_pts = 16
-    coordinates = []
-    for i in range(num_pts + 1):
-        frac = i / float(num_pts)
-        c_lat = start_lat + (end_lat - start_lat) * frac + _m.sin(frac * _m.pi) * 0.0025
-        c_lng = start_lng + (end_lng - start_lng) * frac - _m.sin(frac * _m.pi) * 0.0020
-        coordinates.append([round(c_lng, 6), round(c_lat, 6)])
-
-    return {
-        "distance": dist_km * 1000.0,
-        "duration": duration_s,
-        "geometry": {
-            "type": "LineString",
-            "coordinates": coordinates
-        }
+    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+    headers = {
+        "Authorization": ORS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    body = {
+        "coordinates": [
+            [start_lng, start_lat],
+            [end_lng, end_lat]
+        ]
     }
 
+    try:
+        response = requests.post(url, json=body, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        feature = data["features"][0]
+        summary = feature["properties"]["segments"][0]
+        return {
+            "distance": summary["distance"],
+            "duration": summary["duration"],
+            "geometry": feature["geometry"]
+        }
+    except Exception as e:
+        print(f"ORS API error: {e}")
+        return None
 
 
 @app.route("/health")
