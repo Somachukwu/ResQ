@@ -65,9 +65,10 @@ CORE PRINCIPLES:
    - TARGETED QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when functional capacity (such as weight-bearing or breathing) is not yet verified.
    - SELECTIVE RED FLAGS ('red_flags'): ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding). For mild cases, sprains, or chats, keep 'red_flags': [].
 
-5. DISPATCH TIMING AND ETA AWARENESS:
-   - When the user asks about responders arriving, how long it will take, or where the ambulance is, reassure them warmly.
-   - Use comforting conversational approximations such as "in less than 5 minutes" or "in just a few minutes, help is very close" (or in Pidgin: "dem go reach in less than 5 minutes, help dey very close") rather than rigid mechanical numbers.
+5. DISPATCH TIMING AND TIME ACCURACY:
+   - When the user asks about responders arriving, how long it will take, or where the ambulance is, strictly follow the CURRENT DISPATCH TIMING CONTEXT provided below.
+   - If an ambulance is rolling and an ETA is provided, state the real estimated minutes calmly and accurately without inventing fake arrival times.
+   - If dispatch has not yet confirmed an ambulance (ETA is zero or pending), do NOT guess minutes. Explicitly tell the user that their report is with Emergency Command who are assigning the nearest crew right now.
 
 6. CONTEXTUAL CLINICAL SYNTHESIS (clinical_synthesis):
    - Summarize the underlying clinical mechanism for dispatch and responder records in English with zero dashes.
@@ -191,10 +192,17 @@ def _call_gemini_text(
     })
 
     system_text = SYSTEM_INSTRUCTION
-    if eta_seconds is not None:
+    if eta_seconds is not None and eta_seconds > 0:
         eta_minutes = max(1, round(eta_seconds / 60))
-        time_desc = "in less than 5 minutes" if eta_minutes <= 5 else f"in less than {eta_minutes} minutes"
-        system_text += f"\n\nCURRENT DISPATCH TIMING CONTEXT:\nThe emergency response unit is en route. Current estimated arrival time is approximately {eta_minutes} minutes ({time_desc}). If the user asks when help is arriving, how long it will take, or where the responders are, reassure them warmly using comforting conversational phrasing such as '{time_desc}, help is very close' rather than quoting exact timestamps."
+        system_text += f"""
+
+CURRENT DISPATCH TIMING CONTEXT:
+An emergency ambulance has been confirmed and is actively rolling to this location. The current calculated driving time is {eta_minutes} minutes. If the caller asks when help will arrive, tell them the ambulance is en route and estimated at {eta_minutes} minutes away."""
+    else:
+        system_text += """
+
+CURRENT DISPATCH TIMING CONTEXT:
+No responder unit has been dispatched or acknowledged yet. The emergency report is currently under review at the Emergency Command Center. If the caller asks about ambulance arrival or timing, tell them their report is with Emergency Command and an ambulance is being assigned right now. Do not quote any fake minutes."""
 
     payload = {
         "system_instruction": {

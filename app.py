@@ -222,6 +222,42 @@ def incident_detail_api(incident_uuid):
     })
 
 
+@app.route("/api/incidents/<incident_uuid>/edit", methods=["POST"])
+@require_role("dispatcher")
+def edit_incident_api(incident_uuid):
+    incident = get_incident_by_uuid(incident_uuid)
+    if not incident:
+        return jsonify({"error": "Incident not found"}), 404
+    data = json_object()
+    allowed_updates = {}
+    if "title" in data and str(data["title"]).strip():
+        allowed_updates["title"] = str(data["title"]).strip()
+    if "casualties_count" in data:
+        try:
+            allowed_updates["casualties_count"] = max(1, int(data["casualties_count"]))
+        except (ValueError, TypeError):
+            pass
+    if "severity_level" in data and data["severity_level"] in ("low", "moderate", "urgent", "critical"):
+        allowed_updates["severity_level"] = data["severity_level"]
+    if "location_name" in data and str(data["location_name"]).strip():
+        allowed_updates["location_name"] = str(data["location_name"]).strip()
+    
+    if not allowed_updates:
+        return jsonify({"error": "No valid fields provided"}), 400
+
+    updated = update_incident(incident_uuid, allowed_updates)
+    add_incident_update(
+        incident_uuid=incident_uuid,
+        source="dispatcher",
+        update_type="manual_override",
+        content=f"Commander updated incident records: {', '.join(f'{k}={v}' for k, v in allowed_updates.items())}"
+    )
+    socketio.emit("incident:update", dict(updated), room="dispatchers")
+    socketio.emit("incident:update", dict(updated), room="responders")
+    socketio.emit("incident:update", dict(updated), room=f"incident_{incident_uuid}")
+    return jsonify({"status": "success", "incident": updated})
+
+
 @app.route("/api/incidents/<incident_uuid>/debrief", methods=["GET"])
 @require_role("dispatcher")
 def incident_debrief_api(incident_uuid):
@@ -667,11 +703,12 @@ def civilian_chat_api():
     else:
         # Update existing incident with newly reported casualties or hazards
         new_score = max(float(incident["severity_score"] or 1.0), triage["rsi_score"])
+        new_casualties = extraction.get("casualties_count") or incident.get("casualties_count") or 1
         new_level = triage["priority_label"] if triage["rsi_score"] >= float(incident["severity_score"] or 1.0) else incident["severity_level"]
         update_data = {
             "severity_score": new_score,
             "severity_level": new_level,
-            "casualties_count": max(int(incident["casualties_count"] or 1), extraction["casualties_count"])
+            "casualties_count": int(new_casualties)
         }
         if lat is not None and lng is not None:
             lat, lng = valid_coordinates(lat, lng)

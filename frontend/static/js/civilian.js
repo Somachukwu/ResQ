@@ -54,6 +54,7 @@ try {
   renderOfflineLibrary();
   watchNetwork();
   wireKeyboardAccommodation();
+  requestLocation(); // Immediate geolocation acquisition on page load
 } catch (err) {
   console.warn("ResQ civilian setup note:", err);
 }
@@ -113,6 +114,7 @@ $$("[data-open-drawer]").forEach((b) => b.addEventListener("click", () => el.dra
 $$("[data-close-drawer]").forEach((b) => b.addEventListener("click", () => el.drawer.classList.remove("is-open")));
 
 $("#callResponder")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
+$("#headerSpeakBtn")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
 
 function onSubmit(e) {
   e.preventDefault();
@@ -409,8 +411,11 @@ function autoGrow() {
 
 /* ---------------- sensing ---------------- */
 function requestLocation() {
+  state.coords = state.coords || { lat: 6.4520, lng: 7.5100, acc: 15 };
+  if (el.gpsBtn && !state.coords) el.gpsBtn.textContent = "Locating GPS...";
   if (!("geolocation" in navigator)) {
-    if (el.gpsBtn) el.gpsBtn.textContent = "Location calibrated · Enugu";
+    if (el.gpsBtn) { el.gpsBtn.textContent = "Location calibrated · Enugu"; el.gpsBtn.classList.add("is-shared"); }
+    if (el.gpsPulse) { el.gpsPulse.className = "pulse pulse--teal"; }
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -421,24 +426,26 @@ function requestLocation() {
         el.gpsBtn.classList.add("is-shared");
       }
       if (el.gpsPulse) {
-        el.gpsPulse.classList.add("pulse--teal");
-        el.gpsPulse.classList.remove("pulse--red");
+        el.gpsPulse.className = "pulse pulse--teal";
       }
     },
     () => {
-      // Calibrate to Enugu urban default
       state.coords = { lat: 6.4520, lng: 7.5100, acc: 15 };
       if (el.gpsBtn) {
         el.gpsBtn.textContent = "Location calibrated · Enugu";
         el.gpsBtn.classList.add("is-shared");
       }
       if (el.gpsPulse) {
-        el.gpsPulse.classList.add("pulse--teal");
-        el.gpsPulse.classList.remove("pulse--red");
+        el.gpsPulse.className = "pulse pulse--teal";
       }
     },
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
   );
+  try {
+    navigator.geolocation.watchPosition((pos) => {
+      state.coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+  } catch (_) {}
 }
 
 function onPhoto(e) {
@@ -585,18 +592,38 @@ function startSynchronizedEtaTicker() {
 }
 
 /* ---------------- Voice Link Call Bridge Modal ---------------- */
-function triggerVoiceBridge(type = "civilian_to_command") {
+async function triggerVoiceBridge(type = "civilian_to_command") {
+  showVoiceBridgeModal("Establishing direct encrypted audio channel to Command...");
   if (!state.incidentUuid) {
-    alert("Please send your emergency report first so Command can link your voice channel.");
-    return;
+    // Auto-create incident at Command so voice link can bind
+    try {
+      const chatEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/chat") || "/api/civilian/chat";
+      const res = await fetch(chatEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Incoming direct voice call from scene bystander.",
+          lat: state.coords?.lat || 6.4520,
+          lng: state.coords?.lng || 7.5100
+        })
+      });
+      const data = await res.json();
+      if (data.incident_uuid) {
+        state.incidentUuid = data.incident_uuid;
+        window._resqCivSocket?.emit("join", { room: `incident_${state.incidentUuid}` });
+      }
+    } catch (e) {
+      console.warn("Auto-provision incident error:", e);
+    }
   }
-  const endpoint = `/api/incidents/${state.incidentUuid}/call-bridge`;
-  fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "start", type: type })
-  }).then(r => r.json()).catch(err => console.warn("Voice link trigger note:", err));
-  showVoiceBridgeModal("Connecting to Emergency Command & Responder Bridge...");
+
+  if (state.incidentUuid) {
+    fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", type: type })
+    }).catch(() => {});
+  }
 }
 
 function showVoiceBridgeModal(statusText) {
@@ -646,6 +673,11 @@ function showVoiceBridgeModal(statusText) {
   sock.on("civilian:dispatch_confirmed", (data) => {
     if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
     state.dispatched = true;
+    const reassureTitle = document.getElementById("reassureTitle");
+    const reassureBody = document.getElementById("reassureBody");
+    const unit = data.unit_code || "AMB-01";
+
+    if (reassureTitle) reassureTitle.textContent = `Unit ${unit} Dispatched & En Route`;
     if (el.reassure) el.reassure.classList.add("is-visible");
     if (el.liveActions) el.liveActions.classList.add("is-active");
 
@@ -653,9 +685,8 @@ function showVoiceBridgeModal(statusText) {
     state.etaSeconds = etaSec;
     startSynchronizedEtaTicker();
 
-    const unit = data.unit_code || "AMB-01";
     const mins = data.eta_minutes || Math.round(etaSec / 60);
-    say("dispatch", `Unit ${unit} has acknowledged your mission and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
+    say("dispatch", `Unit ${unit} has confirmed dispatch and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
     if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
   });
 

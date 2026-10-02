@@ -1,3 +1,18 @@
+
+const unitMarkers = new Map();
+function updateUnitMarker(unitCode, lat, lng) {
+  if (!map || !layers.responders) return;
+  let marker = unitMarkers.get(unitCode);
+  if (!marker) {
+    marker = L.marker([lat, lng], {
+      icon: L.divIcon({ className: "", html: '<span class="pin pin--responder pin--pulse"></span>', iconSize: [20, 20] })
+    }).bindTooltip(`${unitCode} · Active AVL`, { direction: "top" }).addTo(layers.responders);
+    unitMarkers.set(unitCode, marker);
+  } else {
+    marker.setLatLng([lat, lng]);
+  }
+}
+
 /* Dispatcher GIS command center — live queue, layered tactical map, 1-tap dispatch */
 import "./resq-theme.js";
 
@@ -110,8 +125,9 @@ function initMap() {
   layers.incidents = L.layerGroup().addTo(map);
   layers.responders = L.layerGroup().addTo(map);
   layers.hospitals = L.layerGroup().addTo(map);
-  layers.flood = L.layerGroup().addTo(map);
+  layers.flood = L.layerGroup(); // Layer not added on boot to eliminate clutter circles
   layers.corridors = L.layerGroup().addTo(map);
+  layers.selectedCircle = L.layerGroup().addTo(map);
 
   INCIDENTS.forEach((i) => {
     const m = L.marker([i.lat, i.lng], {
@@ -173,15 +189,7 @@ async function loadFloodRiskLayer(rainRate = 0) {
       const isCaution = b.status === "CAUTION";
       const radius = isImpassable ? 1700 : (isCaution ? 1300 : 900);
 
-      // Inundation buffer circle
-      L.circle([b.coordinates.lat, b.coordinates.lng], {
-        radius: radius,
-        color: b.status_color,
-        weight: isImpassable ? 2 : 1,
-        dashArray: isImpassable ? "6, 6" : null,
-        fillColor: b.status_color,
-        fillOpacity: isImpassable ? 0.28 : 0.14,
-      }).addTo(layers.flood);
+      // Inundation buffer circle omitted to prevent circle clutter on tactical map
 
       // Center hazard marker
       const marker = L.marker([b.coordinates.lat, b.coordinates.lng], {
@@ -470,10 +478,41 @@ function tickElapsed() {
   }
 }
 
+function updateSelectedIncidentCircle(lat, lng) {
+  if (!map) return;
+  if (!layers.selectedCircle) {
+    layers.selectedCircle = L.layerGroup().addTo(map);
+  }
+  layers.selectedCircle.clearLayers();
+  if (lat && lng) {
+    // Single tactical perimeter ring around ONLY the selected incident
+    L.circle([lat, lng], {
+      radius: 120,
+      color: "#EF4444",
+      weight: 2,
+      dashArray: "5, 5",
+      fillColor: "#EF4444",
+      fillOpacity: 0.15
+    }).addTo(layers.selectedCircle);
+
+    // Exact pinpoint indicator dot from civilian coordinates
+    L.circleMarker([lat, lng], {
+      radius: 7,
+      color: "#FFFFFF",
+      weight: 2.5,
+      fillColor: "#EF4444",
+      fillOpacity: 1
+    }).bindTooltip("Exact incident coordinate", { direction: "top" }).addTo(layers.selectedCircle);
+  }
+}
+
 function select(id) {
   selected = INCIDENTS.find((i) => i.id === id) || selected;
   renderQueue();
-  map.flyTo([selected.lat, selected.lng], 13, { duration: 0.6 });
+  if (selected && selected.lat && selected.lng) {
+    map.flyTo([selected.lat, selected.lng], 16, { duration: 0.8 });
+    updateSelectedIncidentCircle(selected.lat, selected.lng);
+  }
   renderMissionConsole(selected);
 
   if (window.innerWidth <= 860) {
@@ -487,7 +526,10 @@ function select(id) {
  *  Called by the WebSocket `incident:new` handler when a live incident arrives. */
 function focusIncident(inc) {
   if (!inc) return;
-  if (map) map.flyTo([inc.lat, inc.lng], 13, { duration: 0.8 });
+  if (map && inc.lat && inc.lng) {
+    map.flyTo([inc.lat, inc.lng], 16, { duration: 0.8 });
+    updateSelectedIncidentCircle(inc.lat, inc.lng);
+  }
   renderMissionConsole(inc);
   if (window.innerWidth <= 860) {
     setMobileView("console");
@@ -520,6 +562,11 @@ function renderMissionConsole(i) {
 
   const coordsEl = $("#detailCoordsText");
   if (coordsEl) coordsEl.textContent = `${i.place} (${i.lat.toFixed(4)}, ${i.lng.toFixed(4)})`;
+
+  const gmapsLink = $("#detailGoogleMapsLink");
+  if (gmapsLink) {
+    gmapsLink.href = `https://www.google.com/maps?q=${i.lat},${i.lng}`;
+  }
 
   const victimEl = $("#detailVictimCount");
   if (victimEl) victimEl.textContent = `${i.victims} Victim${i.victims > 1 ? "s" : ""}`;
@@ -595,8 +642,19 @@ function renderMissionConsole(i) {
 
   const assignedBadge = $("#detailAssignedBadge");
   if (assignedBadge) {
-    assignedBadge.textContent = i.assigned_unit ? `Assigned: ${i.assigned_unit}` : "Unassigned";
-    assignedBadge.className = i.assigned_unit ? "badge badge--assigned badge--teal" : "badge badge--assigned";
+    if (i.dispatch_status === "sent_to_dispatch") {
+      assignedBadge.textContent = `Dispatched (${i.assigned_unit} - Awaiting Ack)`;
+      assignedBadge.className = "badge badge--warning";
+    } else if (i.dispatch_status === "acknowledged") {
+      assignedBadge.textContent = `Assigned: ${i.assigned_unit} (Crew Acknowledged)`;
+      assignedBadge.className = "badge badge--assigned badge--teal";
+    } else if (i.assigned_unit) {
+      assignedBadge.textContent = `Assigned: ${i.assigned_unit}`;
+      assignedBadge.className = "badge badge--assigned badge--teal";
+    } else {
+      assignedBadge.textContent = "Unassigned";
+      assignedBadge.className = "badge badge--assigned";
+    }
   }
 
   // Populate unit select options
@@ -652,36 +710,37 @@ function wireDispatchAction() {
       if (!unitCode) return;
       dispatchBtn.disabled = true;
       const labelSpan = dispatchBtn.querySelector(".dispatch-label");
-      if (labelSpan) labelSpan.textContent = "Confirming dispatch…";
+      if (labelSpan) labelSpan.textContent = "Transmitting dispatch...";
       try {
         const response = await fetch("/api/responder/assign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          incident_uuid: selected.id,
-          unit_code: unitCode
-        })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incident_uuid: selected.id,
+            unit_code: unitCode
+          })
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         selected.assigned_unit = unitCode;
+        selected.dispatch_status = "sent_to_dispatch";
         const unit = UNITS.find((u) => u.id === unitCode);
         if (unit) unit.status = "dispatched";
         renderMissionConsole(selected);
         renderFleet();
         renderQueue();
-        pushComms("dispatch", `Unit ${unit ? unit.name : unitCode} confirmed for ${selected.id}.`);
+        pushComms("responder", `Mission brief dispatched to Unit ${unit ? unit.name : unitCode} for incident ${selected.id}. Awaiting crew acknowledgment.`);
         dispatchBtn.classList.add("is-dispatched");
-        if (labelSpan) labelSpan.textContent = "Dispatched";
+        if (labelSpan) labelSpan.textContent = "Dispatched (Awaiting Ack)";
       } catch (error) {
-        pushComms("dispatch", `Dispatch not confirmed: ${error.message}`);
+        pushComms("responder", `Dispatch order transmission failed: ${error.message}`);
         if (labelSpan) labelSpan.textContent = "Dispatch failed";
       } finally {
         dispatchBtn.disabled = false;
         setTimeout(() => {
           dispatchBtn.classList.remove("is-dispatched");
-          if (labelSpan) labelSpan.textContent = "Dispatch Unit";
-        }, 2500);
+          if (labelSpan) labelSpan.textContent = selected && selected.dispatch_status === "sent_to_dispatch" ? "Dispatched (Awaiting Ack)" : "Dispatch Unit";
+        }, 3000);
       }
     });
   }
@@ -711,21 +770,22 @@ function nearestHospital(i) {
   )[0];
 }
 
-/* ---------------- comms console ---------------- */
+/* ---------------- comms console (Unified Comms Timeline) ---------------- */
 const COMMS = {
-  civilian: [
-    { who: "Bystander · RQ-2417", text: "Two people. One is not answering me, the other is bleeding from the arm." },
-    { who: "ResQ guidance", text: "Recovery position steps issued. Direct pressure steps issued." },
-  ],
-  responder: [
-    { who: "AMB-01 [DEMO]", text: "Copy. Rolling from Enugu Urban staging point." },
-    { who: "RESCUE-01 [DEMO]", text: "Scene confirmed. Lane closure in place." },
-  ],
+  civilian: [],
+  responder: []
 };
 let channel = "civilian";
 
 function renderComms() {
-  $("#commsLog").innerHTML = COMMS[channel]
+  const commsLog = $("#commsLog");
+  if (!commsLog) return;
+  const list = COMMS[channel] || [];
+  if (list.length === 0) {
+    commsLog.innerHTML = `<p style="font-size:12px;color:var(--text-3);padding:14px 6px;text-align:center;">No ${channel === "civilian" ? "bystander" : "responder"} messages recorded yet.</p>`;
+    return;
+  }
+  commsLog.innerHTML = list
     .map(
       (l) => `<div class="comms__line ${l.me ? "comms__line--me" : ""}">
         <p class="comms__who">${l.who}</p>
@@ -733,34 +793,203 @@ function renderComms() {
       </div>`
     )
     .join("");
-  $("#commsLog").scrollTop = $("#commsLog").scrollHeight;
+  commsLog.scrollTop = commsLog.scrollHeight;
 }
 
-function pushComms(target, text) {
+function pushComms(target, text, who = null) {
   const key = target === "dispatch" ? "responder" : target;
-  COMMS[key].push({ who: "Dispatch", text, me: true });
+  if (!COMMS[key]) COMMS[key] = [];
+  COMMS[key].push({ who: who || (target === "dispatch" ? "Dispatch Command" : "Commander"), text, me: !who });
   renderComms();
 }
 
+function wireComms() {
+  const chanCiv = $("#channelCivBtn");
+  const chanResp = $("#channelRespBtn");
+  const commsInput = $("#commsInput");
+  const commsForm = $("#commsForm");
 
-$("#commsForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const input = $("#commsInput");
-  if (!input.value.trim()) return;
-  const text = input.value.trim();
-  input.value = "";
-  if (channel === "civilian" && selected && selected.id) {
+  if (chanCiv && chanResp) {
+    chanCiv.addEventListener("click", () => {
+      channel = "civilian";
+      chanCiv.classList.add("is-active");
+      chanResp.classList.remove("is-active");
+      if (commsInput) commsInput.placeholder = "Type direct instruction to bystander...";
+      renderComms();
+    });
+    chanResp.addEventListener("click", () => {
+      channel = "responder";
+      chanResp.classList.add("is-active");
+      chanCiv.classList.remove("is-active");
+      if (commsInput) commsInput.placeholder = "Type tactical instruction to responder crew...";
+      renderComms();
+    });
+  }
+
+  if (commsForm) {
+    commsForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!commsInput || !commsInput.value.trim()) return;
+      const text = commsInput.value.trim();
+      commsInput.value = "";
+
+      if (channel === "civilian" && selected && selected.id) {
+        try {
+          await fetch(`/api/incidents/${selected.id}/dispatcher-message`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text })
+          });
+        } catch (err) {
+          console.warn("[Dispatcher] Direct message to civilian failed:", err);
+        }
+        COMMS.civilian.push({ who: "Commander", text, me: true });
+        renderComms();
+      } else if (channel === "responder" && selected && selected.id) {
+        try {
+          await fetch("/api/responder/route-change", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              incident_uuid: selected.id,
+              new_route: text,
+              note: text
+            })
+          });
+        } catch (err) {
+          console.warn("[Dispatcher] Instruction to responder failed:", err);
+        }
+        COMMS.responder.push({ who: "Commander", text, me: true });
+        renderComms();
+      } else {
+        COMMS[channel].push({ who: "Commander", text, me: true });
+        renderComms();
+      }
+    });
+  }
+
+  // Direct Call Bystander Button
+  const callCivBtn = $("#callCivilianBtn");
+  if (callCivBtn) {
+    callCivBtn.addEventListener("click", async () => {
+      if (!selected) {
+        alert("Select an incident before initiating voice call.");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/incidents/${selected.id}/call-bridge`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "command_connect",
+            title: "Direct Command Voice Bridge"
+          })
+        });
+        if (res.ok) {
+          COMMS.civilian.push({ who: "Voice System", text: "📞 Direct tactical voice bridge connected with caller on scene." });
+          renderComms();
+          alert(`Direct voice bridge established with caller at ${selected.id}. Audio line connected.`);
+        }
+      } catch (err) {
+        console.warn("Direct call error:", err);
+      }
+    });
+  }
+
+  // Route Change button
+  const routeBtn = $("#routeChangeBtn");
+  if (routeBtn) {
+    routeBtn.addEventListener("click", async () => {
+      if (!selected) {
+        alert("Select an incident first.");
+        return;
+      }
+      const suggestion = prompt("Enter detour / route directive for responder crew:", "Detour via Independence Layout to bypass waterlogged sector");
+      if (!suggestion || !suggestion.trim()) return;
+      try {
+        const res = await fetch("/api/responder/route-change", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incident_uuid: selected.id,
+            new_route: suggestion.trim(),
+            note: suggestion.trim()
+          })
+        });
+        if (res.ok) {
+          COMMS.responder.push({ who: "Commander", text: `Detour Order: ${suggestion.trim()}`, me: true });
+          renderComms();
+          alert("Route change instruction transmitted to responder unit.");
+        }
+      } catch (err) {
+        console.warn("Route change error:", err);
+      }
+    });
+  }
+}
+
+function wireIncidentEditModal() {
+  const modal = $("#editIncidentModal");
+  const openBtn = $("#openEditModalBtn");
+  const closeBtn = $("#closeEditModalBtn");
+  const cancelBtn = $("#cancelEditModalBtn");
+  const form = $("#editIncidentForm");
+
+  if (!modal || !openBtn || !form) return;
+
+  const showModal = () => {
+    if (!selected) return;
+    $("#editTitleInput").value = selected.title || "";
+    $("#editCasualtiesInput").value = selected.victims || 1;
+    $("#editTriageSelect").value = selected.triage === "red" ? "critical" : (selected.triage === "yellow" ? "urgent" : "moderate");
+    $("#editLocationInput").value = selected.place || "";
+    modal.classList.remove("hidden");
+  };
+
+  const hideModal = () => {
+    modal.classList.add("hidden");
+  };
+
+  openBtn.addEventListener("click", showModal);
+  if (closeBtn) closeBtn.addEventListener("click", hideModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", hideModal);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!selected) return;
+    const newTitle = $("#editTitleInput").value.trim();
+    const newCasualties = parseInt($("#editCasualtiesInput").value, 10) || 1;
+    const newTriage = $("#editTriageSelect").value;
+    const newLoc = $("#editLocationInput").value.trim();
+
     try {
-      await fetch(`/api/incidents/${selected.id}/dispatcher-message`, {
+      const res = await fetch(`/api/incidents/${selected.id}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({
+          title: newTitle,
+          casualties_count: newCasualties,
+          severity_level: newTriage,
+          location_name: newLoc
+        })
       });
-    } catch (err) { console.warn("[Dispatcher] Direct message failed:", err); }
-  }
-  COMMS[channel].push({ who: "Commander", text, me: true });
-  renderComms();
-});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      selected.title = newTitle;
+      selected.victims = newCasualties;
+      selected.triage = toTriage(newTriage);
+      selected.place = newLoc || selected.place;
+
+      renderMissionConsole(selected);
+      renderQueue();
+      hideModal();
+      pushComms("civilian", `Incident details updated manually: ${newTitle} (${newCasualties} casualties, ${newTriage.toUpperCase()}).`);
+    } catch (err) {
+      alert(`Failed to save incident changes: ${err.message}`);
+    }
+  });
+}
 
 /* ---------------- responsive panels ---------------- */
 const queueHead = $("#queueHead");
@@ -797,7 +1026,7 @@ if (window.ResQSocket) {
       rsi: Number(inc.severity_score || 4.5),
       triage: inc.severity_level === "critical" ? "red" : (inc.severity_level === "urgent" ? "yellow" : "green"),
       title: inc.title,
-      place: inc.location_name || `${inc.lat.toFixed(4)}, ${inc.lng.toFixed(4)}`,
+      place: inc.location_name || `${Number(inc.lat).toFixed(4)}, ${Number(inc.lng).toFixed(4)}`,
       victims: Number(inc.casualties_count || 1),
       injuries: inc.title,
       hazards: [],
@@ -825,32 +1054,66 @@ if (window.ResQSocket) {
       selected = localInc;
       renderQueue();
       focusIncident(localInc);
-      pushComms("civilian", `New SOS reported at ${localInc.place}. Triage: ${localInc.triage.toUpperCase()}.`);
+      pushComms("civilian", `New SOS reported at ${localInc.place}. Triage: ${localInc.triage.toUpperCase()}. Casualty count: ${localInc.victims}.`);
     }
   });
 
   resqSocket.on("incident:chat_turn", (data) => {
-    if (selected && selected.id === data.incident_uuid) {
-      loadCivilianIntel(selected.id);
-      if (data.civilian_message) {
-        pushComms("civilian", `Bystander: ${data.civilian_message}`);
+    const turnId = data.incident_uuid || data.incident_id;
+    const inc = INCIDENTS.find(i => i.id === turnId);
+    if (inc && data.casualties_count != null) {
+      inc.victims = Number(data.casualties_count);
+    }
+    if (selected && selected.id === turnId) {
+      if (data.casualties_count != null) {
+        selected.victims = Number(data.casualties_count);
       }
+      renderMissionConsole(selected);
+    }
+    renderQueue();
+
+    if (data.civilian_message) {
+      COMMS.civilian.push({ who: "Caller / Bystander", text: data.civilian_message });
+    }
+    if (data.ai_instruction) {
+      COMMS.civilian.push({ who: "ResQ AI", text: data.ai_instruction });
+    }
+    renderComms();
+  });
+
+  resqSocket.on("incident:update", (data) => {
+    const inc = INCIDENTS.find(i => i.id === data.incident_uuid);
+    if (inc) {
+      if (data.casualties_count != null) inc.victims = Number(data.casualties_count);
+      if (data.title) inc.title = data.title;
+      if (data.severity_level) inc.triage = toTriage(data.severity_level);
+      if (data.location_name) inc.place = data.location_name;
+      if (data.assigned_responder_id) inc.assigned_unit = data.assigned_responder_id;
+      if (selected && selected.id === inc.id) {
+        renderMissionConsole(selected);
+      }
+      renderQueue();
     }
   });
 
   resqSocket.on("responder:acknowledged", (data) => {
-    pushComms("dispatch", `🚑 Unit ${data.unit_code} acknowledged mission brief. Rolling with ETA: ${data.eta_minutes || 8} mins.`);
+    pushComms("responder", `🚑 Unit ${data.unit_code} acknowledged mission brief. Rolling with ETA: ${data.eta_minutes || 8} mins.`);
     const unit = UNITS.find(u => u.id === data.unit_code);
     if (unit) unit.status = "enroute";
-    if (selected && selected.assigned_unit === data.unit_code) {
+    if (selected && (selected.assigned_unit === data.unit_code || selected.id === data.incident_uuid)) {
+      selected.dispatch_status = "acknowledged";
+      selected.assigned_unit = data.unit_code;
       const badge = $("#detailAssignedBadge");
-      if (badge) badge.textContent = `Assigned: ${data.unit_code} (En Route)`;
+      if (badge) {
+        badge.textContent = `Assigned: ${data.unit_code} (Crew Acknowledged)`;
+        badge.className = "badge badge--assigned badge--teal";
+      }
     }
     renderFleet();
   });
 
   resqSocket.on("responder:on_scene", (data) => {
-    pushComms("dispatch", `🚨 Unit ${data.unit_code} has arrived ON SCENE at incident ${data.incident_uuid}.`);
+    pushComms("responder", `🚨 Unit ${data.unit_code} has arrived ON SCENE at incident ${data.incident_uuid}.`);
     const unit = UNITS.find(u => u.id === data.unit_code);
     if (unit) unit.status = "scene";
     if (selected && selected.assigned_unit === data.unit_code) {
@@ -871,32 +1134,7 @@ if (window.ResQSocket) {
   });
 
   resqSocket.on("call_bridge:event", (data) => {
-    pushComms("dispatch", `📞 Voice Call Channel Event: ${data.title} (${data.action})`);
-  });
-}
-
-// Demo simulation button handler
-const demoBtn = $("#demoInjectBtn");
-if (demoBtn) {
-  demoBtn.addEventListener("click", () => {
-    const scenario = Math.random() > 0.5 ? "crash" : "flood";
-    fetch("/api/demo/inject", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scenario: scenario })
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log("[Dispatcher] Injected synthetic demo:", data);
-      if (scenario === "flood") {
-        loadFloodRiskLayer(58.0);
-        loadCorridorRiskLayer(38.0);
-      } else {
-        loadCorridorRiskLayer(45.0);
-        loadFloodRiskLayer(15.0);
-      }
-    })
-    .catch(err => console.error("Error injecting demo:", err));
+    pushComms("civilian", `📞 Voice Call Event: ${data.title} (${data.action})`);
   });
 }
 
@@ -1202,7 +1440,7 @@ async function bootstrap() {
     if (banner) banner.textContent = "Live operational data unavailable. Check operator sign-in and backend connectivity.";
   }
   initMap();
-  wireLayerToggles(); wireRegionSelector(); wireQueueFilters(); wireConsoleTabs(); wireDispatchAction();
+  wireLayerToggles(); wireRegionSelector(); wireQueueFilters(); wireConsoleTabs(); wireDispatchAction(); wireComms(); wireIncidentEditModal();
   wireWeatherTopBar(); wirePaneResizers(); wireQueueCollapse(); wireFullscreen(); wireMobileNav(); wireTacticalBanner();
   updateWeatherWidget("community"); renderQueue(); renderMissionConsole(selected); renderFleet(); renderComms();
   setInterval(tickElapsed, 1000);

@@ -43,9 +43,8 @@
             <img src="../resources/ResQ_Icon.png" alt="ResQ Icon" class="resq-mark__img" />
             <span><span class="resq-mark__name">Res<span>Q</span></span><span class="resq-mark__sub"> Â· AMB-07</span></span>
           </a>
-          <span class="badge badge--unit-status"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 Â· En route</span>
-          <span class="status-indicator-tag status-indicator-tag--red" id="briefTriageBadge">
-            <span class="cond-dot cond-dot--red"></span> Critical (P1)
+          <span class="badge badge--unit-status" id="headerUnitStatus"><span class="pulse pulse--teal" aria-hidden="true"></span> Standby · Unit Ready</span>
+          <span class="status-indicator-tag" id="briefTriageBadge"><span class="cond-dot"></span> Standby</span> Critical (P1)
           </span>
         </div>
 
@@ -84,19 +83,15 @@
       <div class="mobile-responder-strip">
         <div class="m-strip__main">
           <div class="m-strip__trauma">
-            <span class="m-strip__title">
-              <span class="cond-dot cond-dot--red"></span> Head-on collision Â· Km 42
+            <span class="m-strip__title" id="mobileStripTitle">Standby · Awaiting dispatch</span> Head-on collision Â· Km 42
             </span>
           </div>
           <div class="m-strip__metrics">
-            <div class="m-metric"><span class="m-metric__val" id="mobileEta">12:04</span><span class="m-metric__lbl">ETA</span></div>
-            <div class="m-metric"><span class="m-metric__val">02</span><span class="m-metric__lbl">Victims</span></div>
+            <div class="m-metric"><span class="m-metric__val" id="mobileEta">--:--</span><span class="m-metric__lbl">ETA</span></div>
+            <div class="m-metric"><span class="m-metric__val" id="mobileVictimsCount">--</span><span class="m-metric__lbl">Victims</span></div>
           </div>
         </div>
-        <div class="m-strip__alert">
-          <svg class="crit-icon crit-icon--orange" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-          <span>Fuel spill detected at collision site â€” do not deploy flares.</span>
-        </div>
+        <div class="m-strip__alert" id="mobileStripAlert" style="display:none;"><svg class="crit-icon crit-icon--orange" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span id="mobileStripAlertText"></span></div>
       </div>
 
       <!-- MOBILE SEGMENTED COCKPIT SWITCHER (â‰¤ 860px) â€” 1-word captions (Requirement 1) -->
@@ -122,20 +117,17 @@
           <!-- Incident Header Card with prominent, well-arranged ETA (Fixed on top â€” Requirement 4) -->
           <div class="r-card r-card--incident">
             <div class="r-card__top">
-              <span class="eyebrow"><span class="pulse pulse--teal" aria-hidden="true"></span> Unit 14 Â· Pre-arrival sizing</span>
-              <span class="badge badge--teal" style="font-variant-numeric: tabular-nums;">RQ-2417</span>
+              <span class="eyebrow" id="incidentEyebrow"><span class="pulse pulse--teal" aria-hidden="true"></span> Pre-Arrival Tactical Brief</span>
+              <span class="badge badge--teal" id="incidentBadge" style="font-variant-numeric: tabular-nums;">--</span>
             </div>
             <div class="incident-main-row">
               <div class="incident-titles">
-                <h1 class="mission__trauma">Head-on collision, trailer and minibus</h1>
-                <p class="mission__where">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                  <span>Enuguâ€“Onitsha Expressway, km 42 â†’ ESUTH Parklane</span>
-                </p>
+                <h1 class="mission__trauma" id="incidentTraumaTitle">Awaiting Mission Dispatch</h1>
+                <p class="mission__where"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span id="incidentWhereText">Location pending assignment</span></p>
               </div>
               <div class="countdown-card" aria-label="Estimated arrival time">
                 <span class="countdown-label">Arriving in</span>
-                <strong class="countdown-val" id="arrivalCountdown">12:04</strong>
+                <strong class="countdown-val" id="arrivalCountdown">--:--</strong>
                 <span class="countdown-unit">Minutes</span>
               </div>
             </div>
@@ -146,7 +138,7 @@
             <div class="victim-counter-top">
               <div class="victim-caption-row">
                 <span class="victim-counter-label">Victims reported</span>
-                <span class="victim-count-badge">02</span>
+                <span class="victim-count-badge" id="victimCountBadge">--</span>
               </div>
               <span class="crit-badge crit-badge--red">
                 <svg class="crit-icon crit-icon--red" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -154,50 +146,19 @@
               </span>
             </div>
             <div class="victim-counter-details">
-              <h2 class="victim-counter-status">
-                <span class="cond-dot cond-dot--red"></span> Critical scene (START P1)
-              </h2>
-              <span class="victim-counter-sub">1 unresponsive / head trauma Â· 1 arterial bleed</span>
+              <h2 class="victim-counter-status" id="victimCounterStatus"><span class="cond-dot"></span> Mission Standby</h2>
+              <span class="victim-counter-sub" id="victimCounterSub">No patient reports received yet</span>
             </div>
           </div>
 
           <!-- Safety Alerts (Clean neutral cards with dedicated colored critical icons) -->
-          <div class="alerts-group" aria-label="Responder safety alerts">
-            <article class="alert">
-              <svg class="crit-icon crit-icon--red" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-              <div>
-                <p class="alert__label">Safety alert Â· Fuel hazard</p>
-                <p class="alert__text">Fuel spill detected at collision site. Do not deploy flares.</p>
-              </div>
-            </article>
-            <article class="alert">
-              <svg class="crit-icon crit-icon--orange" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M20 4v16M4 8h16M4 14h16"/></svg>
-              <div>
-                <p class="alert__label">Traffic hazard</p>
-                <p class="alert__text">Live traffic on eastbound lane. FRSC-12 holding lane closure.</p>
-              </div>
-            </article>
-          </div>
+          <div class="alerts-group" id="alertsGroup" aria-label="Responder safety alerts"><article class="alert" style="color:var(--text-3);font-size:12px;padding:10px 14px;">No active environmental hazards flagged.</article></div>
 
           <!-- Route Steps: Using the exact same clean listing style as Bystander Actions (Requirement 5 & 6) -->
           <div class="block" aria-label="Route to scene">
-            <p class="block__label">En route navigation Â· 6.4 km</p>
-            <ul class="done-list route-list">
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8M12 8 7 13M12 8l5 5"/></svg>
-                <span class="route-list__text">Continue on Enuguâ€“Onitsha Expressway, eastbound</span>
-                <span class="route-list__dist">4.1 km</span>
-              </li>
-              <li>
-                <svg class="crit-icon crit-icon--orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-                <span class="route-list__text">Ugwuoba culvert flooded â€” use service lane detour</span>
-                <span class="route-list__dist">+600 m</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20V10a4 4 0 0 1 4-4h5M18 6l-3-3M18 6l-3 3"/></svg>
-                <span class="route-list__text">Approach from hard shoulder, stage 30 m short of debris</span>
-                <span class="route-list__dist">1.7 km</span>
-              </li>
+            <p class="block__label" id="routeBlockLabel">En route navigation</p>
+            <ul class="done-list route-list" id="routeStepsList">
+              <li style="color:var(--text-3);font-size:12px;">Route will calculate automatically upon mission dispatch.</li>
             </ul>
           </div>
         </section>
@@ -207,47 +168,24 @@
           <!-- Bystander Actions Card -->
           <div class="block" aria-label="Bystander actions">
             <p class="block__label">Bystander first-aid actions completed</p>
-            <ul class="done-list">
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-                <span>Recovery position administered</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-                <span>Direct pressure held on arm bleed</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-                <span>Victims kept warm, no oral fluids given</span>
-              </li>
+            <ul class="done-list" id="bystanderDoneList">
+              <li style="color:var(--text-3);font-size:12px;">No bystander first aid actions logged yet.</li>
             </ul>
           </div>
 
           <!-- Victim Profile Cards (Neutral surfaces with condition icon dots) -->
-          <div class="victim-profiles-grid">
-            <article class="victim-card">
-              <div class="victim-card__top">
-                <span class="victim-condition-title">
-                  <span class="cond-dot cond-dot--red"></span>
-                  Victim 1 Â· Priority Red
-                </span>
-                <span class="victim-card__eta">Airway managed</span>
-              </div>
-              <p class="victim-card__demo">Male, ~35. Unresponsive, breathing.</p>
-              <p class="victim-card__clinical">Head laceration, suspected closed head injury. Airway maintained on left lateral side.</p>
+          <div class="victim-profiles-grid" id="victimProfilesGrid">
+            <article class="victim-card" style="padding:16px;text-align:center;color:var(--text-3);">
+              <p style="margin:0;font-size:12px;">Patient assessment profiles will populate as bystander describes injuries.</p>
             </article>
+          </div>
 
-            <article class="victim-card">
-              <div class="victim-card__top">
-                <span class="victim-condition-title">
-                  <span class="cond-dot cond-dot--orange"></span>
-                  Victim 2 Â· Priority Yellow
-                </span>
-                <span class="victim-card__eta">Pressure held 9m</span>
-              </div>
-              <p class="victim-card__demo">Female, ~28. Conscious.</p>
-              <p class="victim-card__clinical">Arterial bleed, right forearm. Pressure held continuously with cloth compress.</p>
-            </article>
+          <!-- Live Bystander AI Conversation -->
+          <div class="block" aria-label="Live bystander AI conversation">
+            <p class="block__label">Live Bystander AI Conversation</p>
+            <div id="responderCivilianIntel" style="max-height:160px;overflow-y:auto;font-size:11px;display:flex;flex-direction:column;gap:6px;padding:4px 0;">
+              <p style="opacity:.6;font-size:11px;margin:0;">Conversation stream will appear here when active.</p>
+            </div>
           </div>
 
           <!-- Scene Contact Card (Requirement 6: Ground eye text removed) -->
@@ -265,18 +203,12 @@
             <div class="destination__header">
               <div>
                 <p class="block__label">Pre-routed destination</p>
-                <h3 class="destination__name">ESUTH Parklane</h3>
+                <h3 class="destination__name" id="destHospitalName">Destination Pending</h3>
               </div>
-              <span class="destination__eta">8 min from scene</span>
+              <span class="destination__eta" id="destHospitalEta">-- min</span>
             </div>
-            <div class="destination__caps">
-              <span class="facility-cap-tag">Level 1 trauma</span>
-              <span class="facility-cap-tag">ICU bed held</span>
-              <span class="facility-cap-tag">Blood bank</span>
-            </div>
-            <p class="destination__why">
-              Overrides Ugwuoba clinic (4 min) â€” no neurosurgical or transfusion capability for this trauma profile.
-            </p>
+            <div class="destination__caps" id="destHospitalCaps"><span class="facility-cap-tag">Capability matching</span></div>
+            <p class="destination__why" id="destHospitalWhy">Optimized destination computed dynamically upon incident triage.</p>
             <button class="ack-btn" id="ackBriefBtn" type="button">
               <svg class="ack-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               <span id="ackBtnText">Acknowledge brief</span>

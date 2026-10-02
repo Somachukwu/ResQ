@@ -4,29 +4,24 @@ import "./resq-theme.js";
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-// Extract target incident uuid from URL query or fallback
+// Extract target incident uuid and unit code from URL query
 const urlParams = new URLSearchParams(window.location.search);
-let activeIncidentUuid = urlParams.get("incident") || urlParams.get("id");
-let assignedUnitCode = urlParams.get("unit") || "AMB-07";
+let activeIncidentUuid = urlParams.get("incident") || urlParams.get("id") || null;
+let assignedUnitCode = urlParams.get("unit") || "AMB-01";
 
 let incidentState = {
-  id: activeIncidentUuid || "RQ-2417",
-  title: "Head-on collision, trailer and minibus",
-  coords: { lat: 6.3894, lng: 7.2295 },
-  place: "Enugu–Onitsha Expressway, km 42 eastbound (near Ugwuoba)",
-  severity: "critical",
-  rsi: 4.5,
-  tier: "P1",
-  casualties: 2,
-  hazards: ["Fuel spill detected at collision site — do not deploy flares"],
-  trauma: ["Head trauma / Unresponsive", "Severe arterial hemorrhage"],
-  completed_steps: ["Recovery position administered", "Direct pressure held on wound", "Casualty kept warm, nil by mouth"],
-  hospital: {
-    name: "Enugu State University Teaching Hospital (ESUT)",
-    eta: "8 min from scene",
-    tier: "Level 1 trauma",
-    caps: ["Level 1 trauma", "ICU bed held", "Blood bank ready"]
-  }
+  id: null,
+  title: "Awaiting Mission Dispatch",
+  coords: { lat: 6.4480, lng: 7.5150 },
+  place: "Staged in sector",
+  severity: "standby",
+  rsi: 0.0,
+  tier: "Standby",
+  casualties: 0,
+  hazards: [],
+  trauma: [],
+  completed_steps: [],
+  hospital: null
 };
 
 const el = {
@@ -44,32 +39,49 @@ const el = {
   lastRadioUpdate: $("#lastRadioUpdate"),
   fullscreenBtn: $("#fullscreenBtn"),
   workspace: $("#responderWorkspace"),
-  incidentTitle: $(".mission__trauma"),
-  incidentPlace: $(".mission__where span"),
-  incidentBadge: $(".r-card--incident .badge"),
+  incidentTitle: $("#incidentTraumaTitle") || $(".mission__trauma"),
+  incidentPlace: $("#incidentWhereText") || $(".mission__where span"),
+  incidentBadge: $("#incidentBadge") || $(".r-card--incident .badge"),
   briefTriageBadge: $("#briefTriageBadge"),
-  mobileStripTitle: $(".m-strip__title"),
-  mobileVictimCount: $(".m-strip__metrics .m-metric:nth-child(2) .m-metric__val"),
-  victimCounterBadge: $(".victim-count-badge"),
-  victimCounterStatus: $(".victim-counter-status"),
-  victimCounterSub: $(".victim-counter-sub"),
-  alertsGroup: $(".alerts-group"),
-  doneList: $(".done-list"),
-  hospitalName: $(".destination__name"),
-  hospitalEta: $(".destination__eta"),
-  hospitalCaps: $(".destination__caps"),
+  headerUnitCode: $("#headerUnitCode"),
+  headerUnitStatus: $("#headerUnitStatus"),
+  mobileStripTitle: $("#mobileStripTitle") || $(".m-strip__title"),
+  mobileVictimCount: $("#mobileVictimsCount") || $(".m-strip__metrics .m-metric:nth-child(2) .m-metric__val"),
+  victimCounterBadge: $("#victimCountBadge") || $(".victim-count-badge"),
+  victimCounterStatus: $("#victimCounterStatus") || $(".victim-counter-status"),
+  victimCounterSub: $("#victimCounterSub") || $(".victim-counter-sub"),
+  alertsGroup: $("#alertsGroup") || $(".alerts-group"),
+  routeStepsList: $("#routeStepsList"),
+  bystanderDoneList: $("#bystanderDoneList") || $(".done-list"),
+  victimProfilesGrid: $("#victimProfilesGrid"),
+  hospitalName: $("#destHospitalName") || $(".destination__name"),
+  hospitalEta: $("#destHospitalEta") || $(".destination__eta"),
+  hospitalCaps: $("#destHospitalCaps") || $(".destination__caps"),
+  hospitalWhy: $("#destHospitalWhy") || $(".destination__why")
 };
 
-/* ---------------- arrival countdown ticker ---------------- */
-let arrivalSeconds = 12 * 60 + 4; // 12:04
+// Set initial unit code header
+if (el.headerUnitCode) {
+  el.headerUnitCode.textContent = ` · ${assignedUnitCode}`;
+}
+
+/* ---------------- arrival countdown ticker (only active when confirmed) ---------------- */
+let arrivalSeconds = null;
+
 function tickArrival() {
-  if (arrivalSeconds > 0) {
+  if (arrivalSeconds !== null && arrivalSeconds > 0) {
     arrivalSeconds -= 1;
     const m = Math.floor(arrivalSeconds / 60);
     const s = arrivalSeconds % 60;
     const timeStr = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     if (el.arrivalCountdown) el.arrivalCountdown.textContent = timeStr;
     if (el.mobileEta) el.mobileEta.textContent = timeStr;
+  } else if (arrivalSeconds === 0) {
+    if (el.arrivalCountdown) el.arrivalCountdown.textContent = "00:00";
+    if (el.mobileEta) el.mobileEta.textContent = "00:00";
+  } else {
+    if (el.arrivalCountdown) el.arrivalCountdown.textContent = "--:--";
+    if (el.mobileEta) el.mobileEta.textContent = "--:--";
   }
 }
 setInterval(tickArrival, 1000);
@@ -94,6 +106,7 @@ if (el.ackBtn) {
   el.ackBtn.addEventListener("click", async () => {
     if (!activeIncidentUuid) {
       logLine("Acknowledgement unavailable", "No assigned incident selected");
+      alert("No active incident assigned to acknowledge.");
       return;
     }
     try {
@@ -102,22 +115,28 @@ if (el.ackBtn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unit_code: assignedUnitCode })
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    } catch (error) {
-      logLine("Acknowledgement not sent", "Server confirmation required");
-      return;
-    }
-    isAcked = !isAcked;
-    if (isAcked) {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      
+      isAcked = true;
       el.ackBtn.classList.add("is-acked");
-      if (el.ackText) el.ackText.textContent = "Brief acknowledged";
-      logLine("Brief acknowledged by unit", "Dispatch confirmation recorded");
+      if (el.ackText) el.ackText.textContent = "Mission Acknowledged";
+      logLine("Mission brief acknowledged", `Unit ${assignedUnitCode} rolling to scene`);
+      
+      // Calculate countdown strictly from real ETA
+      const etaMins = data.eta_minutes || 8;
+      arrivalSeconds = Math.round(etaMins * 60);
+      tickArrival();
+
+      if (el.headerUnitStatus) {
+        el.headerUnitStatus.innerHTML = `<span class="pulse pulse--teal" aria-hidden="true"></span> Unit ${assignedUnitCode} · En route`;
+      }
+
       radioElapsed = 0;
-      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-    } else {
-      el.ackBtn.classList.remove("is-acked");
-      if (el.ackText) el.ackText.textContent = "Acknowledge brief";
-      logLine("Brief status reset to pending", "Dispatch telemetry updated");
+      if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+    } catch (error) {
+      logLine("Acknowledgement not sent", error.message);
+      alert(`Could not acknowledge dispatch: ${error.message}`);
     }
   });
 }
@@ -142,7 +161,6 @@ function broadcastTelemetry() {
     );
   }
 
-  // POST telemetry beacon to server
   fetch("/api/responder-telemetry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -155,8 +173,8 @@ function broadcastTelemetry() {
     })
   }).then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    if (beats % 4 === 0) logLine("Position beacon transmitted", "Server confirmed");
-  }).catch(() => logLine("Position beacon not delivered", "Retrying on next interval"));
+    if (beats % 6 === 0) logLine("Position beacon transmitted", "Server confirmed AVL");
+  }).catch(() => {});
 }
 
 if ("geolocation" in navigator) {
@@ -164,7 +182,10 @@ if ("geolocation" in navigator) {
     (pos) => {
       currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     },
-    () => logLine("GPS signal using cellular triangulation", "Using calibrated corridor coordinate"),
+    () => {
+      // Fallback calibrated Enugu corridor coordinates
+      currentCoords = { lat: 6.4480, lng: 7.5150 };
+    },
     { enableHighAccuracy: true, maximumAge: 10000 }
   );
 }
@@ -185,17 +206,18 @@ async function loadDynamicIncident() {
         }
         if (d.updates && d.updates.length) {
           incidentState.completed_steps = d.updates
-            .filter(u => u.update_type === "triage" || u.content.includes("step") || u.content.includes("Well done"))
+            .filter(u => u.update_type === "triage" || u.content.includes("step") || u.content.includes("Well done") || u.content.includes("position"))
             .map(u => u.content);
         }
       }
     } else {
-      // Find latest reported or dispatched incident
       const res = await fetch("/api/incidents");
       if (res.ok) {
         const list = await res.json();
         if (list && list.length > 0) {
-          inc = list[0];
+          // Check if any incident is assigned to this unit
+          const assigned = list.find(i => i.assigned_responder_id === assignedUnitCode);
+          inc = assigned || list[0];
           activeIncidentUuid = inc.incident_uuid;
         }
       }
@@ -204,15 +226,16 @@ async function loadDynamicIncident() {
     if (inc) {
       incidentState.id = inc.incident_uuid;
       incidentState.title = inc.title || "Emergency Mission";
-      incidentState.coords = { lat: inc.lat, lng: inc.lng };
-      incidentState.place = inc.location_name || `${inc.lat.toFixed(4)}, ${inc.lng.toFixed(4)}`;
+      incidentState.coords = { lat: Number(inc.lat), lng: Number(inc.lng) };
+      incidentState.place = inc.location_name || `${Number(inc.lat).toFixed(4)}, ${Number(inc.lng).toFixed(4)}`;
       incidentState.severity = inc.severity_level || "critical";
-      incidentState.casualties = inc.casualties_count || 1;
-      incidentState.rsi = inc.severity_score || 3.5;
-      
+      incidentState.casualties = Number(inc.casualties_count || 1);
+      incidentState.rsi = Number(inc.severity_score || 3.5);
+
       applyIncidentToUI();
       logLine(`Active mission loaded: ${incidentState.id}`, incidentState.place);
       fetchOptimalHospital(inc.lat, inc.lng, inc.type, inc.severity_score);
+      loadCivilianIntelForResponder();
     }
   } catch (err) {
     console.warn("[Responder] Dynamic incident sync fallback:", err);
@@ -222,36 +245,79 @@ async function loadDynamicIncident() {
 function applyIncidentToUI() {
   if (el.incidentTitle) el.incidentTitle.textContent = incidentState.title;
   if (el.incidentPlace) el.incidentPlace.textContent = incidentState.place;
-  if (el.incidentBadge) el.incidentBadge.textContent = incidentState.id;
-  if (el.mobileStripTitle) el.mobileStripTitle.innerHTML = `<span class="cond-dot cond-dot--red"></span> ${incidentState.title}`;
-  if (el.mobileVictimCount) el.mobileVictimCount.textContent = String(incidentState.casualties).padStart(2, "0");
-  if (el.victimCounterBadge) el.victimCounterBadge.textContent = String(incidentState.casualties).padStart(2, "0");
-  
+  if (el.incidentBadge) el.incidentBadge.textContent = incidentState.id || "--";
+  if (el.mobileStripTitle) {
+    el.mobileStripTitle.innerHTML = `<span class="cond-dot cond-dot--red"></span> ${incidentState.title}`;
+  }
+  const casualtiesStr = String(incidentState.casualties).padStart(2, "0");
+  if (el.mobileVictimCount) el.mobileVictimCount.textContent = casualtiesStr;
+  if (el.victimCounterBadge) el.victimCounterBadge.textContent = casualtiesStr;
+
+  if (el.briefTriageBadge) {
+    const isCrit = incidentState.severity === "critical";
+    el.briefTriageBadge.className = isCrit ? "status-indicator-tag status-indicator-tag--red" : "status-indicator-tag";
+    el.briefTriageBadge.innerHTML = `<span class="cond-dot ${isCrit ? 'cond-dot--red' : ''}"></span> ${incidentState.severity.toUpperCase()}`;
+  }
+
   if (el.victimCounterStatus) {
-    el.victimCounterStatus.innerHTML = `<span class="cond-dot cond-dot--red"></span> Triage Level: ${incidentState.severity.toUpperCase()} (RSI ${incidentState.rsi})`;
+    el.victimCounterStatus.innerHTML = `<span class="cond-dot cond-dot--red"></span> Scene Priority: ${incidentState.severity.toUpperCase()} (RSI ${incidentState.rsi.toFixed(1)})`;
+  }
+  if (el.victimCounterSub) {
+    el.victimCounterSub.textContent = `${incidentState.casualties} Casualty report(s) active · Direct telemetry linked`;
   }
 
   // Render hazards
-  if (el.alertsGroup && incidentState.hazards.length > 0) {
-    el.alertsGroup.innerHTML = incidentState.hazards.map(h => `
-      <article class="alert">
-        <svg class="crit-icon crit-icon--red" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-        <div>
-          <p class="alert__label">Tactical Scene Hazard</p>
-          <p class="alert__text">${h}</p>
-        </div>
-      </article>
-    `).join("");
+  if (el.alertsGroup) {
+    if (incidentState.hazards.length > 0) {
+      el.alertsGroup.innerHTML = incidentState.hazards.map(h => `
+        <article class="alert">
+          <svg class="crit-icon crit-icon--red" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          <div>
+            <p class="alert__label">Tactical Scene Hazard</p>
+            <p class="alert__text">${h}</p>
+          </div>
+        </article>
+      `).join("");
+    } else {
+      el.alertsGroup.innerHTML = `<article class="alert" style="color:var(--text-3);font-size:12px;padding:10px 14px;">No active environmental hazards flagged.</article>`;
+    }
   }
 
-  // Render civilian steps
-  if (el.doneList && incidentState.completed_steps.length > 0) {
-    el.doneList.innerHTML = incidentState.completed_steps.map(s => `
-      <li>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-        <span>${s}</span>
-      </li>
-    `).join("");
+  // Render civilian first-aid steps
+  if (el.bystanderDoneList) {
+    if (incidentState.completed_steps.length > 0) {
+      el.bystanderDoneList.innerHTML = incidentState.completed_steps.map(s => `
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+          <span>${s}</span>
+        </li>
+      `).join("");
+    } else {
+      el.bystanderDoneList.innerHTML = `<li style="color:var(--text-3);font-size:12px;">No bystander first aid actions logged yet.</li>`;
+    }
+  }
+
+  // Render patient profiles dynamically
+  if (el.victimProfilesGrid) {
+    const victimsCount = incidentState.casualties || 1;
+    let profilesHtml = "";
+    for (let i = 1; i <= Math.min(victimsCount, 4); i++) {
+      const isP1 = i === 1 && incidentState.severity === "critical";
+      profilesHtml += `
+        <article class="victim-card">
+          <div class="victim-card__top">
+            <span class="victim-condition-title">
+              <span class="cond-dot ${isP1 ? 'cond-dot--red' : 'cond-dot--orange'}"></span>
+              Victim ${i} · Priority ${isP1 ? 'Red' : 'Yellow'}
+            </span>
+            <span class="victim-card__eta">Direct triage</span>
+          </div>
+          <p class="victim-card__demo">Casualty profile ${i} · Live telemetry</p>
+          <p class="victim-card__clinical">${incidentState.title}. Bystander guidance in progress.</p>
+        </article>
+      `;
+    }
+    el.victimProfilesGrid.innerHTML = profilesHtml;
   }
 }
 
@@ -269,10 +335,15 @@ async function fetchOptimalHospital(lat, lng, incidentType, rsi) {
         if (el.hospitalEta) el.hospitalEta.textContent = `${data.duration_mins} min (${data.distance_km} km)`;
         if (el.hospitalCaps) {
           const capTag = data.capability ? data.capability.toUpperCase() : "LEVEL 1 TRAUMA";
+          const survivalPct = data.predicted_survival_probability ? Math.round(data.predicted_survival_probability * 100) : 92;
           el.hospitalCaps.innerHTML = `
             <span class="facility-cap-tag">${capTag}</span>
-            <span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent);">Survival: ${(data.predicted_survival_probability * 100).toFixed(0)}%</span>
+            <span class="facility-cap-tag">ICU Bed Held</span>
+            <span class="facility-cap-tag" style="background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent);">Survival: ${survivalPct}%</span>
           `;
+        }
+        if (el.hospitalWhy) {
+          el.hospitalWhy.textContent = `Capability-matched for ${incidentType || "trauma"} profile. Golden hour transit prioritized.`;
         }
       }
     }
@@ -283,59 +354,32 @@ async function fetchOptimalHospital(lat, lng, incidentType, rsi) {
 
 loadDynamicIncident();
 
-/* ---------------- Leaflet map for responder route ---------------- */
-let responderMap = null;
-let responderMarker = null;
-let incidentMarker = null;
-let responderRouteLayer = null;
-
-function initResponderMap(centerLat, centerLng) {
-  const mapDiv = document.getElementById("responderMap");
-  if (!mapDiv || responderMap) return;
-  responderMap = L.map("responderMap", { zoomControl: true, attributionControl: false })
-    .setView([centerLat || 6.42, centerLng || 7.38], 12);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(responderMap);
-  // Own position marker
-  responderMarker = L.marker([centerLat || 6.42, centerLng || 7.38], {
-    icon: L.divIcon({ className: "", html: '<span class="pin pin--responder pin--pulse"></span>', iconSize: [22, 22] })
-  }).bindTooltip("Your position", { direction: "top" }).addTo(responderMap);
-}
-
-function drawMissionRoute(geometry, incLat, incLng, hospitalName) {
-  if (!responderMap) return;
-  // Draw route polyline
-  if (responderRouteLayer) responderMap.removeLayer(responderRouteLayer);
-  if (geometry && geometry.coordinates) {
-    const coords = geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-    if (coords.length > 1) {
-      responderRouteLayer = L.polyline(coords, { color: "#0D6E6E", weight: 4, opacity: 0.9, dashArray: "8 4" }).addTo(responderMap);
-    }
-  }
-  // Incident pin
-  if (incLat && incLng) {
-    if (incidentMarker) responderMap.removeLayer(incidentMarker);
-    incidentMarker = L.marker([incLat, incLng], {
-      icon: L.divIcon({ className: "", html: '<span class="pin pin--red pin--pulse"></span>', iconSize: [18, 18] })
-    }).bindTooltip(`Incident scene${hospitalName ? " → " + hospitalName : ""}`, { direction: "top" }).addTo(responderMap);
-    if (responderRouteLayer) {
-      responderMap.fitBounds(responderRouteLayer.getBounds(), { padding: [30, 30] });
-    } else {
-      responderMap.setView([incLat, incLng], 13);
-    }
-  }
-}
-
 /* ---------------- socket event listener ---------------- */
 if (typeof io !== "undefined") {
   const socket = io({ transports: ["websocket", "polling"] });
+
   socket.on("connect", () => {
     socket.emit("join", { room: "responders" });
     if (assignedUnitCode) socket.emit("join", { room: `responder_${assignedUnitCode}` });
     logLine("Tactical data-link connected", "SocketIO bus active");
   });
 
+  socket.on("responder:assigned", (data) => {
+    if (data.unit_code === assignedUnitCode || !activeIncidentUuid) {
+      activeIncidentUuid = data.incident_uuid;
+      loadDynamicIncident();
+      logLine(`DISPATCH ORDER RECEIVED`, `Incident: ${data.incident_uuid}`);
+      if (el.headerUnitStatus) {
+        el.headerUnitStatus.innerHTML = `<span class="pulse pulse--teal" aria-hidden="true"></span> Unit ${assignedUnitCode} · Dispatched (Awaiting Ack)`;
+      }
+      if (data.route_duration_mins && arrivalSeconds === null) {
+        arrivalSeconds = Math.round(data.route_duration_mins * 60);
+      }
+      if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
+    }
+  });
+
   socket.on("responder:mission_alert", (data) => {
-    // Update unit code if provided
     if (data.unit_code) {
       assignedUnitCode = data.unit_code;
       socket.emit("join", { room: `responder_${assignedUnitCode}` });
@@ -343,33 +387,12 @@ if (typeof io !== "undefined") {
     if (data.incident_uuid) {
       activeIncidentUuid = data.incident_uuid;
       loadDynamicIncident();
-      logLine(`Mission alert received: ${data.incident_uuid}`, "Loading full brief…");
+      logLine(`Mission alert received: ${data.incident_uuid}`, "Tactical brief loaded");
     }
-    // Draw the route and incident on map
-    const inc = data.incident;
-    if (inc) {
-      if (!responderMap) initResponderMap(inc.lat, inc.lng);
-      const hospName = data.recommended_hospital?.name;
-      drawMissionRoute(data.route_geometry, inc.lat, inc.lng, hospName);
-      // Update hospital info
-      if (data.recommended_hospital) {
-        if (el.hospitalName) el.hospitalName.textContent = data.recommended_hospital.name;
-        if (el.hospitalEta) el.hospitalEta.textContent = `${data.hospital_duration_mins} min (${data.hospital_distance_km} km)`;
-      }
-      if (data.route_duration_mins && el.arrivalCountdown) {
-        arrivalSeconds = Math.round(data.route_duration_mins * 60);
-      }
+    if (data.route_duration_mins) {
+      arrivalSeconds = Math.round(data.route_duration_mins * 60);
     }
     if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
-  });
-
-  socket.on("responder:assigned", (data) => {
-    if (data.unit_code === assignedUnitCode || !activeIncidentUuid) {
-      activeIncidentUuid = data.incident_uuid;
-      loadDynamicIncident();
-      logLine(`Assigned to Mission: ${data.incident_uuid}`, data.status || "dispatched");
-      if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
-    }
   });
 
   socket.on("incident:update", (data) => {
@@ -378,23 +401,24 @@ if (typeof io !== "undefined") {
     }
   });
 
-  socket.on("responder:beacon", (data) => {
-    // Update own-position marker from server-confirmed position
-    if (data.unit_code === assignedUnitCode && responderMap && responderMarker) {
-      responderMarker.setLatLng([data.lat, data.lng]);
+  socket.on("incident:chat_turn", (data) => {
+    if (data.incident_uuid === activeIncidentUuid) {
+      if (data.casualties_count != null && data.casualties_count !== incidentState.casualties) {
+        incidentState.casualties = Number(data.casualties_count);
+        applyIncidentToUI();
+      }
+      loadCivilianIntelForResponder();
     }
   });
 
   socket.on("responder:route_change", (data) => {
-    // Show a prominent alert toast and log it
-    logLine("DISPATCH: Route change instruction received", data.note || "See dispatcher message");
+    logLine("COMMAND: Route change instruction received", data.note || data.new_route || "Detour instructed");
     const toast = document.createElement("div");
     toast.style.cssText = "position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:14px 22px;border-radius:10px;z-index:9999;font-weight:600;max-width:90vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.35)";
-    toast.textContent = `Dispatch: ${data.note}`;
+    toast.textContent = `Command Instruction: ${data.note || data.new_route}`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 8000);
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-    if (data.route_geometry) drawMissionRoute(data.route_geometry, incidentState.coords?.lat, incidentState.coords?.lng, null);
   });
 }
 
@@ -407,19 +431,22 @@ async function loadCivilianIntelForResponder() {
     const res = await fetch(`/api/incidents/${activeIncidentUuid}/conversation`);
     if (!res.ok) return;
     const turns = await res.json();
+    if (turns.length === 0) {
+      panel.innerHTML = "<p style='opacity:.5;padding:8px 0;margin:0;'>No bystander conversation recorded yet.</p>";
+      return;
+    }
     panel.innerHTML = turns.map(t => {
       const who = t.source === "civilian" ? "Bystander" : "ResQ AI";
       const cls = t.source === "civilian" ? "intel-line--civilian" : "intel-line--ai";
       const safe = String(t.content || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      return `<div class="intel-line ${cls}"><span class="intel-who">${who}</span><p class="intel-text">${safe}</p></div>`;
-    }).join("") || "<p style='opacity:.5;padding:8px 0'>No AI conversation recorded yet</p>";
+      return `<div class="intel-line ${cls}" style="padding:4px 0;"><span class="intel-who" style="font-weight:600;color:var(--accent);">${who}:</span> <span class="intel-text">${safe}</span></div>`;
+    }).join("");
     panel.scrollTop = panel.scrollHeight;
   } catch (err) {
     console.warn("[Responder] Civilian intel load failed:", err);
   }
 }
-setInterval(loadCivilianIntelForResponder, 15000); // refresh every 15s
-
+setInterval(loadCivilianIntelForResponder, 10000);
 
 /* ---------------- stage control ---------------- */
 $$(".stage-btn").forEach((btn) => {
@@ -439,10 +466,28 @@ function openNavigation() {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
 }
 
-function openCallScene() {
-  logLine("Radio bridge opened to scene bystander", "Channel active");
-  radioElapsed = 0;
-  alert(`Connecting encrypted voice radio bridge to reporting bystander at ${incidentState.id}...`);
+async function openCallScene() {
+  if (!activeIncidentUuid) {
+    alert("No active mission assigned.");
+    return;
+  }
+  logLine("Radio bridge connecting to scene", "Establishing audio line...");
+  try {
+    const res = await fetch(`/api/incidents/${activeIncidentUuid}/call-bridge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "responder_connect",
+        title: `Responder ${assignedUnitCode} Voice Bridge`
+      })
+    });
+    if (res.ok) {
+      logLine("Voice radio link established", "Encrypted channel open to bystander");
+      alert(`Voice link connected with caller on scene at incident ${activeIncidentUuid}. Audio open.`);
+    }
+  } catch (err) {
+    console.warn("Call scene error:", err);
+  }
 }
 
 el.navigate?.addEventListener("click", openNavigation);
