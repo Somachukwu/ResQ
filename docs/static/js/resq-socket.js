@@ -56,12 +56,21 @@ class ResQSocket {
             "incident:created", 
             "incident:update_received", 
             "incident:timeline_update", 
+            "incident:chat_turn",
+            "incident:update",
+            "dispatcher:message",
+            "call_bridge:event",
             "responder:assigned", 
             "responder:mission_alert", 
             "responder:acknowledged",
+            "responder:on_scene",
+            "responder:route_change",
             "telemetry:update", 
+            "webrtc:signal",
             "demo:injected"
         ];
+
+        this._boundEvents = new Set(standardEvents);
 
         standardEvents.forEach(evtName => {
             this.socket.on(evtName, (payload) => {
@@ -76,6 +85,16 @@ class ResQSocket {
             this.eventListeners.set(event, []);
         }
         this.eventListeners.get(event).push(callback);
+
+        // Dynamically bind to the underlying socket for events not in the initial list
+        if (this.socket && !this._boundEvents?.has(event)) {
+            this._boundEvents = this._boundEvents || new Set();
+            this._boundEvents.add(event);
+            this.socket.on(event, (payload) => {
+                console.log(`[ResQSocket] Event received [${event}]:`, payload);
+                this.trigger(event, payload);
+            });
+        }
     }
 
     trigger(event, data) {

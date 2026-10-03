@@ -1062,10 +1062,12 @@ function wireIncidentEditModal() {
     $("#editCasualtiesInput").value = selected.victims || 1;
     $("#editTriageSelect").value = selected.triage === "red" ? "critical" : (selected.triage === "yellow" ? "urgent" : "moderate");
     $("#editLocationInput").value = selected.place || "";
+    modal.style.display = "flex";
     modal.classList.remove("hidden");
   };
 
   const hideModal = () => {
+    modal.style.display = "none";
     modal.classList.add("hidden");
   };
 
@@ -1272,10 +1274,117 @@ if (window.ResQSocket) {
       COMMS.civilian.push({ who: "Voice System", text: `Voice bridge connected: ${data.title || 'Audio channel open'}` });
     } else {
       endVoiceCallUI();
+      endDispatcherWebRtc();
       COMMS.civilian.push({ who: "Voice System", text: "Voice bridge closed." });
     }
     renderComms();
   });
+
+  // ---- WebRTC receiver (Command side) ----
+  let cmdPeerConnection = null;
+  let cmdLocalStream = null;
+
+  function endDispatcherWebRtc() {
+    if (cmdPeerConnection) {
+      cmdPeerConnection.close();
+      cmdPeerConnection = null;
+    }
+    if (cmdLocalStream) {
+      cmdLocalStream.getTracks().forEach(t => t.stop());
+      cmdLocalStream = null;
+    }
+    const remoteAudio = document.getElementById("cmdRemoteAudio");
+    if (remoteAudio) remoteAudio.remove();
+  }
+
+  resqSocket.on("webrtc:signal", async (data) => {
+    if (data.from === "dispatcher" || data.from === "command") return; // ignore own signals
+
+    try {
+      if (data.type === "offer" && data.sdp) {
+        // Incoming call from civilian
+        console.log("[WebRTC-CMD] Incoming call offer from civilian");
+        startVoiceCallUI("Bystander on Scene (WebRTC)");
+
+        try {
+          cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (micErr) {
+          console.error("[WebRTC-CMD] Mic access denied:", micErr);
+          COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
+          renderComms();
+          return;
+        }
+
+        const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+        cmdPeerConnection = new RTCPeerConnection(config);
+
+        cmdLocalStream.getTracks().forEach(track => cmdPeerConnection.addTrack(track, cmdLocalStream));
+
+        cmdPeerConnection.ontrack = (event) => {
+          let remoteAudio = document.getElementById("cmdRemoteAudio");
+          if (!remoteAudio) {
+            remoteAudio = document.createElement("audio");
+            remoteAudio.id = "cmdRemoteAudio";
+            remoteAudio.autoplay = true;
+            document.body.appendChild(remoteAudio);
+          }
+          remoteAudio.srcObject = event.streams[0];
+        };
+
+        cmdPeerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            resqSocket.emit("webrtc:signal", {
+              incident_uuid: data.incident_uuid,
+              from: "dispatcher",
+              type: "ice-candidate",
+              candidate: event.candidate
+            });
+          }
+        };
+
+        await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        const answer = await cmdPeerConnection.createAnswer();
+        await cmdPeerConnection.setLocalDescription(answer);
+
+        resqSocket.emit("webrtc:signal", {
+          incident_uuid: data.incident_uuid,
+          from: "dispatcher",
+          type: "answer",
+          sdp: answer
+        });
+
+        COMMS.civilian.push({ who: "Voice System", text: "WebRTC audio connected with scene caller." });
+        renderComms();
+
+      } else if (data.type === "ice-candidate" && data.candidate && cmdPeerConnection) {
+        await cmdPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+
+      } else if (data.type === "hangup") {
+        endDispatcherWebRtc();
+        endVoiceCallUI();
+        COMMS.civilian.push({ who: "Voice System", text: "Caller ended the voice connection." });
+        renderComms();
+      }
+    } catch (err) {
+      console.warn("[WebRTC-CMD] Signal handling error:", err);
+    }
+  });
+
+  // Wire the End Call button to also tear down WebRTC
+  const origEndCallBtn = $("#endVoiceCallBtn");
+  if (origEndCallBtn) {
+    origEndCallBtn.addEventListener("click", () => {
+      endDispatcherWebRtc();
+      const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
+      if (incId) {
+        resqSocket.emit("webrtc:signal", {
+          incident_uuid: incId,
+          from: "dispatcher",
+          type: "hangup"
+        });
+      }
+    });
+  }
 }
 
 /* ---------------- region selector (S/N 14) ---------------- */
