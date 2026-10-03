@@ -285,6 +285,7 @@ def dispatcher_message_api(incident_uuid):
     socketio.emit("dispatcher:message", payload, room=f"incident_{incident_uuid}")
     socketio.emit("dispatcher:message", payload, room="dispatchers")
     socketio.emit("dispatcher:message", payload, room="responders")
+    socketio.emit("dispatcher:message", payload, room="civilians")
     return jsonify({"status": "success", "message": message})
 
 
@@ -318,6 +319,7 @@ def call_bridge_api(incident_uuid):
     socketio.emit("call_bridge:event", payload, room=f"incident_{incident_uuid}")
     socketio.emit("call_bridge:event", payload, room="dispatchers")
     socketio.emit("call_bridge:event", payload, room="responders")
+    socketio.emit("call_bridge:event", payload, room="civilians")
     return jsonify({"status": "success", "active": is_active, "incident_uuid": incident_uuid})
 
 

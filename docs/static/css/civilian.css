@@ -494,12 +494,6 @@ body.civilian {
   width: 100%;
   box-sizing: border-box;
 }
-.live-actions--hero {
-  max-width: 320px;
-  margin: 6px auto 0;
-  padding: 0;
-  justify-content: center;
-}
 .live-actions .btn--compact {
   flex: 1;
   min-height: 34px;

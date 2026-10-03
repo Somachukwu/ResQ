@@ -38,6 +38,7 @@ def register_socket_events(socketio):
         allowed = (
             (room == "dispatchers" and role in ("dispatcher", "development")) or
             (room == "responders" and role in ("responder", "development")) or
+            (room == "civilians") or
             (room and room.startswith("responder_") and role in ("responder", "development")) or
             (room and room.startswith("incident_"))
         )
@@ -174,4 +175,5 @@ def register_socket_events(socketio):
         room = f"incident_{incident_uuid}"
         emit("webrtc:signal", data, room=room, include_self=False)
         emit("webrtc:signal", data, room="dispatchers", include_self=False)
+        emit("webrtc:signal", data, room="civilians", include_self=False)
         print(f"[WebSocket] WebRTC signal relayed: {data.get('type')} from {data.get('from')} for {incident_uuid}")

@@ -826,19 +826,139 @@ function pushComms(target, text, who = null) {
   renderComms();
 }
 
+/* ---------------- Phone sound synthesizer (Web Audio API) ---------------- */
+const phoneSound = (() => {
+  let ctx = null;
+  let osc1 = null;
+  let osc2 = null;
+  let gain = null;
+  let interval = null;
+
+  function getCtx() {
+    if (!ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) ctx = new AudioCtx();
+    }
+    if (ctx && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    return ctx;
+  }
+
+  function stop() {
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
+    try {
+      if (osc1) { osc1.stop(); osc1.disconnect(); osc1 = null; }
+      if (osc2) { osc2.stop(); osc2.disconnect(); osc2 = null; }
+      if (gain) { gain.disconnect(); gain = null; }
+    } catch (_) {}
+  }
+
+  function playBeep() {
+    stop();
+    const ac = getCtx();
+    if (!ac) return;
+
+    function burst() {
+      try {
+        const now = ac.currentTime;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.12, now + 0.05);
+        g.gain.setValueAtTime(0.12, now + 1.2);
+        g.gain.linearRampToValueAtTime(0, now + 1.25);
+        g.connect(ac.destination);
+
+        const o1 = ac.createOscillator();
+        const o2 = ac.createOscillator();
+        o1.type = "sine";
+        o2.type = "sine";
+        o1.frequency.setValueAtTime(440, now);
+        o2.frequency.setValueAtTime(480, now);
+        o1.connect(g);
+        o2.connect(g);
+        o1.start(now);
+        o2.start(now);
+        o1.stop(now + 1.25);
+        o2.stop(now + 1.25);
+      } catch (_) {}
+    }
+
+    burst();
+    interval = setInterval(burst, 3000);
+  }
+
+  function playIncomingRing() {
+    stop();
+    const ac = getCtx();
+    if (!ac) return;
+
+    function doubleRing() {
+      try {
+        const now = ac.currentTime;
+        [0, 0.45].forEach((delay) => {
+          const t = now + delay;
+          const g = ac.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.15, t + 0.04);
+          g.gain.setValueAtTime(0.15, t + 0.35);
+          g.gain.linearRampToValueAtTime(0, t + 0.4);
+          g.connect(ac.destination);
+
+          const o1 = ac.createOscillator();
+          const o2 = ac.createOscillator();
+          o1.type = "sine";
+          o2.type = "sine";
+          o1.frequency.setValueAtTime(440, t);
+          o2.frequency.setValueAtTime(480, t);
+          o1.connect(g);
+          o2.connect(g);
+          o1.start(t);
+          o2.start(t);
+          o1.stop(t + 0.4);
+          o2.stop(t + 0.4);
+        });
+      } catch (_) {}
+    }
+
+    doubleRing();
+    interval = setInterval(doubleRing, 2600);
+  }
+
+  return { playBeep, playIncomingRing, stop };
+})();
+
+let cmdPeerConnection = null;
+let cmdLocalStream = null;
+let cmdPendingOffer = null;
 let voiceCallTimerInterval = null;
 let voiceCallSeconds = 0;
 
-function startVoiceCallUI(title) {
+function showVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, endLabel = "Disconnect Audio") {
   const modal = $("#voiceCallModal");
   const target = $("#voiceCallTargetName");
+  const status = $("#voiceCallStatusText");
   const timer = $("#voiceCallTimer");
+  const ansBtn = $("#answerVoiceCallBtn");
+  const endLabelEl = $("#endVoiceCallLabel");
+
   if (modal) {
     modal.style.display = "flex";
     modal.classList.remove("hidden");
   }
-  if (target) target.textContent = title || "Bystander on Scene";
+  if (target) target.textContent = title || "Bystander Voice Bridge";
+  if (status) status.textContent = statusText || "Audio channel connected · Encrypted";
+  if (timer) timer.textContent = timerText || "00:00";
+  if (ansBtn) ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  if (endLabelEl) endLabelEl.textContent = endLabel;
+}
+
+function startCallTimer() {
   voiceCallSeconds = 0;
+  const timer = $("#voiceCallTimer");
   if (timer) timer.textContent = "00:00";
   if (voiceCallTimerInterval) clearInterval(voiceCallTimerInterval);
   voiceCallTimerInterval = setInterval(() => {
@@ -858,6 +978,78 @@ function endVoiceCallUI() {
   if (voiceCallTimerInterval) {
     clearInterval(voiceCallTimerInterval);
     voiceCallTimerInterval = null;
+  }
+  endDispatcherWebRtc();
+}
+
+function endDispatcherWebRtc() {
+  if (cmdPeerConnection) {
+    try { cmdPeerConnection.close(); } catch (_) {}
+    cmdPeerConnection = null;
+  }
+  if (cmdLocalStream) {
+    cmdLocalStream.getTracks().forEach((t) => t.stop());
+    cmdLocalStream = null;
+  }
+  cmdPendingOffer = null;
+  const remoteAudio = document.getElementById("cmdRemoteAudio");
+  if (remoteAudio) remoteAudio.remove();
+}
+
+async function startCommandWebRtcCall(incidentUuid) {
+  endDispatcherWebRtc();
+  try {
+    cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (micErr) {
+    console.error("[WebRTC-CMD] Mic access denied:", micErr);
+    phoneSound.stop();
+    endVoiceCallUI();
+    COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
+    renderComms();
+    return;
+  }
+
+  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+  cmdPeerConnection = new RTCPeerConnection(config);
+  cmdLocalStream.getTracks().forEach((track) => cmdPeerConnection.addTrack(track, cmdLocalStream));
+
+  cmdPeerConnection.ontrack = (event) => {
+    let remoteAudio = document.getElementById("cmdRemoteAudio");
+    if (!remoteAudio) {
+      remoteAudio = document.createElement("audio");
+      remoteAudio.id = "cmdRemoteAudio";
+      remoteAudio.autoplay = true;
+      remoteAudio.playsInline = true;
+      document.body.appendChild(remoteAudio);
+    }
+    remoteAudio.srcObject = event.streams[0];
+    remoteAudio.play().catch((e) => console.warn("[WebRTC-CMD] Audio play error:", e));
+  };
+
+  cmdPeerConnection.onicecandidate = (event) => {
+    if (event.candidate && resqSocket) {
+      resqSocket.emit("webrtc:signal", {
+        incident_uuid: incidentUuid,
+        from: "dispatcher",
+        type: "ice-candidate",
+        candidate: event.candidate
+      });
+    }
+  };
+
+  try {
+    const offer = await cmdPeerConnection.createOffer();
+    await cmdPeerConnection.setLocalDescription(offer);
+    if (resqSocket) {
+      resqSocket.emit("webrtc:signal", {
+        incident_uuid: incidentUuid,
+        from: "dispatcher",
+        type: "offer",
+        sdp: offer
+      });
+    }
+  } catch (err) {
+    console.error("[WebRTC-CMD] Offer creation failed:", err);
   }
 }
 
@@ -940,9 +1132,17 @@ function wireComms() {
       if (e) e.preventDefault();
       const inc = selected || INCIDENTS[0];
       const incId = inc ? inc.id : "incident-live";
-      startVoiceCallUI(`Bystander at ${inc ? (inc.place || inc.id) : "Incident Scene"}`);
-      COMMS.civilian.push({ who: "Voice System", text: `Connecting direct audio bridge to caller...` });
+      showVoiceModalUI(
+        `Calling Bystander at ${inc ? (inc.place || inc.id) : "Incident Scene"}`,
+        "Connecting audio link to civilian device...",
+        "--:--",
+        false,
+        "Cancel Call"
+      );
+      phoneSound.playBeep();
+      COMMS.civilian.push({ who: "Voice System", text: `Calling scene bystander...` });
       renderComms();
+      await startCommandWebRtcCall(incId);
       try {
         await fetch(`/api/incidents/${incId}/call-bridge`, {
           method: "POST",
@@ -961,12 +1161,86 @@ function wireComms() {
     callCivBtn.addEventListener("click", handleCallCivilian);
   }
 
+  // Answer Incoming Call Button
+  const ansCallBtn = $("#answerVoiceCallBtn");
+  if (ansCallBtn) {
+    ansCallBtn.addEventListener("click", async () => {
+      if (!cmdPendingOffer) return;
+      phoneSound.stop();
+      ansCallBtn.classList.add("hidden");
+      const endLabelEl = $("#endVoiceCallLabel");
+      if (endLabelEl) endLabelEl.textContent = "Disconnect Audio";
+      const status = $("#voiceCallStatusText");
+      if (status) status.textContent = "Audio channel connected · Encrypted";
+
+      try {
+        cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr) {
+        console.error("[WebRTC-CMD] Mic access denied:", micErr);
+        endVoiceCallUI();
+        COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
+        renderComms();
+        return;
+      }
+
+      const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+      cmdPeerConnection = new RTCPeerConnection(config);
+      cmdLocalStream.getTracks().forEach(track => cmdPeerConnection.addTrack(track, cmdLocalStream));
+
+      cmdPeerConnection.ontrack = (event) => {
+        console.log("[WebRTC-CMD] Received civilian audio track:", event.streams[0]);
+        let remoteAudio = document.getElementById("cmdRemoteAudio");
+        if (!remoteAudio) {
+          remoteAudio = document.createElement("audio");
+          remoteAudio.id = "cmdRemoteAudio";
+          remoteAudio.autoplay = true;
+          remoteAudio.playsInline = true;
+          document.body.appendChild(remoteAudio);
+        }
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play().catch(e => console.warn("[WebRTC-CMD] Audio play error:", e));
+      };
+
+      cmdPeerConnection.onicecandidate = (event) => {
+        if (event.candidate && resqSocket) {
+          resqSocket.emit("webrtc:signal", {
+            incident_uuid: cmdPendingOffer.incident_uuid,
+            from: "dispatcher",
+            type: "ice-candidate",
+            candidate: event.candidate
+          });
+        }
+      };
+
+      await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(cmdPendingOffer.sdp));
+      const answer = await cmdPeerConnection.createAnswer();
+      await cmdPeerConnection.setLocalDescription(answer);
+
+      resqSocket.emit("webrtc:signal", {
+        incident_uuid: cmdPendingOffer.incident_uuid,
+        from: "dispatcher",
+        type: "answer",
+        sdp: answer
+      });
+
+      // Requirement 4: Time should start reading when command clicks answer call
+      startCallTimer();
+      COMMS.civilian.push({ who: "Voice System", text: "WebRTC audio connected with scene bystander." });
+      renderComms();
+    });
+  }
+
   const endCallBtn = $("#endVoiceCallBtn");
   if (endCallBtn) {
     const handleEndCall = async () => {
-      endVoiceCallUI();
-      const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
-      if (incId) {
+      phoneSound.stop();
+      const incId = selected?.id || (cmdPendingOffer?.incident_uuid) || (INCIDENTS[0] ? INCIDENTS[0].id : null);
+      if (incId && resqSocket) {
+        resqSocket.emit("webrtc:signal", {
+          incident_uuid: incId,
+          from: "dispatcher",
+          type: "hangup"
+        });
         try {
           await fetch(`/api/incidents/${incId}/call-bridge`, {
             method: "POST",
@@ -975,6 +1249,7 @@ function wireComms() {
           });
         } catch (_) {}
       }
+      endVoiceCallUI();
       COMMS.civilian.push({ who: "Voice System", text: "Voice call disconnected." });
       renderComms();
     };
@@ -1269,97 +1544,51 @@ if (window.ResQSocket) {
 
   resqSocket.on("call_bridge:event", (data) => {
     console.log("[Dispatcher] Call bridge event:", data);
-    if (data.active) {
-      startVoiceCallUI(data.title || "Scene Audio Link");
-      COMMS.civilian.push({ who: "Voice System", text: `Voice bridge connected: ${data.title || 'Audio channel open'}` });
-    } else {
+    if (!data.active) {
+      phoneSound.stop();
       endVoiceCallUI();
-      endDispatcherWebRtc();
       COMMS.civilian.push({ who: "Voice System", text: "Voice bridge closed." });
+      renderComms();
     }
-    renderComms();
   });
-
-  // ---- WebRTC receiver (Command side) ----
-  let cmdPeerConnection = null;
-  let cmdLocalStream = null;
-
-  function endDispatcherWebRtc() {
-    if (cmdPeerConnection) {
-      cmdPeerConnection.close();
-      cmdPeerConnection = null;
-    }
-    if (cmdLocalStream) {
-      cmdLocalStream.getTracks().forEach(t => t.stop());
-      cmdLocalStream = null;
-    }
-    const remoteAudio = document.getElementById("cmdRemoteAudio");
-    if (remoteAudio) remoteAudio.remove();
-  }
 
   resqSocket.on("webrtc:signal", async (data) => {
     if (data.from === "dispatcher" || data.from === "command") return; // ignore own signals
 
     try {
       if (data.type === "offer" && data.sdp) {
-        // Incoming call from civilian
-        console.log("[WebRTC-CMD] Incoming call offer from civilian");
-        startVoiceCallUI("Bystander on Scene (WebRTC)");
+        // Requirement 3: Popping up as a call on command end with ringtone
+        console.log("[WebRTC-CMD] Incoming call offer from civilian:", data);
+        cmdPendingOffer = data;
+        showVoiceModalUI(
+          "Incoming Call from Bystander",
+          `Scene audio request · Incident: ${data.incident_uuid || "Live Scene"}`,
+          "Ringing...",
+          true,
+          "Decline"
+        );
+        phoneSound.playIncomingRing();
 
-        try {
-          cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (micErr) {
-          console.error("[WebRTC-CMD] Mic access denied:", micErr);
-          COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
-          renderComms();
-          return;
-        }
-
-        const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-        cmdPeerConnection = new RTCPeerConnection(config);
-
-        cmdLocalStream.getTracks().forEach(track => cmdPeerConnection.addTrack(track, cmdLocalStream));
-
-        cmdPeerConnection.ontrack = (event) => {
-          let remoteAudio = document.getElementById("cmdRemoteAudio");
-          if (!remoteAudio) {
-            remoteAudio = document.createElement("audio");
-            remoteAudio.id = "cmdRemoteAudio";
-            remoteAudio.autoplay = true;
-            document.body.appendChild(remoteAudio);
-          }
-          remoteAudio.srcObject = event.streams[0];
-        };
-
-        cmdPeerConnection.onicecandidate = (event) => {
-          if (event.candidate) {
-            resqSocket.emit("webrtc:signal", {
-              incident_uuid: data.incident_uuid,
-              from: "dispatcher",
-              type: "ice-candidate",
-              candidate: event.candidate
-            });
-          }
-        };
-
+      } else if (data.type === "answer" && data.sdp && cmdPeerConnection) {
+        // Civilian answered Command's outgoing call
+        phoneSound.stop();
         await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        const answer = await cmdPeerConnection.createAnswer();
-        await cmdPeerConnection.setLocalDescription(answer);
-
-        resqSocket.emit("webrtc:signal", {
-          incident_uuid: data.incident_uuid,
-          from: "dispatcher",
-          type: "answer",
-          sdp: answer
-        });
-
-        COMMS.civilian.push({ who: "Voice System", text: "WebRTC audio connected with scene caller." });
+        showVoiceModalUI(
+          "Bystander on Scene (WebRTC)",
+          "Audio channel connected · Encrypted",
+          "00:00",
+          false,
+          "Disconnect Audio"
+        );
+        startCallTimer();
+        COMMS.civilian.push({ who: "Voice System", text: "Civilian answered call. Audio connected." });
         renderComms();
 
       } else if (data.type === "ice-candidate" && data.candidate && cmdPeerConnection) {
         await cmdPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
 
       } else if (data.type === "hangup") {
+        phoneSound.stop();
         endDispatcherWebRtc();
         endVoiceCallUI();
         COMMS.civilian.push({ who: "Voice System", text: "Caller ended the voice connection." });
@@ -1369,22 +1598,6 @@ if (window.ResQSocket) {
       console.warn("[WebRTC-CMD] Signal handling error:", err);
     }
   });
-
-  // Wire the End Call button to also tear down WebRTC
-  const origEndCallBtn = $("#endVoiceCallBtn");
-  if (origEndCallBtn) {
-    origEndCallBtn.addEventListener("click", () => {
-      endDispatcherWebRtc();
-      const incId = selected?.id || (INCIDENTS[0] ? INCIDENTS[0].id : null);
-      if (incId) {
-        resqSocket.emit("webrtc:signal", {
-          incident_uuid: incId,
-          from: "dispatcher",
-          type: "hangup"
-        });
-      }
-    });
-  }
 }
 
 /* ---------------- region selector (S/N 14) ---------------- */
