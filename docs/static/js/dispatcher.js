@@ -975,7 +975,10 @@ function showVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, e
   if (target) target.textContent = title || "Bystander Voice Bridge";
   if (status) status.textContent = statusText || "Audio channel connected · Encrypted";
   if (timer) timer.textContent = timerText || "00:00";
-  if (ansBtn) ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  if (ansBtn) {
+    ansBtn.style.display = showAnswerBtn ? "inline-flex" : "none";
+    ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  }
   if (endLabelEl) endLabelEl.textContent = endLabel;
 }
 
@@ -997,6 +1000,11 @@ function endVoiceCallUI() {
   if (modal) {
     modal.style.display = "none";
     modal.classList.add("hidden");
+  }
+  const ansBtn = $("#answerVoiceCallBtn");
+  if (ansBtn) {
+    ansBtn.style.display = "none";
+    ansBtn.classList.add("hidden");
   }
   if (voiceCallTimerInterval) {
     clearInterval(voiceCallTimerInterval);
@@ -1199,6 +1207,7 @@ function wireComms() {
     ansCallBtn.addEventListener("click", async () => {
       if (!cmdPendingOffer) return;
       phoneSound.stop();
+      ansCallBtn.style.display = "none";
       ansCallBtn.classList.add("hidden");
       const endLabelEl = $("#endVoiceCallLabel");
       if (endLabelEl) endLabelEl.textContent = "Disconnect Audio";

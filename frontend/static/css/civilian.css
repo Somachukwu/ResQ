@@ -4,6 +4,10 @@
   --visual-viewport-h: 100dvh;
 }
 
+.hidden {
+  display: none !important;
+}
+
 body.civilian {
   min-height: 100dvh;
   margin: 0;

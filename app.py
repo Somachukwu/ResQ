@@ -152,6 +152,10 @@ ORS_API_KEY = os.getenv("ORS_API_KEY")
 
 # --- Page Routing ---
 
+@app.route("/templates/static/<path:filename>")
+def serve_templates_static(filename):
+    return send_from_directory(os.path.join(app.root_path, "frontend", "static"), filename)
+
 @app.route("/")
 def index():
     return render_template("index.html")

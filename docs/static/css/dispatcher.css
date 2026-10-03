@@ -6,6 +6,10 @@ body.dispatcher {
   background: var(--canvas);
 }
 
+.hidden {
+  display: none !important;
+}
+
 .cmd {
   height: 100dvh;
   display: grid;

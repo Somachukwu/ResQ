@@ -746,14 +746,14 @@ async function drainCivIceCandidates() {
 
 function startCivCallTimer() {
   civCallSeconds = 0;
-  const timerEl = document.getElementById("civVoiceTimer");
+  const timerEl = document.getElementById("civVoiceModalTimer");
   if (timerEl) timerEl.textContent = "00:00";
   if (civCallTimerInterval) clearInterval(civCallTimerInterval);
   civCallTimerInterval = setInterval(() => {
     civCallSeconds += 1;
     const m = Math.floor(civCallSeconds / 60);
     const s = civCallSeconds % 60;
-    const tEl = document.getElementById("civVoiceTimer");
+    const tEl = document.getElementById("civVoiceModalTimer");
     if (tEl) tEl.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }, 1000);
 }
@@ -766,71 +766,98 @@ function stopCivCallTimer() {
 }
 
 function updateVoiceBridgeStatus(text) {
-  const statusEl = document.getElementById("civVoiceStatus");
+  const statusEl = document.getElementById("civVoiceModalStatus");
   if (statusEl) statusEl.textContent = text;
 }
 
+function initCivVoiceModalListeners() {
+  const ansBtn = document.getElementById("civAnswerCallBtn");
+  if (ansBtn && !ansBtn._resqBound) {
+    ansBtn._resqBound = true;
+    ansBtn.addEventListener("click", () => answerIncomingCall());
+  }
+  const endBtn = document.getElementById("civEndCallBtn");
+  if (endBtn && !endBtn._resqBound) {
+    endBtn._resqBound = true;
+    endBtn.addEventListener("click", () => {
+      phoneSound.stop();
+      endCivVoiceModalUI();
+    });
+  }
+}
+
+function showCivVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, endLabel = "End Call") {
+  initCivVoiceModalListeners();
+  const modal = document.getElementById("civVoiceModal");
+  const target = document.getElementById("civVoiceModalTitle");
+  const status = document.getElementById("civVoiceModalStatus");
+  const timer = document.getElementById("civVoiceModalTimer");
+  const ansBtn = document.getElementById("civAnswerCallBtn");
+  const endLabelEl = document.getElementById("civEndCallLabel");
+
+  if (modal) {
+    modal.style.display = "flex";
+    modal.classList.remove("hidden");
+  }
+  if (target) target.textContent = title || "Emergency Operator";
+  if (status) status.textContent = statusText || "Connecting live audio link...";
+  if (timer) timer.textContent = timerText || "00:00";
+  if (ansBtn) {
+    ansBtn.style.display = showAnswerBtn ? "inline-flex" : "none";
+    ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  }
+  if (endLabelEl) endLabelEl.textContent = endLabel;
+}
+
+function endCivVoiceModalUI() {
+  const modal = document.getElementById("civVoiceModal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.classList.add("hidden");
+  }
+  const ansBtn = document.getElementById("civAnswerCallBtn");
+  if (ansBtn) {
+    ansBtn.style.display = "none";
+    ansBtn.classList.add("hidden");
+  }
+  stopCivCallTimer();
+  endWebRtcCall();
+}
+
 function showVoiceBridgeModal(statusText, mode = "active") {
-  let modal = document.getElementById("voiceBridgeModal");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "voiceBridgeModal";
-    modal.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:92%;max-width:440px;background:var(--surface-2);border:2px solid #22c55e;border-radius:18px;padding:14px 18px;z-index:99999;box-shadow:0 12px 40px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:space-between;gap:14px;";
-    document.body.appendChild(modal);
-  }
-
-  let title = "Audio Link Active";
-  let timerDisplay = "00:00";
-  let buttonsHtml = "";
-
   if (mode === "calling") {
-    title = "Calling Emergency Command...";
-    timerDisplay = "--:--";
-    buttonsHtml = `<button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;flex-shrink:0;">Cancel Call</button>`;
+    showCivVoiceModalUI("Calling Emergency Command...", statusText || "Connecting audio link to operator station...", "--:--", false, "Cancel Call");
   } else if (mode === "incoming") {
-    title = "Incoming Call from Command";
-    timerDisplay = "Ringing...";
-    buttonsHtml = `
-      <div style="display:flex;gap:8px;flex-shrink:0;">
-        <button id="answerVoiceBtn" type="button" style="background:#22c55e;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">Answer</button>
-        <button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">Decline</button>
-      </div>
-    `;
+    showCivVoiceModalUI("Incoming Call from Command", statusText || "Emergency Operator calling scene...", "Ringing...", true, "Decline");
   } else {
-    title = "Audio Link Active";
-    timerDisplay = "00:00";
-    buttonsHtml = `<button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;flex-shrink:0;">End Call</button>`;
+    showCivVoiceModalUI("Connected to Emergency Command", statusText || "Audio channel connected · Encrypted", "00:00", false, "End Call");
   }
-
-  modal.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span class="pulse pulse--teal" style="width:14px;height:14px;background:#22c55e;flex-shrink:0;"></span>
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <strong style="font-size:0.9rem;color:var(--text);">${title}</strong>
-          <span id="civVoiceTimer" style="font-size:0.85rem;font-weight:700;color:#22c55e;font-variant-numeric:tabular-nums;">${timerDisplay}</span>
-        </div>
-        <span id="civVoiceStatus" style="font-size:0.75rem;color:var(--text-2);">${statusText}</span>
-      </div>
-    </div>
-    ${buttonsHtml}
-  `;
-
-  document.getElementById("answerVoiceBtn")?.addEventListener("click", () => {
-    answerIncomingCall();
-  });
-
-  document.getElementById("endVoiceBtn")?.addEventListener("click", () => {
-    phoneSound.stop();
-    stopCivCallTimer();
-    endWebRtcCall();
-    modal.remove();
-  });
 }
 
 async function answerIncomingCall() {
   phoneSound.stop();
   if (!civPendingOffer) return;
+
+  const ansBtn = document.getElementById("civAnswerCallBtn");
+  if (ansBtn) {
+    ansBtn.style.display = "none";
+    ansBtn.classList.add("hidden");
+  }
+  const endLabel = document.getElementById("civEndCallLabel");
+  if (endLabel) endLabel.textContent = "End Call";
+  updateVoiceBridgeStatus("Audio channel connected · Encrypted");
+
+  // Pre-unlock remote audio in direct user click gesture
+  let remoteAudio = document.getElementById("civRemoteAudio");
+  if (!remoteAudio) {
+    remoteAudio = document.createElement("audio");
+    remoteAudio.id = "civRemoteAudio";
+    remoteAudio.autoplay = true;
+    remoteAudio.playsInline = true;
+    remoteAudio.muted = false;
+    document.body.appendChild(remoteAudio);
+  }
+  remoteAudio.play().catch(() => {});
 
   try {
     civLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -845,23 +872,23 @@ async function answerIncomingCall() {
   civLocalStream.getTracks().forEach((track) => civPeerConnection.addTrack(track, civLocalStream));
 
   civPeerConnection.ontrack = (event) => {
-    let remoteAudio = document.getElementById("civRemoteAudio");
-    if (!remoteAudio) {
-      remoteAudio = document.createElement("audio");
-      remoteAudio.id = "civRemoteAudio";
-      remoteAudio.autoplay = true;
-      remoteAudio.playsInline = true;
-      remoteAudio.muted = false;
-      document.body.appendChild(remoteAudio);
+    let audio = document.getElementById("civRemoteAudio");
+    if (!audio) {
+      audio = document.createElement("audio");
+      audio.id = "civRemoteAudio";
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.muted = false;
+      document.body.appendChild(audio);
     }
     if (event.streams && event.streams[0]) {
-      remoteAudio.srcObject = event.streams[0];
+      audio.srcObject = event.streams[0];
     } else {
       const inboundStream = new MediaStream();
       inboundStream.addTrack(event.track);
-      remoteAudio.srcObject = inboundStream;
+      audio.srcObject = inboundStream;
     }
-    remoteAudio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
+    audio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
   };
 
   civPeerConnection.onicecandidate = (event) => {
@@ -888,7 +915,7 @@ async function answerIncomingCall() {
         sdp: answer
       });
     }
-    showVoiceBridgeModal("Connected to Emergency Command.", "active");
+    showCivVoiceModalUI("Connected to Emergency Command", "Audio channel connected · Encrypted", "00:00", false, "End Call");
     startCivCallTimer();
   } catch (err) {
     console.error("[WebRTC] Answer creation failed:", err);
@@ -897,9 +924,21 @@ async function answerIncomingCall() {
 }
 
 async function triggerVoiceBridge(type = "civilian_to_command") {
-  showVoiceBridgeModal("Connecting to Command...", "calling");
+  showCivVoiceModalUI("Calling Emergency Command...", "Connecting audio link to operator station...", "--:--", false, "Cancel Call");
   phoneSound.playBeep();
   civPendingIceCandidates = [];
+
+  // Pre-unlock remote audio in direct user click gesture
+  let remoteAudio = document.getElementById("civRemoteAudio");
+  if (!remoteAudio) {
+    remoteAudio = document.createElement("audio");
+    remoteAudio.id = "civRemoteAudio";
+    remoteAudio.autoplay = true;
+    remoteAudio.playsInline = true;
+    remoteAudio.muted = false;
+    document.body.appendChild(remoteAudio);
+  }
+  remoteAudio.play().catch(() => {});
 
   if (!state.incidentUuid) {
     state.incidentUuid = "INC-" + Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -1112,10 +1151,7 @@ function initCivilianSocket() {
     }
     if (!data.active) {
       phoneSound.stop();
-      endWebRtcCall();
-      const modal = document.getElementById("voiceBridgeModal");
-      if (modal) modal.remove();
-      stopCivCallTimer();
+      endCivVoiceModalUI();
     }
   });
 
@@ -1132,14 +1168,20 @@ function initCivilianSocket() {
         civPendingOffer = data;
         civPendingIceCandidates = [];
         phoneSound.playIncomingRing();
-        showVoiceBridgeModal("Emergency Operator is calling scene...", "incoming");
+        showCivVoiceModalUI(
+          "Incoming Call from Command",
+          `Emergency Operator calling scene · Incident: ${data.incident_uuid || "Live Scene"}`,
+          "Ringing...",
+          true,
+          "Decline"
+        );
 
       } else if (data.type === "answer" && data.sdp && civPeerConnection) {
         // Command answered civilian call
         phoneSound.stop();
         await civPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
         await drainCivIceCandidates();
-        showVoiceBridgeModal("Audio link active with Emergency Command.", "active");
+        showCivVoiceModalUI("Emergency Command Connected", "Audio channel connected · Encrypted", "00:00", false, "End Call");
         startCivCallTimer();
 
       } else if (data.type === "ice-candidate" && data.candidate) {
@@ -1147,10 +1189,7 @@ function initCivilianSocket() {
 
       } else if (data.type === "hangup") {
         phoneSound.stop();
-        endWebRtcCall();
-        const modal = document.getElementById("voiceBridgeModal");
-        if (modal) modal.remove();
-        stopCivCallTimer();
+        endCivVoiceModalUI();
       }
     } catch (err) {
       console.warn("[WebRTC] Signal handling error:", err);
