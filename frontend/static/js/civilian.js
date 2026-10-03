@@ -114,6 +114,10 @@ $$("[data-open-drawer]").forEach((b) => b.addEventListener("click", () => el.dra
 $$("[data-close-drawer]").forEach((b) => b.addEventListener("click", () => el.drawer.classList.remove("is-open")));
 
 $("#callResponder")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
+$("#heroCallResponder")?.addEventListener("click", () => {
+  startSession();
+  triggerVoiceBridge("civilian_to_command");
+});
 
 function onSubmit(e) {
   e.preventDefault();
