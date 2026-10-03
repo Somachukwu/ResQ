@@ -164,3 +164,14 @@ def register_socket_events(socketio):
         emit("incident:new", incident, room="dispatchers")
         emit("demo:injected", incident, to=request.sid)
         print(f"[WebSocket] Synthetic demo injected: {incident['incident_uuid']}")
+
+    @socketio.on("webrtc:signal")
+    def handle_webrtc_signal(data):
+        incident_uuid = data.get("incident_uuid")
+        if not incident_uuid:
+            emit("error", {"error": "incident_uuid required for WebRTC signaling"}, to=request.sid)
+            return
+        room = f"incident_{incident_uuid}"
+        emit("webrtc:signal", data, room=room, include_self=False)
+        emit("webrtc:signal", data, room="dispatchers", include_self=False)
+        print(f"[WebSocket] WebRTC signal relayed: {data.get('type')} from {data.get('from')} for {incident_uuid}")

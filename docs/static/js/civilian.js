@@ -114,7 +114,6 @@ $$("[data-open-drawer]").forEach((b) => b.addEventListener("click", () => el.dra
 $$("[data-close-drawer]").forEach((b) => b.addEventListener("click", () => el.drawer.classList.remove("is-open")));
 
 $("#callResponder")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
-$("#headerSpeakBtn")?.addEventListener("click", () => triggerVoiceBridge("civilian_to_command"));
 
 function onSubmit(e) {
   e.preventDefault();
@@ -591,11 +590,15 @@ function startSynchronizedEtaTicker() {
   }, 1000);
 }
 
-/* ---------------- Voice Link Call Bridge Modal ---------------- */
+/* ---------------- WebRTC Voice Call ---------------- */
+let civPeerConnection = null;
+let civLocalStream = null;
+
 async function triggerVoiceBridge(type = "civilian_to_command") {
-  showVoiceBridgeModal("Establishing direct encrypted audio channel to Command...");
+  showVoiceBridgeModal("Requesting microphone access...");
+
   if (!state.incidentUuid) {
-    // Auto-create incident at Command so voice link can bind
+    // Auto-create incident so voice link can bind
     try {
       const chatEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/chat") || "/api/civilian/chat";
       const res = await fetch(chatEndpoint, {
@@ -617,6 +620,73 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
     }
   }
 
+  try {
+    civLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    console.error("[WebRTC] Mic access denied:", err);
+    updateVoiceBridgeStatus("Microphone access denied. Please allow mic permissions.");
+    return;
+  }
+
+  updateVoiceBridgeStatus("Connecting to Command...");
+
+  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+  civPeerConnection = new RTCPeerConnection(config);
+
+  // Add local audio tracks
+  civLocalStream.getTracks().forEach(track => civPeerConnection.addTrack(track, civLocalStream));
+
+  // Play remote audio
+  civPeerConnection.ontrack = (event) => {
+    let remoteAudio = document.getElementById("civRemoteAudio");
+    if (!remoteAudio) {
+      remoteAudio = document.createElement("audio");
+      remoteAudio.id = "civRemoteAudio";
+      remoteAudio.autoplay = true;
+      document.body.appendChild(remoteAudio);
+    }
+    remoteAudio.srcObject = event.streams[0];
+    updateVoiceBridgeStatus("Connected to Emergency Command.");
+  };
+
+  // ICE candidates
+  civPeerConnection.onicecandidate = (event) => {
+    if (event.candidate && window._resqCivSocket) {
+      window._resqCivSocket.emit("webrtc:signal", {
+        incident_uuid: state.incidentUuid,
+        from: "civilian",
+        type: "ice-candidate",
+        candidate: event.candidate
+      });
+    }
+  };
+
+  civPeerConnection.onconnectionstatechange = () => {
+    if (civPeerConnection.connectionState === "connected") {
+      updateVoiceBridgeStatus("Audio link active with Emergency Command.");
+    } else if (civPeerConnection.connectionState === "failed" || civPeerConnection.connectionState === "disconnected") {
+      updateVoiceBridgeStatus("Connection lost. Attempting to reconnect...");
+    }
+  };
+
+  // Create and send offer
+  try {
+    const offer = await civPeerConnection.createOffer();
+    await civPeerConnection.setLocalDescription(offer);
+    if (window._resqCivSocket) {
+      window._resqCivSocket.emit("webrtc:signal", {
+        incident_uuid: state.incidentUuid,
+        from: "civilian",
+        type: "offer",
+        sdp: offer
+      });
+    }
+  } catch (err) {
+    console.error("[WebRTC] Offer creation failed:", err);
+    updateVoiceBridgeStatus("Call setup failed. Try again.");
+  }
+
+  // Also trigger the HTTP call-bridge so dispatcher UI shows the call banner
   if (state.incidentUuid) {
     fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
       method: "POST",
@@ -626,8 +696,66 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
   }
 }
 
+function endWebRtcCall() {
+  if (civPeerConnection) {
+    civPeerConnection.close();
+    civPeerConnection = null;
+  }
+  if (civLocalStream) {
+    civLocalStream.getTracks().forEach(t => t.stop());
+    civLocalStream = null;
+  }
+  const remoteAudio = document.getElementById("civRemoteAudio");
+  if (remoteAudio) remoteAudio.remove();
+
+  if (state.incidentUuid) {
+    fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "end" })
+    }).catch(() => {});
+    if (window._resqCivSocket) {
+      window._resqCivSocket.emit("webrtc:signal", {
+        incident_uuid: state.incidentUuid,
+        from: "civilian",
+        type: "hangup"
+      });
+    }
+  }
+}
+
+// Handle incoming WebRTC signals from Command
+function setupWebRtcSignalHandler() {
+  if (!window._resqCivSocket) return;
+  window._resqCivSocket.on("webrtc:signal", async (data) => {
+    if (data.from === "civilian") return; // ignore own signals
+    if (!civPeerConnection) return;
+
+    try {
+      if (data.type === "answer" && data.sdp) {
+        await civPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        updateVoiceBridgeStatus("Connected to Emergency Command.");
+      } else if (data.type === "ice-candidate" && data.candidate) {
+        await civPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else if (data.type === "hangup") {
+        endWebRtcCall();
+        const modal = document.getElementById("voiceBridgeModal");
+        if (modal) modal.remove();
+        if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
+      }
+    } catch (err) {
+      console.warn("[WebRTC] Signal handling error:", err);
+    }
+  });
+}
+
 let civCallTimerInterval = null;
 let civCallSeconds = 0;
+
+function updateVoiceBridgeStatus(text) {
+  const statusEl = document.getElementById("civVoiceStatus");
+  if (statusEl) statusEl.textContent = text;
+}
 
 function showVoiceBridgeModal(statusText) {
   let modal = document.getElementById("voiceBridgeModal");
@@ -655,21 +783,15 @@ function showVoiceBridgeModal(statusText) {
           <strong style="font-size:0.9rem;color:var(--text);">Audio Link Active</strong>
           <span id="civVoiceTimer" style="font-size:0.85rem;font-weight:700;color:#22c55e;font-variant-numeric:tabular-nums;">00:00</span>
         </div>
-        <span style="font-size:0.75rem;color:var(--text-2);">${statusText}</span>
+        <span id="civVoiceStatus" style="font-size:0.75rem;color:var(--text-2);">${statusText}</span>
       </div>
     </div>
     <button id="endVoiceBtn" type="button" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;flex-shrink:0;">End Call</button>
   `;
   document.getElementById("endVoiceBtn")?.addEventListener("click", () => {
     if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
+    endWebRtcCall();
     modal.remove();
-    if (state.incidentUuid) {
-      fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "end" })
-      }).catch(() => {});
-    }
   });
 }
 
@@ -751,9 +873,31 @@ function showVoiceBridgeModal(statusText) {
     if (data.active) {
       showVoiceBridgeModal(data.title || "Connected directly with Emergency Commander & Ambulance Crew.");
     } else {
+      endWebRtcCall();
       const modal = document.getElementById("voiceBridgeModal");
       if (modal) modal.remove();
       if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
+    }
+  });
+
+  // WebRTC signaling via dedicated civilian socket
+  sock.on("webrtc:signal", async (data) => {
+    if (data.from === "civilian") return; // ignore own signals
+    if (!civPeerConnection) return;
+    try {
+      if (data.type === "answer" && data.sdp) {
+        await civPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        updateVoiceBridgeStatus("Connected to Emergency Command.");
+      } else if (data.type === "ice-candidate" && data.candidate) {
+        await civPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else if (data.type === "hangup") {
+        endWebRtcCall();
+        const modal = document.getElementById("voiceBridgeModal");
+        if (modal) modal.remove();
+        if (civCallTimerInterval) { clearInterval(civCallTimerInterval); civCallTimerInterval = null; }
+      }
+    } catch (err) {
+      console.warn("[WebRTC] Signal handling error:", err);
     }
   });
 })();
