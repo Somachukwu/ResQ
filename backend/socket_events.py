@@ -168,10 +168,7 @@ def register_socket_events(socketio):
 
     @socketio.on("webrtc:signal")
     def handle_webrtc_signal(data):
-        incident_uuid = data.get("incident_uuid")
-        if not incident_uuid:
-            emit("error", {"error": "incident_uuid required for WebRTC signaling"}, to=request.sid)
-            return
+        incident_uuid = data.get("incident_uuid") or "default"
         room = f"incident_{incident_uuid}"
         emit("webrtc:signal", data, room=room, include_self=False)
         emit("webrtc:signal", data, room="dispatchers", include_self=False)

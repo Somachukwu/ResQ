@@ -104,10 +104,10 @@ class ResQSocket {
     }
 
     emit(event, data) {
-        if (this.socket && this.connected) {
+        if (this.socket) {
             this.socket.emit(event, data);
         } else {
-            console.warn(`[ResQSocket] Cannot emit [${event}], socket not connected.`);
+            console.warn(`[ResQSocket] Cannot emit [${event}], socket not initialized.`);
         }
     }
 

@@ -73,6 +73,25 @@ export function startSession(e) {
     el.field?.focus({ preventScroll: true });
   } catch (_) {}
 
+  if (!state.incidentUuid) {
+    state.incidentUuid = "INC-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+    if (window._resqCivSocket) {
+      window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
+    }
+    fetch("/api/incidents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        incident_uuid: state.incidentUuid,
+        title: "Live Bystander SOS",
+        location_name: "Enugu Scene",
+        lat: state.coords?.lat || 6.4520,
+        lng: state.coords?.lng || 7.5100,
+        casualties_count: 1
+      })
+    }).catch(() => {});
+  }
+
   say(
     "resq",
     "I am right here with you. Describe what you see, or choose one of the quick options below. Your location is being transmitted directly to the Emergency Command Center in Enugu."
@@ -699,8 +718,31 @@ const phoneSound = (() => {
 let civPeerConnection = null;
 let civLocalStream = null;
 let civPendingOffer = null;
+let civPendingIceCandidates = [];
 let civCallTimerInterval = null;
 let civCallSeconds = 0;
+
+function handleCivIceCandidate(candidate) {
+  if (civPeerConnection && civPeerConnection.remoteDescription && civPeerConnection.remoteDescription.type) {
+    civPeerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
+      console.warn("[WebRTC] addIceCandidate error:", err);
+    });
+  } else {
+    civPendingIceCandidates.push(candidate);
+  }
+}
+
+async function drainCivIceCandidates() {
+  if (!civPeerConnection || !civPeerConnection.remoteDescription) return;
+  while (civPendingIceCandidates.length > 0) {
+    const cand = civPendingIceCandidates.shift();
+    try {
+      await civPeerConnection.addIceCandidate(new RTCIceCandidate(cand));
+    } catch (err) {
+      console.warn("[WebRTC] Error adding buffered ICE candidate:", err);
+    }
+  }
+}
 
 function startCivCallTimer() {
   civCallSeconds = 0;
@@ -809,16 +851,23 @@ async function answerIncomingCall() {
       remoteAudio.id = "civRemoteAudio";
       remoteAudio.autoplay = true;
       remoteAudio.playsInline = true;
+      remoteAudio.muted = false;
       document.body.appendChild(remoteAudio);
     }
-    remoteAudio.srcObject = event.streams[0];
+    if (event.streams && event.streams[0]) {
+      remoteAudio.srcObject = event.streams[0];
+    } else {
+      const inboundStream = new MediaStream();
+      inboundStream.addTrack(event.track);
+      remoteAudio.srcObject = inboundStream;
+    }
     remoteAudio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
   };
 
   civPeerConnection.onicecandidate = (event) => {
     if (event.candidate && window._resqCivSocket) {
       window._resqCivSocket.emit("webrtc:signal", {
-        incident_uuid: state.incidentUuid || civPendingOffer.incident_uuid,
+        incident_uuid: civPendingOffer.incident_uuid || state.incidentUuid,
         from: "civilian",
         type: "ice-candidate",
         candidate: event.candidate
@@ -828,11 +877,12 @@ async function answerIncomingCall() {
 
   try {
     await civPeerConnection.setRemoteDescription(new RTCSessionDescription(civPendingOffer.sdp));
+    await drainCivIceCandidates();
     const answer = await civPeerConnection.createAnswer();
     await civPeerConnection.setLocalDescription(answer);
     if (window._resqCivSocket) {
       window._resqCivSocket.emit("webrtc:signal", {
-        incident_uuid: state.incidentUuid || civPendingOffer.incident_uuid,
+        incident_uuid: civPendingOffer.incident_uuid || state.incidentUuid,
         from: "civilian",
         type: "answer",
         sdp: answer
@@ -849,27 +899,25 @@ async function answerIncomingCall() {
 async function triggerVoiceBridge(type = "civilian_to_command") {
   showVoiceBridgeModal("Connecting to Command...", "calling");
   phoneSound.playBeep();
+  civPendingIceCandidates = [];
 
   if (!state.incidentUuid) {
-    try {
-      const chatEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/civilian/chat") || "/api/civilian/chat";
-      const res = await fetch(chatEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Incoming direct voice call from scene bystander.",
-          lat: state.coords?.lat || 6.4520,
-          lng: state.coords?.lng || 7.5100
-        })
-      });
-      const data = await res.json();
-      if (data.incident_uuid) {
-        state.incidentUuid = data.incident_uuid;
-        window._resqCivSocket?.emit("join", { room: `incident_${state.incidentUuid}` });
-      }
-    } catch (e) {
-      console.warn("Auto-provision incident error:", e);
+    state.incidentUuid = "INC-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+    if (window._resqCivSocket) {
+      window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
     }
+    fetch("/api/incidents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        incident_uuid: state.incidentUuid,
+        title: "Live Scene Bystander Call",
+        location_name: "Enugu Scene",
+        lat: state.coords?.lat || 6.4520,
+        lng: state.coords?.lng || 7.5100,
+        casualties_count: 1
+      })
+    }).catch(() => {});
   }
 
   try {
@@ -892,9 +940,16 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
       remoteAudio.id = "civRemoteAudio";
       remoteAudio.autoplay = true;
       remoteAudio.playsInline = true;
+      remoteAudio.muted = false;
       document.body.appendChild(remoteAudio);
     }
-    remoteAudio.srcObject = event.streams[0];
+    if (event.streams && event.streams[0]) {
+      remoteAudio.srcObject = event.streams[0];
+    } else {
+      const inboundStream = new MediaStream();
+      inboundStream.addTrack(event.track);
+      remoteAudio.srcObject = inboundStream;
+    }
     remoteAudio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
   };
 
@@ -955,6 +1010,7 @@ function endWebRtcCall() {
     civLocalStream = null;
   }
   civPendingOffer = null;
+  civPendingIceCandidates = [];
   const remoteAudio = document.getElementById("civRemoteAudio");
   if (remoteAudio) remoteAudio.remove();
 
@@ -975,8 +1031,12 @@ function endWebRtcCall() {
 }
 
 /* ---------------- WebSocket: Synchronous Multi-Role Integration ---------------- */
-(function initCivilianSocket() {
-  if (typeof io === "undefined") return;
+function initCivilianSocket() {
+  if (typeof io === "undefined") {
+    setTimeout(initCivilianSocket, 200);
+    return;
+  }
+  if (window._resqCivSocket) return;
   const serverUrl = window.RESQ_CONFIG?.backendUrl || undefined;
   const sock = io(serverUrl, { transports: ["websocket", "polling"], reconnection: true });
   window._resqCivSocket = sock;
@@ -1065,11 +1125,12 @@ function endWebRtcCall() {
     try {
       if (data.type === "offer" && data.sdp) {
         // Requirement 6: If command initiates call, it should pop up immediately on civilian end
-        if (data.incident_uuid && !state.incidentUuid) {
+        if (data.incident_uuid) {
           state.incidentUuid = data.incident_uuid;
           sock.emit("join", { room: `incident_${state.incidentUuid}` });
         }
         civPendingOffer = data;
+        civPendingIceCandidates = [];
         phoneSound.playIncomingRing();
         showVoiceBridgeModal("Emergency Operator is calling scene...", "incoming");
 
@@ -1077,11 +1138,12 @@ function endWebRtcCall() {
         // Command answered civilian call
         phoneSound.stop();
         await civPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        await drainCivIceCandidates();
         showVoiceBridgeModal("Audio link active with Emergency Command.", "active");
         startCivCallTimer();
 
-      } else if (data.type === "ice-candidate" && data.candidate && civPeerConnection) {
-        await civPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else if (data.type === "ice-candidate" && data.candidate) {
+        handleCivIceCandidate(data.candidate);
 
       } else if (data.type === "hangup") {
         phoneSound.stop();
@@ -1094,4 +1156,6 @@ function endWebRtcCall() {
       console.warn("[WebRTC] Signal handling error:", err);
     }
   });
-})();
+}
+
+initCivilianSocket();

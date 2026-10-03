@@ -934,8 +934,31 @@ const phoneSound = (() => {
 let cmdPeerConnection = null;
 let cmdLocalStream = null;
 let cmdPendingOffer = null;
+let cmdPendingIceCandidates = [];
 let voiceCallTimerInterval = null;
 let voiceCallSeconds = 0;
+
+function handleCmdIceCandidate(candidate) {
+  if (cmdPeerConnection && cmdPeerConnection.remoteDescription && cmdPeerConnection.remoteDescription.type) {
+    cmdPeerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
+      console.warn("[WebRTC-CMD] addIceCandidate error:", err);
+    });
+  } else {
+    cmdPendingIceCandidates.push(candidate);
+  }
+}
+
+async function drainCmdIceCandidates() {
+  if (!cmdPeerConnection || !cmdPeerConnection.remoteDescription) return;
+  while (cmdPendingIceCandidates.length > 0) {
+    const cand = cmdPendingIceCandidates.shift();
+    try {
+      await cmdPeerConnection.addIceCandidate(new RTCIceCandidate(cand));
+    } catch (err) {
+      console.warn("[WebRTC-CMD] Error adding buffered ICE candidate:", err);
+    }
+  }
+}
 
 function showVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, endLabel = "Disconnect Audio") {
   const modal = $("#voiceCallModal");
@@ -992,12 +1015,14 @@ function endDispatcherWebRtc() {
     cmdLocalStream = null;
   }
   cmdPendingOffer = null;
+  cmdPendingIceCandidates = [];
   const remoteAudio = document.getElementById("cmdRemoteAudio");
   if (remoteAudio) remoteAudio.remove();
 }
 
 async function startCommandWebRtcCall(incidentUuid) {
   endDispatcherWebRtc();
+  cmdPendingIceCandidates = [];
   try {
     cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (micErr) {
@@ -1020,9 +1045,16 @@ async function startCommandWebRtcCall(incidentUuid) {
       remoteAudio.id = "cmdRemoteAudio";
       remoteAudio.autoplay = true;
       remoteAudio.playsInline = true;
+      remoteAudio.muted = false;
       document.body.appendChild(remoteAudio);
     }
-    remoteAudio.srcObject = event.streams[0];
+    if (event.streams && event.streams[0]) {
+      remoteAudio.srcObject = event.streams[0];
+    } else {
+      const inboundStream = new MediaStream();
+      inboundStream.addTrack(event.track);
+      remoteAudio.srcObject = inboundStream;
+    }
     remoteAudio.play().catch((e) => console.warn("[WebRTC-CMD] Audio play error:", e));
   };
 
@@ -1188,16 +1220,23 @@ function wireComms() {
       cmdLocalStream.getTracks().forEach(track => cmdPeerConnection.addTrack(track, cmdLocalStream));
 
       cmdPeerConnection.ontrack = (event) => {
-        console.log("[WebRTC-CMD] Received civilian audio track:", event.streams[0]);
+        console.log("[WebRTC-CMD] Received civilian audio track:", event);
         let remoteAudio = document.getElementById("cmdRemoteAudio");
         if (!remoteAudio) {
           remoteAudio = document.createElement("audio");
           remoteAudio.id = "cmdRemoteAudio";
           remoteAudio.autoplay = true;
           remoteAudio.playsInline = true;
+          remoteAudio.muted = false;
           document.body.appendChild(remoteAudio);
         }
-        remoteAudio.srcObject = event.streams[0];
+        if (event.streams && event.streams[0]) {
+          remoteAudio.srcObject = event.streams[0];
+        } else {
+          const inboundStream = new MediaStream();
+          inboundStream.addTrack(event.track);
+          remoteAudio.srcObject = inboundStream;
+        }
         remoteAudio.play().catch(e => console.warn("[WebRTC-CMD] Audio play error:", e));
       };
 
@@ -1213,6 +1252,7 @@ function wireComms() {
       };
 
       await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(cmdPendingOffer.sdp));
+      await drainCmdIceCandidates();
       const answer = await cmdPeerConnection.createAnswer();
       await cmdPeerConnection.setLocalDescription(answer);
 
@@ -1573,6 +1613,7 @@ if (window.ResQSocket) {
         // Civilian answered Command's outgoing call
         phoneSound.stop();
         await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        await drainCmdIceCandidates();
         showVoiceModalUI(
           "Bystander on Scene (WebRTC)",
           "Audio channel connected · Encrypted",
@@ -1584,8 +1625,8 @@ if (window.ResQSocket) {
         COMMS.civilian.push({ who: "Voice System", text: "Civilian answered call. Audio connected." });
         renderComms();
 
-      } else if (data.type === "ice-candidate" && data.candidate && cmdPeerConnection) {
-        await cmdPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else if (data.type === "ice-candidate" && data.candidate) {
+        handleCmdIceCandidate(data.candidate);
 
       } else if (data.type === "hangup") {
         phoneSound.stop();
