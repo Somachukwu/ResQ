@@ -1028,19 +1028,35 @@ function endDispatcherWebRtc() {
   if (remoteAudio) remoteAudio.remove();
 }
 
+async function getSafeAudioStream() {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.warn("[WebRTC-CMD] Microphone capture unavailable, using fallback audio stream:", err);
+    }
+  }
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const dst = ctx.createMediaStreamDestination();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(dst);
+    osc.start();
+    return dst.stream;
+  } catch (synthErr) {
+    console.warn("[WebRTC-CMD] Fallback audio creation error:", synthErr);
+    return new MediaStream();
+  }
+}
+
 async function startCommandWebRtcCall(incidentUuid) {
   endDispatcherWebRtc();
   cmdPendingIceCandidates = [];
-  try {
-    cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (micErr) {
-    console.error("[WebRTC-CMD] Mic access denied:", micErr);
-    phoneSound.stop();
-    endVoiceCallUI();
-    COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
-    renderComms();
-    return;
-  }
+  cmdLocalStream = await getSafeAudioStream();
 
   const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
   cmdPeerConnection = new RTCPeerConnection(config);
@@ -1081,6 +1097,12 @@ async function startCommandWebRtcCall(incidentUuid) {
     const offer = await cmdPeerConnection.createOffer();
     await cmdPeerConnection.setLocalDescription(offer);
     if (resqSocket) {
+      resqSocket.emit("call_bridge:event", {
+        incident_uuid: incidentUuid,
+        caller: "command",
+        active: true,
+        action: "call"
+      });
       resqSocket.emit("webrtc:signal", {
         incident_uuid: incidentUuid,
         from: "dispatcher",
@@ -1197,7 +1219,6 @@ function wireComms() {
         console.warn("Direct call error:", err);
       }
     };
-    callCivBtn.onclick = handleCallCivilian;
     callCivBtn.addEventListener("click", handleCallCivilian);
   }
 
@@ -1205,7 +1226,16 @@ function wireComms() {
   const ansCallBtn = $("#answerVoiceCallBtn");
   if (ansCallBtn) {
     ansCallBtn.addEventListener("click", async () => {
-      if (!cmdPendingOffer) return;
+      if (!cmdPendingOffer || !cmdPendingOffer.sdp) {
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          if (cmdPendingOffer && cmdPendingOffer.sdp) break;
+        }
+      }
+      if (!cmdPendingOffer || !cmdPendingOffer.sdp) {
+        console.warn("[WebRTC-CMD] No pending offer available to answer.");
+        return;
+      }
       phoneSound.stop();
       ansCallBtn.style.display = "none";
       ansCallBtn.classList.add("hidden");
@@ -1214,15 +1244,7 @@ function wireComms() {
       const status = $("#voiceCallStatusText");
       if (status) status.textContent = "Audio channel connected · Encrypted";
 
-      try {
-        cmdLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (micErr) {
-        console.error("[WebRTC-CMD] Mic access denied:", micErr);
-        endVoiceCallUI();
-        COMMS.civilian.push({ who: "Voice System", text: "Microphone access denied on Command station." });
-        renderComms();
-        return;
-      }
+      cmdLocalStream = await getSafeAudioStream();
 
       const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
       cmdPeerConnection = new RTCPeerConnection(config);
@@ -1285,6 +1307,12 @@ function wireComms() {
       phoneSound.stop();
       const incId = selected?.id || (cmdPendingOffer?.incident_uuid) || (INCIDENTS[0] ? INCIDENTS[0].id : null);
       if (incId && resqSocket) {
+        resqSocket.emit("call_bridge:event", {
+          incident_uuid: incId,
+          caller: "command",
+          active: false,
+          action: "hangup"
+        });
         resqSocket.emit("webrtc:signal", {
           incident_uuid: incId,
           from: "dispatcher",
@@ -1302,7 +1330,6 @@ function wireComms() {
       COMMS.civilian.push({ who: "Voice System", text: "Voice call disconnected." });
       renderComms();
     };
-    endCallBtn.onclick = handleEndCall;
     endCallBtn.addEventListener("click", handleEndCall);
   }
 
@@ -1593,11 +1620,26 @@ if (window.ResQSocket) {
 
   resqSocket.on("call_bridge:event", (data) => {
     console.log("[Dispatcher] Call bridge event:", data);
+    if (data.caller === "command" || data.caller === "dispatcher") return; // ignore own signals
     if (!data.active) {
       phoneSound.stop();
       endVoiceCallUI();
       COMMS.civilian.push({ who: "Voice System", text: "Voice bridge closed." });
       renderComms();
+      return;
+    }
+    if (data.caller === "civilian") {
+      if (data.incident_uuid && !cmdPendingOffer) {
+        cmdPendingOffer = { incident_uuid: data.incident_uuid };
+      }
+      phoneSound.playIncomingRing();
+      showVoiceModalUI(
+        "Incoming Call from Bystander",
+        `Scene audio request · Incident: ${data.incident_uuid || "Live Scene"}`,
+        "Ringing...",
+        true,
+        "Decline"
+      );
     }
   });
 

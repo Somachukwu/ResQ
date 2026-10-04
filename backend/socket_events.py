@@ -169,8 +169,12 @@ def register_socket_events(socketio):
     @socketio.on("webrtc:signal")
     def handle_webrtc_signal(data):
         incident_uuid = data.get("incident_uuid") or "default"
-        room = f"incident_{incident_uuid}"
-        emit("webrtc:signal", data, room=room, include_self=False)
-        emit("webrtc:signal", data, room="dispatchers", include_self=False)
-        emit("webrtc:signal", data, room="civilians", include_self=False)
+        emit("webrtc:signal", data, broadcast=True, include_self=False)
         print(f"[WebSocket] WebRTC signal relayed: {data.get('type')} from {data.get('from')} for {incident_uuid}")
+
+    @socketio.on("call_bridge:event")
+    def handle_call_bridge_event(data):
+        incident_uuid = data.get("incident_uuid") or "default"
+        emit("call_bridge:event", data, broadcast=True, include_self=False)
+        print(f"[WebSocket] Call bridge event relayed: {data.get('action')} from {data.get('caller')} for {incident_uuid}")
+

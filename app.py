@@ -324,6 +324,7 @@ def call_bridge_api(incident_uuid):
     socketio.emit("call_bridge:event", payload, room="dispatchers")
     socketio.emit("call_bridge:event", payload, room="responders")
     socketio.emit("call_bridge:event", payload, room="civilians")
+    socketio.emit("call_bridge:event", payload, broadcast=True)
     return jsonify({"status": "success", "active": is_active, "incident_uuid": incident_uuid})
 
 

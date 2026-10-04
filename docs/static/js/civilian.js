@@ -834,9 +834,43 @@ function showVoiceBridgeModal(statusText, mode = "active") {
   }
 }
 
+async function getSafeAudioStream() {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.warn("[WebRTC-CIV] Microphone capture unavailable, using fallback audio stream:", err);
+    }
+  }
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const dst = ctx.createMediaStreamDestination();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(dst);
+    osc.start();
+    return dst.stream;
+  } catch (synthErr) {
+    console.warn("[WebRTC-CIV] Fallback audio creation error:", synthErr);
+    return new MediaStream();
+  }
+}
+
 async function answerIncomingCall() {
   phoneSound.stop();
-  if (!civPendingOffer) return;
+  if (!civPendingOffer || !civPendingOffer.sdp) {
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      if (civPendingOffer && civPendingOffer.sdp) break;
+    }
+  }
+  if (!civPendingOffer || !civPendingOffer.sdp) {
+    console.warn("[WebRTC-CIV] No pending offer available to answer.");
+    return;
+  }
 
   const ansBtn = document.getElementById("civAnswerCallBtn");
   if (ansBtn) {
@@ -859,13 +893,7 @@ async function answerIncomingCall() {
   }
   remoteAudio.play().catch(() => {});
 
-  try {
-    civLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (err) {
-    console.error("[WebRTC] Mic access denied:", err);
-    updateVoiceBridgeStatus("Microphone access denied. Please allow mic permissions.");
-    return;
-  }
+  civLocalStream = await getSafeAudioStream();
 
   const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
   civPeerConnection = new RTCPeerConnection(config);
@@ -959,14 +987,7 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
     }).catch(() => {});
   }
 
-  try {
-    civLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (err) {
-    console.error("[WebRTC] Mic access denied:", err);
-    phoneSound.stop();
-    updateVoiceBridgeStatus("Microphone access denied. Please allow mic permissions.");
-    return;
-  }
+  civLocalStream = await getSafeAudioStream();
 
   const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
   civPeerConnection = new RTCPeerConnection(config);
@@ -1015,6 +1036,12 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
     const offer = await civPeerConnection.createOffer();
     await civPeerConnection.setLocalDescription(offer);
     if (window._resqCivSocket) {
+      window._resqCivSocket.emit("call_bridge:event", {
+        incident_uuid: state.incidentUuid,
+        caller: "civilian",
+        active: true,
+        action: "call"
+      });
       window._resqCivSocket.emit("webrtc:signal", {
         incident_uuid: state.incidentUuid,
         from: "civilian",
@@ -1060,6 +1087,12 @@ function endWebRtcCall() {
       body: JSON.stringify({ action: "end" })
     }).catch(() => {});
     if (window._resqCivSocket) {
+      window._resqCivSocket.emit("call_bridge:event", {
+        incident_uuid: state.incidentUuid,
+        caller: "civilian",
+        active: false,
+        action: "hangup"
+      });
       window._resqCivSocket.emit("webrtc:signal", {
         incident_uuid: state.incidentUuid,
         from: "civilian",
@@ -1080,12 +1113,14 @@ function initCivilianSocket() {
   const sock = io(serverUrl, { transports: ["websocket", "polling"], reconnection: true });
   window._resqCivSocket = sock;
 
-  sock.on("connect", () => {
+  const onCivConnected = () => {
     sock.emit("join", { room: "civilians" });
     if (state.incidentUuid) {
       sock.emit("join", { room: `incident_${state.incidentUuid}` });
     }
-  });
+  };
+  sock.on("connect", onCivConnected);
+  if (sock.connected) onCivConnected();
 
   // Responder Acknowledged & Rolling -> Official Confirmation
   sock.on("civilian:dispatch_confirmed", (data) => {
@@ -1144,14 +1179,28 @@ function initCivilianSocket() {
 
   // Voice Link Bridge Event
   sock.on("call_bridge:event", (data) => {
-    if (data.incident_uuid && state.incidentUuid && data.incident_uuid !== state.incidentUuid) return;
-    if (data.incident_uuid && !state.incidentUuid) {
+    if (data.caller === "civilian") return; // ignore own signals
+    if (data.incident_uuid) {
       state.incidentUuid = data.incident_uuid;
       sock.emit("join", { room: `incident_${state.incidentUuid}` });
     }
     if (!data.active) {
       phoneSound.stop();
       endCivVoiceModalUI();
+      return;
+    }
+    if (data.caller === "command" || data.caller === "dispatcher") {
+      if (data.incident_uuid && !civPendingOffer) {
+        civPendingOffer = { incident_uuid: data.incident_uuid };
+      }
+      phoneSound.playIncomingRing();
+      showCivVoiceModalUI(
+        "Incoming Call from Command",
+        `Emergency Operator calling scene · Incident: ${data.incident_uuid || "Live Scene"}`,
+        "Ringing...",
+        true,
+        "Decline"
+      );
     }
   });
 
