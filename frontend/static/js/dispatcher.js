@@ -937,14 +937,29 @@ let cmdPendingOffer = null;
 let cmdPendingIceCandidates = [];
 let voiceCallTimerInterval = null;
 let voiceCallSeconds = 0;
+let lastCmdAnswerTimestamp = 0;
+let _fallbackCmdAudioCtx = null;
 
-function handleCmdIceCandidate(candidate) {
+const RESQ_RTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" }
+  ]
+};
+
+async function handleCmdIceCandidate(candidate) {
+  if (!candidate) return;
+  const candInit = (candidate && typeof candidate === "object") ? candidate : null;
+  if (!candInit) return;
   if (cmdPeerConnection && cmdPeerConnection.remoteDescription && cmdPeerConnection.remoteDescription.type) {
-    cmdPeerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
+    try {
+      await cmdPeerConnection.addIceCandidate(candInit);
+    } catch (err) {
       console.warn("[WebRTC-CMD] addIceCandidate error:", err);
-    });
+    }
   } else {
-    cmdPendingIceCandidates.push(candidate);
+    cmdPendingIceCandidates.push(candInit);
   }
 }
 
@@ -952,10 +967,12 @@ async function drainCmdIceCandidates() {
   if (!cmdPeerConnection || !cmdPeerConnection.remoteDescription) return;
   while (cmdPendingIceCandidates.length > 0) {
     const cand = cmdPendingIceCandidates.shift();
-    try {
-      await cmdPeerConnection.addIceCandidate(new RTCIceCandidate(cand));
-    } catch (err) {
-      console.warn("[WebRTC-CMD] Error adding buffered ICE candidate:", err);
+    if (cand) {
+      try {
+        await cmdPeerConnection.addIceCandidate(cand);
+      } catch (err) {
+        console.warn("[WebRTC-CMD] Error adding buffered ICE candidate:", err);
+      }
     }
   }
 }
@@ -1038,10 +1055,11 @@ async function getSafeAudioStream() {
   }
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const dst = ctx.createMediaStreamDestination();
-    const gain = ctx.createGain();
+    if (!_fallbackCmdAudioCtx) _fallbackCmdAudioCtx = new AudioCtx();
+    if (_fallbackCmdAudioCtx.state === "suspended") _fallbackCmdAudioCtx.resume().catch(() => {});
+    const osc = _fallbackCmdAudioCtx.createOscillator();
+    const dst = _fallbackCmdAudioCtx.createMediaStreamDestination();
+    const gain = _fallbackCmdAudioCtx.createGain();
     gain.gain.value = 0;
     osc.connect(gain);
     gain.connect(dst);
@@ -1058,8 +1076,7 @@ async function startCommandWebRtcCall(incidentUuid) {
   cmdPendingIceCandidates = [];
   cmdLocalStream = await getSafeAudioStream();
 
-  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-  cmdPeerConnection = new RTCPeerConnection(config);
+  cmdPeerConnection = new RTCPeerConnection(RESQ_RTC_CONFIG);
   cmdLocalStream.getTracks().forEach((track) => cmdPeerConnection.addTrack(track, cmdLocalStream));
 
   cmdPeerConnection.ontrack = (event) => {
@@ -1084,11 +1101,12 @@ async function startCommandWebRtcCall(incidentUuid) {
 
   cmdPeerConnection.onicecandidate = (event) => {
     if (event.candidate && resqSocket) {
+      const candData = event.candidate.toJSON ? event.candidate.toJSON() : event.candidate;
       resqSocket.emit("webrtc:signal", {
         incident_uuid: incidentUuid,
         from: "dispatcher",
         type: "ice-candidate",
-        candidate: event.candidate
+        candidate: candData
       });
     }
   };
@@ -1237,17 +1255,22 @@ function wireComms() {
         return;
       }
       phoneSound.stop();
+      lastCmdAnswerTimestamp = Date.now();
       ansCallBtn.style.display = "none";
       ansCallBtn.classList.add("hidden");
       const endLabelEl = $("#endVoiceCallLabel");
       if (endLabelEl) endLabelEl.textContent = "Disconnect Audio";
+      const endCallBtnEl = $("#endVoiceCallBtn");
+      if (endCallBtnEl) {
+        endCallBtnEl.style.pointerEvents = "none";
+        setTimeout(() => { if (endCallBtnEl) endCallBtnEl.style.pointerEvents = "auto"; }, 1000);
+      }
       const status = $("#voiceCallStatusText");
       if (status) status.textContent = "Audio channel connected · Encrypted";
 
       cmdLocalStream = await getSafeAudioStream();
 
-      const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-      cmdPeerConnection = new RTCPeerConnection(config);
+      cmdPeerConnection = new RTCPeerConnection(RESQ_RTC_CONFIG);
       cmdLocalStream.getTracks().forEach(track => cmdPeerConnection.addTrack(track, cmdLocalStream));
 
       cmdPeerConnection.ontrack = (event) => {
@@ -1273,11 +1296,12 @@ function wireComms() {
 
       cmdPeerConnection.onicecandidate = (event) => {
         if (event.candidate && resqSocket) {
+          const candData = event.candidate.toJSON ? event.candidate.toJSON() : event.candidate;
           resqSocket.emit("webrtc:signal", {
             incident_uuid: cmdPendingOffer.incident_uuid,
             from: "dispatcher",
             type: "ice-candidate",
-            candidate: event.candidate
+            candidate: candData
           });
         }
       };
@@ -1304,6 +1328,10 @@ function wireComms() {
   const endCallBtn = $("#endVoiceCallBtn");
   if (endCallBtn) {
     const handleEndCall = async () => {
+      if (Date.now() - lastCmdAnswerTimestamp < 1200) {
+        console.log("[WebRTC-CMD] Ignored ghost click on End Call immediately after answering.");
+        return;
+      }
       phoneSound.stop();
       const incId = selected?.id || (cmdPendingOffer?.incident_uuid) || (INCIDENTS[0] ? INCIDENTS[0].id : null);
       if (incId && resqSocket) {
@@ -1622,6 +1650,10 @@ if (window.ResQSocket) {
     console.log("[Dispatcher] Call bridge event:", data);
     if (data.caller === "command" || data.caller === "dispatcher") return; // ignore own signals
     if (!data.active) {
+      if (Date.now() - lastCmdAnswerTimestamp < 1200) {
+        console.log("[WebRTC-CMD] Ignored inactive event arriving right after call answered.");
+        return;
+      }
       phoneSound.stop();
       endVoiceCallUI();
       COMMS.civilian.push({ who: "Voice System", text: "Voice bridge closed." });
@@ -1648,6 +1680,10 @@ if (window.ResQSocket) {
 
     try {
       if (data.type === "offer" && data.sdp) {
+        if (cmdPeerConnection && cmdPeerConnection.connectionState === "connected") {
+          console.log("[WebRTC-CMD] Already in connected call, ignoring redundant offer.");
+          return;
+        }
         // Requirement 3: Popping up as a call on command end with ringtone
         console.log("[WebRTC-CMD] Incoming call offer from civilian:", data);
         cmdPendingOffer = data;
@@ -1661,6 +1697,10 @@ if (window.ResQSocket) {
         phoneSound.playIncomingRing();
 
       } else if (data.type === "answer" && data.sdp && cmdPeerConnection) {
+        if (cmdPeerConnection.signalingState !== "have-local-offer") {
+          console.warn("[WebRTC-CMD] Received answer but signalingState is:", cmdPeerConnection.signalingState);
+          return;
+        }
         // Civilian answered Command's outgoing call
         phoneSound.stop();
         await cmdPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -1680,6 +1720,10 @@ if (window.ResQSocket) {
         handleCmdIceCandidate(data.candidate);
 
       } else if (data.type === "hangup") {
+        if (Date.now() - lastCmdAnswerTimestamp < 1200) {
+          console.log("[WebRTC-CMD] Ignored hangup arriving right after call answered.");
+          return;
+        }
         phoneSound.stop();
         endDispatcherWebRtc();
         endVoiceCallUI();

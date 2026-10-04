@@ -721,14 +721,29 @@ let civPendingOffer = null;
 let civPendingIceCandidates = [];
 let civCallTimerInterval = null;
 let civCallSeconds = 0;
+let lastCivAnswerTimestamp = 0;
+let _fallbackCivAudioCtx = null;
 
-function handleCivIceCandidate(candidate) {
+const RESQ_RTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" }
+  ]
+};
+
+async function handleCivIceCandidate(candidate) {
+  if (!candidate) return;
+  const candInit = (candidate && typeof candidate === "object") ? candidate : null;
+  if (!candInit) return;
   if (civPeerConnection && civPeerConnection.remoteDescription && civPeerConnection.remoteDescription.type) {
-    civPeerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
+    try {
+      await civPeerConnection.addIceCandidate(candInit);
+    } catch (err) {
       console.warn("[WebRTC] addIceCandidate error:", err);
-    });
+    }
   } else {
-    civPendingIceCandidates.push(candidate);
+    civPendingIceCandidates.push(candInit);
   }
 }
 
@@ -736,10 +751,12 @@ async function drainCivIceCandidates() {
   if (!civPeerConnection || !civPeerConnection.remoteDescription) return;
   while (civPendingIceCandidates.length > 0) {
     const cand = civPendingIceCandidates.shift();
-    try {
-      await civPeerConnection.addIceCandidate(new RTCIceCandidate(cand));
-    } catch (err) {
-      console.warn("[WebRTC] Error adding buffered ICE candidate:", err);
+    if (cand) {
+      try {
+        await civPeerConnection.addIceCandidate(cand);
+      } catch (err) {
+        console.warn("[WebRTC] Error adding buffered ICE candidate:", err);
+      }
     }
   }
 }
@@ -780,6 +797,11 @@ function initCivVoiceModalListeners() {
   if (endBtn && !endBtn._resqBound) {
     endBtn._resqBound = true;
     endBtn.addEventListener("click", () => {
+      // Prevent ghost click from layout shift immediately after answering
+      if (Date.now() - lastCivAnswerTimestamp < 1200) {
+        console.log("[WebRTC-CIV] Ignored ghost click on End Call immediately after answering.");
+        return;
+      }
       phoneSound.stop();
       endCivVoiceModalUI();
     });
@@ -844,10 +866,11 @@ async function getSafeAudioStream() {
   }
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const dst = ctx.createMediaStreamDestination();
-    const gain = ctx.createGain();
+    if (!_fallbackCivAudioCtx) _fallbackCivAudioCtx = new AudioCtx();
+    if (_fallbackCivAudioCtx.state === "suspended") _fallbackCivAudioCtx.resume().catch(() => {});
+    const osc = _fallbackCivAudioCtx.createOscillator();
+    const dst = _fallbackCivAudioCtx.createMediaStreamDestination();
+    const gain = _fallbackCivAudioCtx.createGain();
     gain.gain.value = 0;
     osc.connect(gain);
     gain.connect(dst);
@@ -861,6 +884,7 @@ async function getSafeAudioStream() {
 
 async function answerIncomingCall() {
   phoneSound.stop();
+  lastCivAnswerTimestamp = Date.now();
   if (!civPendingOffer || !civPendingOffer.sdp) {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 100));
@@ -879,6 +903,11 @@ async function answerIncomingCall() {
   }
   const endLabel = document.getElementById("civEndCallLabel");
   if (endLabel) endLabel.textContent = "End Call";
+  const endBtn = document.getElementById("civEndCallBtn");
+  if (endBtn) {
+    endBtn.style.pointerEvents = "none";
+    setTimeout(() => { if (endBtn) endBtn.style.pointerEvents = "auto"; }, 1000);
+  }
   updateVoiceBridgeStatus("Audio channel connected · Encrypted");
 
   // Pre-unlock remote audio in direct user click gesture
@@ -895,8 +924,7 @@ async function answerIncomingCall() {
 
   civLocalStream = await getSafeAudioStream();
 
-  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-  civPeerConnection = new RTCPeerConnection(config);
+  civPeerConnection = new RTCPeerConnection(RESQ_RTC_CONFIG);
   civLocalStream.getTracks().forEach((track) => civPeerConnection.addTrack(track, civLocalStream));
 
   civPeerConnection.ontrack = (event) => {
@@ -921,11 +949,12 @@ async function answerIncomingCall() {
 
   civPeerConnection.onicecandidate = (event) => {
     if (event.candidate && window._resqCivSocket) {
+      const candData = event.candidate.toJSON ? event.candidate.toJSON() : event.candidate;
       window._resqCivSocket.emit("webrtc:signal", {
         incident_uuid: civPendingOffer.incident_uuid || state.incidentUuid,
         from: "civilian",
         type: "ice-candidate",
-        candidate: event.candidate
+        candidate: candData
       });
     }
   };
@@ -989,8 +1018,7 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
 
   civLocalStream = await getSafeAudioStream();
 
-  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-  civPeerConnection = new RTCPeerConnection(config);
+  civPeerConnection = new RTCPeerConnection(RESQ_RTC_CONFIG);
   civLocalStream.getTracks().forEach((track) => civPeerConnection.addTrack(track, civLocalStream));
 
   civPeerConnection.ontrack = (event) => {
@@ -1015,11 +1043,12 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
 
   civPeerConnection.onicecandidate = (event) => {
     if (event.candidate && window._resqCivSocket) {
+      const candData = event.candidate.toJSON ? event.candidate.toJSON() : event.candidate;
       window._resqCivSocket.emit("webrtc:signal", {
         incident_uuid: state.incidentUuid,
         from: "civilian",
         type: "ice-candidate",
-        candidate: event.candidate
+        candidate: candData
       });
     }
   };
@@ -1027,8 +1056,8 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
   civPeerConnection.onconnectionstatechange = () => {
     if (civPeerConnection.connectionState === "connected") {
       updateVoiceBridgeStatus("Audio link active with Emergency Command.");
-    } else if (civPeerConnection.connectionState === "failed" || civPeerConnection.connectionState === "disconnected") {
-      updateVoiceBridgeStatus("Connection lost. Reconnecting...");
+    } else if (civPeerConnection.connectionState === "failed") {
+      updateVoiceBridgeStatus("Connection interrupted. Reconnecting audio...");
     }
   };
 
@@ -1185,6 +1214,10 @@ function initCivilianSocket() {
       sock.emit("join", { room: `incident_${state.incidentUuid}` });
     }
     if (!data.active) {
+      if (Date.now() - lastCivAnswerTimestamp < 1200) {
+        console.log("[WebRTC-CIV] Ignored inactive event arriving right after call answered.");
+        return;
+      }
       phoneSound.stop();
       endCivVoiceModalUI();
       return;
@@ -1209,6 +1242,10 @@ function initCivilianSocket() {
     if (data.from === "civilian") return; // ignore own signals
     try {
       if (data.type === "offer" && data.sdp) {
+        if (civPeerConnection && civPeerConnection.connectionState === "connected") {
+          console.log("[WebRTC] Already in connected call, ignoring redundant offer.");
+          return;
+        }
         // Requirement 6: If command initiates call, it should pop up immediately on civilian end
         if (data.incident_uuid) {
           state.incidentUuid = data.incident_uuid;
@@ -1226,6 +1263,10 @@ function initCivilianSocket() {
         );
 
       } else if (data.type === "answer" && data.sdp && civPeerConnection) {
+        if (civPeerConnection.signalingState !== "have-local-offer") {
+          console.warn("[WebRTC] Received answer but signalingState is:", civPeerConnection.signalingState);
+          return;
+        }
         // Command answered civilian call
         phoneSound.stop();
         await civPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -1237,6 +1278,10 @@ function initCivilianSocket() {
         handleCivIceCandidate(data.candidate);
 
       } else if (data.type === "hangup") {
+        if (Date.now() - lastCivAnswerTimestamp < 1200) {
+          console.log("[WebRTC-CIV] Ignored hangup arriving right after call answered.");
+          return;
+        }
         phoneSound.stop();
         endCivVoiceModalUI();
       }
