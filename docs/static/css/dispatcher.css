@@ -1203,7 +1203,6 @@ body.dispatcher {
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
-  container-type: inline-size;
 }
 .console-section:first-child { padding-top: 0; border-top: 0; }
 .console-section__head {
@@ -1343,38 +1342,12 @@ body.dispatcher {
   transition: background-color var(--dur) var(--ease), transform 140ms var(--ease);
 }
 .btn--dispatch-action.is-dispatched { background: var(--triage-green); }
-.comms-header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  flex-wrap: nowrap;
-}
-
-.comms-channel-group {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.comms-action-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
-
 .channel-pill {
   cursor: pointer;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  padding: 3px 8px;
+  padding: 3px 10px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--text-3);
@@ -1382,11 +1355,7 @@ body.dispatcher {
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  white-space: nowrap;
-  min-width: 0;
-  flex-shrink: 1;
+  gap: 4px;
 }
 .channel-pill:hover {
   color: var(--text);
@@ -1398,100 +1367,6 @@ body.dispatcher {
   border-color: var(--teal);
   font-weight: 600;
   box-shadow: 0 0 10px rgba(13, 110, 110, 0.45);
-}
-
-.channel-pill__label {
-  display: inline-block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.channel-pill__sub {
-  display: inline;
-  white-space: nowrap;
-}
-
-.call-bystander-btn {
-  font-size: 11px;
-  color: #22c55e;
-  padding: 3px 8px;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 6px;
-  gap: 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  min-width: 0;
-  flex-shrink: 0;
-  background: rgba(34, 197, 94, 0.08);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.call-bystander-btn:hover {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.6);
-  color: #4ade80;
-}
-.call-bystander-btn svg {
-  flex-shrink: 0;
-}
-.call-btn-text {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-}
-.call-btn-label {
-  display: inline;
-}
-.call-btn-sub {
-  display: inline;
-  white-space: nowrap;
-}
-
-/* Progressive shrinking rules for comms header actions */
-@container (max-width: 340px) {
-  .comms-header-actions {
-    gap: 4px;
-  }
-  .comms-channel-group {
-    gap: 4px;
-  }
-  .channel-pill__sub {
-    display: none;
-  }
-  .call-btn-sub {
-    display: none;
-  }
-  .channel-pill {
-    padding: 3px 6px;
-    font-size: 10.5px;
-  }
-  .call-bystander-btn {
-    padding: 3px 6px;
-    font-size: 10.5px;
-    gap: 3px;
-  }
-}
-
-@container (max-width: 275px) {
-  .comms-header-actions {
-    gap: 3px;
-  }
-  .comms-channel-group {
-    gap: 3px;
-  }
-  .channel-pill {
-    padding: 2px 5px;
-    font-size: 10px;
-    letter-spacing: 0;
-  }
-  .call-bystander-btn {
-    padding: 3px 5px;
-  }
-  .call-btn-text {
-    display: none;
-  }
 }
 
 /* Comms console */

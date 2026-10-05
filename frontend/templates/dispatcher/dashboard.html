@@ -340,20 +340,16 @@
             </div>
 
                         <!-- Live Communications Timeline (Unified) -->
-            <div class="console-section comms-section" style="flex:1;display:flex;flex-direction:column;min-height:240px">
-              <div class="console-section__head comms-header-actions">
-                <div class="comms-channel-group">
-                  <button class="channel-pill is-active" id="channelCivBtn" type="button" title="Civilian Network">
-                    <span class="channel-pill__label">Civilian</span><span class="channel-pill__sub"> Net</span>
-                  </button>
-                  <button class="channel-pill" id="channelRespBtn" type="button" title="Responder Network">
-                    <span class="channel-pill__label">Responder</span><span class="channel-pill__sub"> Net</span>
-                  </button>
+            <div class="console-section" style="flex:1;display:flex;flex-direction:column;min-height:240px">
+              <div class="console-section__head" style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button class="channel-pill is-active" id="channelCivBtn" type="button">Civilian Net</button>
+                  <button class="channel-pill" id="channelRespBtn" type="button">Responder Net</button>
                 </div>
-                <div class="comms-action-group">
-                  <button class="btn btn--quiet btn--compact call-bystander-btn" id="callCivilianBtn" type="button" title="Call bystander directly">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span class="call-btn-text"><span class="call-btn-label">Call</span><span class="call-btn-sub"> Bystander</span></span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button class="btn btn--quiet btn--compact" id="callCivilianBtn" type="button" title="Call bystander directly" style="font-size:11px;color:#22c55e;padding:2px 8px;border:1px solid rgba(34,197,94,0.3);border-radius:6px;gap:4px;display:inline-flex;align-items:center;">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <span>Call Bystander</span>
                   </button>
                 </div>
               </div>
