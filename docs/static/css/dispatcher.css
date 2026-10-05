@@ -1344,10 +1344,10 @@ body.dispatcher {
 .btn--dispatch-action.is-dispatched { background: var(--triage-green); }
 .channel-pill {
   cursor: pointer;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  padding: 3px 10px;
+  letter-spacing: 0.01em;
+  padding: 2px 7px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--text-3);
@@ -1355,7 +1355,8 @@ body.dispatcher {
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
 }
 .channel-pill:hover {
   color: var(--text);
@@ -1366,7 +1367,7 @@ body.dispatcher {
   color: #fff;
   border-color: var(--teal);
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(13, 110, 110, 0.45);
+  box-shadow: 0 0 8px rgba(13, 110, 110, 0.45);
 }
 
 /* Comms console */
