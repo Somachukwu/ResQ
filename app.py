@@ -25,7 +25,7 @@ from backend.database import (
     add_incident_update,
     add_scene_hazard
 )
-from backend.database import assign_responder_to_incident, update_responder_telemetry, USING_MYSQL, get_db_connection
+from backend.database import assign_responder_to_incident, update_responder_telemetry, update_responder_status, USING_MYSQL, get_db_connection
 from backend.security import require_role, is_rate_limited, has_operator_token
 import uuid
 import base64
@@ -414,15 +414,22 @@ def assign_responder_api():
     )
 
     # Broadcast to dispatchers, responders, and civilian room
+    eta_mins = 8
+    eta_secs = eta_mins * 60
     payload = {
         "incident_uuid": incident_uuid,
         "unit_code": unit_code,
         "responder_name": responder["name"],
         "status": "dispatched",
+        "eta_minutes": eta_mins,
+        "eta_seconds": eta_secs,
         "timestamp": updated_inc["updated_at"]
     }
     socketio.emit("responder:assigned", payload, room="dispatchers")
     socketio.emit("responder:assigned", payload, room="responders")
+    socketio.emit("responder:assigned", payload, room=f"incident_{incident_uuid}")
+    socketio.emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
+    socketio.emit("civilian:dispatch_confirmed", payload, room="civilians")
     socketio.emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
 
     return jsonify({
@@ -468,6 +475,30 @@ def responder_telemetry_beacon_api():
     socketio.emit("telemetry:update", beacon_payload, room="dispatchers")
     socketio.emit("responder:beacon", beacon_payload, room="responders")
 
+    # If this responder is assigned to an active incident, calculate dynamic ETA and broadcast to civilian
+    resp_obj = get_responder_by_code(unit_code)
+    assigned_inc_id = resp_obj.get("assigned_incident_id") if resp_obj else None
+    if assigned_inc_id:
+        inc = get_incident_by_uuid(assigned_inc_id)
+        if inc and inc.get("lat") and inc.get("lng") and inc.get("status") not in ("resolved", "cancelled"):
+            import math
+            R = 6371.0
+            dlat = math.radians(float(inc["lat"]) - float(lat))
+            dlng = math.radians(float(inc["lng"]) - float(lng))
+            a = math.sin(dlat / 2)**2 + math.cos(math.radians(float(lat))) * math.cos(math.radians(float(inc["lat"]))) * math.sin(dlng / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            dist_km = R * c
+            eff_speed = max(30.0, float(speed_kmh))
+            eta_seconds = max(15, int((dist_km / eff_speed) * 3600))
+            eta_payload = {
+                "incident_uuid": assigned_inc_id,
+                "unit_code": unit_code,
+                "eta_seconds": eta_seconds,
+                "eta_minutes": max(1, round(eta_seconds / 60))
+            }
+            socketio.emit("civilian:eta_update", eta_payload, room=f"incident_{assigned_inc_id}")
+            socketio.emit("civilian:eta_update", eta_payload, room="civilians")
+
     return jsonify({"status": "beacon_recorded", "data": beacon_payload})
 
 
@@ -498,10 +529,51 @@ def acknowledge_brief_api(incident_uuid):
     if not unit_code or incident.get("assigned_responder_id") != unit_code:
         return jsonify({"error": "This unit is not assigned to the incident"}), 403
     add_incident_update(incident_uuid, "responder", f"Unit {unit_code} acknowledged the mission brief.", "acknowledgement")
-    payload = {"incident_uuid": incident_uuid, "unit_code": unit_code, "status": "acknowledged"}
+    update_responder_status(unit_code, "enroute", incident_uuid)
+    payload = {
+        "incident_uuid": incident_uuid,
+        "unit_code": unit_code,
+        "status": "acknowledged",
+        "eta_minutes": 8,
+        "eta_seconds": 480
+    }
     socketio.emit("responder:acknowledged", payload, room="dispatchers")
     socketio.emit("responder:acknowledged", payload, room=f"incident_{incident_uuid}")
+    socketio.emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
+    socketio.emit("civilian:dispatch_confirmed", payload, room="civilians")
     return jsonify({"status": "acknowledged", "data": payload})
+
+
+@app.route("/api/responder/status", methods=["POST"])
+@require_role("responder")
+def update_responder_status_api():
+    """Updates operational stage for a responder (e.g. enroute, scene, hospital, available) and broadcasts live."""
+    data = json_object()
+    unit_code = data.get("unit_code")
+    status = (data.get("status") or data.get("stage") or "").strip().lower()
+    incident_uuid = data.get("incident_uuid")
+
+    if not unit_code or not status:
+        return jsonify({"error": "unit_code and status required"}), 400
+
+    update_responder_status(unit_code, status, incident_uuid)
+
+    payload = {
+        "unit_code": unit_code,
+        "status": status,
+        "incident_uuid": incident_uuid,
+        "timestamp": time.time()
+    }
+    socketio.emit("responder:status_update", payload, room="dispatchers")
+    socketio.emit("responder:status_update", payload, room="responders")
+
+    if status in ("scene", "on_scene"):
+        socketio.emit("responder:on_scene", payload, room="dispatchers")
+        if incident_uuid:
+            socketio.emit("responder:on_scene", payload, room=f"incident_{incident_uuid}")
+        socketio.emit("responder:on_scene", payload, room="civilians")
+
+    return jsonify({"status": "success", "data": payload})
 
 
 @app.route("/api/weather", methods=["GET"])

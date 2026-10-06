@@ -1151,9 +1151,10 @@ function initCivilianSocket() {
   sock.on("connect", onCivConnected);
   if (sock.connected) onCivConnected();
 
-  // Responder Acknowledged & Rolling -> Official Confirmation
-  sock.on("civilian:dispatch_confirmed", (data) => {
-    if (data.incident_uuid && data.incident_uuid !== state.incidentUuid) return;
+  // Responder Dispatched or Acknowledged -> Official Confirmation
+  const onDispatchConfirmed = (data) => {
+    if (data.incident_uuid && state.incidentUuid && data.incident_uuid !== state.incidentUuid) return;
+    if (state.dispatched && data.status !== "acknowledged") return;
     state.dispatched = true;
     const reassureTitle = document.getElementById("reassureTitle");
     const reassureBody = document.getElementById("reassureBody");
@@ -1170,7 +1171,10 @@ function initCivilianSocket() {
     const mins = data.eta_minutes || Math.round(etaSec / 60);
     say("dispatch", `Unit ${unit} has confirmed dispatch and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
     if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
-  });
+  };
+  sock.on("civilian:dispatch_confirmed", onDispatchConfirmed);
+  sock.on("responder:assigned", onDispatchConfirmed);
+  sock.on("responder:acknowledged", onDispatchConfirmed);
 
   // Dynamic ETA update as ambulance moves
   sock.on("civilian:eta_update", (data) => {

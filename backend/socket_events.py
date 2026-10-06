@@ -9,7 +9,8 @@ from .database import (
     get_incident_updates,
     get_scene_hazards,
     update_responder_telemetry,
-    assign_responder_to_incident
+    assign_responder_to_incident,
+    update_responder_status
 )
 from .synthetic_injector import inject_expressway_crash, inject_urban_flood
 from .security import AUTH_REQUIRED, role_from_socket_auth
@@ -115,12 +116,40 @@ def register_socket_events(socketio):
             payload = {
                 "incident_uuid": incident_uuid,
                 "unit_code": unit_code,
-                "status": "dispatched"
+                "status": "dispatched",
+                "eta_minutes": 8,
+                "eta_seconds": 480
             }
             emit("responder:assigned", payload, room="dispatchers")
             emit("responder:assigned", payload, room=f"incident_{incident_uuid}")
+            emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
+            emit("civilian:dispatch_confirmed", payload, room="civilians")
             emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
             print(f"[WebSocket] Assigned {unit_code} to {incident_uuid}")
+
+    @socketio.on("responder:status")
+    def handle_responder_status(data):
+        """Responder transitions stage (e.g. enroute, on_scene, transport, complete)"""
+        if connection_roles.get(request.sid) not in ("responder", "development"):
+            emit("error", {"error": "Responder role required"}, to=request.sid)
+            return
+        unit_code = data.get("unit_code")
+        status = (data.get("status") or data.get("stage") or "").strip().lower()
+        incident_uuid = data.get("incident_uuid")
+        if unit_code and status:
+            update_responder_status(unit_code, status, incident_uuid)
+            payload = {
+                "unit_code": unit_code,
+                "status": status,
+                "incident_uuid": incident_uuid
+            }
+            emit("responder:status_update", payload, room="dispatchers")
+            emit("responder:status_update", payload, room="responders")
+            if status in ("scene", "on_scene"):
+                emit("responder:on_scene", payload, room="dispatchers")
+                if incident_uuid:
+                    emit("responder:on_scene", payload, room=f"incident_{incident_uuid}")
+                emit("responder:on_scene", payload, room="civilians")
 
     @socketio.on("responder:telemetry")
     def handle_responder_telemetry(data):

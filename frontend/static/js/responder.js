@@ -453,9 +453,25 @@ $$(".stage-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     $$(".stage-btn").forEach((b) => b.classList.remove("is-active"));
     btn.classList.add("is-active");
-    logLine(`Status transitioned: ${btn.dataset.stage.toUpperCase()}`, "Dispatch notified");
+    const stage = btn.dataset.stage;
+    logLine(`Status transitioned: ${stage.toUpperCase()}`, "Dispatch notified");
     radioElapsed = 0;
     if (navigator.vibrate) navigator.vibrate(20);
+
+    const payload = {
+      unit_code: assignedUnitCode,
+      status: stage,
+      stage: stage,
+      incident_uuid: activeIncidentUuid
+    };
+    if (resqSocket) {
+      resqSocket.emit("responder:status", payload);
+    }
+    fetch("/api/responder/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
   });
 });
 
