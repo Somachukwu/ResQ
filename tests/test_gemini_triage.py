@@ -192,6 +192,15 @@ class TestGeminiTriage(unittest.TestCase):
         self.assertIn("red_flags", data)
         self.assertTrue(len(data["assessment_questions"]) > 0)
 
+    def test_demographic_and_injury_location_questioning(self):
+        """Verifies triage parser generates questions inquiring about victim gender and injury location."""
+        res = _fallback_heuristic_parser("Car crash occurred here, people are injured and need an ambulance immediately.")
+        self.assertGreater(len(res["assessment_questions"]), 0)
+        q_text = res["assessment_questions"][0]["question"].lower()
+        self.assertTrue("male" in q_text or "injury" in q_text or "location" in q_text or "where" in q_text)
+        opts = [o.lower() for o in res["assessment_questions"][0]["options"]]
+        self.assertTrue(any("male" in o or "female" in o for o in opts))
+
 
 if __name__ == "__main__":
     unittest.main()

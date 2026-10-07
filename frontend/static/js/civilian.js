@@ -275,7 +275,21 @@ function wordToNum(w) {
 }
 
 /* ---------------- rendering ---------------- */
+const _recentSayMessages = [];
+
 function say(who, text, extraNode) {
+  const now = Date.now();
+  const cleanText = (text || "").trim();
+  if (cleanText) {
+    const isDup = _recentSayMessages.some(m => m.who === who && m.text === cleanText && (now - m.time < 3500));
+    if (isDup) {
+      console.log(`[Civilian] Suppressed duplicate message from ${who}:`, cleanText);
+      return null;
+    }
+    _recentSayMessages.push({ who, text: cleanText, time: now });
+    if (_recentSayMessages.length > 50) _recentSayMessages.shift();
+  }
+
   const wrap = document.createElement("div");
   let roleClass = "resq";
   let labelText = "ResQ Clinical Guide";
@@ -787,6 +801,8 @@ function updateVoiceBridgeStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
 
+let isCivMicMuted = false;
+
 function initCivVoiceModalListeners() {
   const ansBtn = document.getElementById("civAnswerCallBtn");
   if (ansBtn && !ansBtn._resqBound) {
@@ -806,6 +822,20 @@ function initCivVoiceModalListeners() {
       endCivVoiceModalUI();
     });
   }
+  const muteBtn = document.getElementById("civMuteCallBtn");
+  if (muteBtn && !muteBtn._resqBound) {
+    muteBtn._resqBound = true;
+    muteBtn.addEventListener("click", () => {
+      isCivMicMuted = !isCivMicMuted;
+      if (civLocalStream) {
+        civLocalStream.getAudioTracks().forEach(t => { t.enabled = !isCivMicMuted; });
+      }
+      const muteLabel = document.getElementById("civMuteLabel");
+      if (muteLabel) muteLabel.textContent = isCivMicMuted ? "Unmute" : "Mute";
+      muteBtn.style.background = isCivMicMuted ? "rgba(239, 68, 68, 0.25)" : "var(--surface-2, #334155)";
+      muteBtn.style.borderColor = isCivMicMuted ? "#ef4444" : "var(--line, rgba(255,255,255,0.2))";
+    });
+  }
 }
 
 function showCivVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, endLabel = "End Call") {
@@ -815,6 +845,8 @@ function showCivVoiceModalUI(title, statusText, timerText, showAnswerBtn = false
   const status = document.getElementById("civVoiceModalStatus");
   const timer = document.getElementById("civVoiceModalTimer");
   const ansBtn = document.getElementById("civAnswerCallBtn");
+  const muteBtn = document.getElementById("civMuteCallBtn");
+  const wave = document.getElementById("civVoiceWave");
   const endLabelEl = document.getElementById("civEndCallLabel");
 
   if (modal) {
@@ -827,6 +859,15 @@ function showCivVoiceModalUI(title, statusText, timerText, showAnswerBtn = false
   if (ansBtn) {
     ansBtn.style.display = showAnswerBtn ? "inline-flex" : "none";
     ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  }
+  const isConnected = !showAnswerBtn && timerText !== "Ringing..." && timerText !== "--:--";
+  if (wave) {
+    wave.style.display = isConnected ? "flex" : "none";
+    wave.classList.toggle("hidden", !isConnected);
+  }
+  if (muteBtn) {
+    muteBtn.style.display = isConnected ? "inline-flex" : "none";
+    muteBtn.classList.toggle("hidden", !isConnected);
   }
   if (endLabelEl) endLabelEl.textContent = endLabel;
 }
@@ -842,6 +883,19 @@ function endCivVoiceModalUI() {
     ansBtn.style.display = "none";
     ansBtn.classList.add("hidden");
   }
+  const muteBtn = document.getElementById("civMuteCallBtn");
+  if (muteBtn) {
+    muteBtn.style.display = "none";
+    muteBtn.classList.add("hidden");
+  }
+  const wave = document.getElementById("civVoiceWave");
+  if (wave) {
+    wave.style.display = "none";
+    wave.classList.add("hidden");
+  }
+  isCivMicMuted = false;
+  const muteLabel = document.getElementById("civMuteLabel");
+  if (muteLabel) muteLabel.textContent = "Mute";
   stopCivCallTimer();
   endWebRtcCall();
 }
@@ -1154,23 +1208,38 @@ function initCivilianSocket() {
   // Responder Dispatched or Acknowledged -> Official Confirmation
   const onDispatchConfirmed = (data) => {
     if (data.incident_uuid && state.incidentUuid && data.incident_uuid !== state.incidentUuid) return;
-    if (state.dispatched && data.status !== "acknowledged") return;
-    state.dispatched = true;
+    const unit = data.unit_code || "AMB-01";
     const reassureTitle = document.getElementById("reassureTitle");
     const reassureBody = document.getElementById("reassureBody");
-    const unit = data.unit_code || "AMB-01";
+    const etaSec = parseInt(data.eta_seconds, 10) || (parseInt(data.eta_minutes, 10) * 60) || 480;
+    const mins = data.eta_minutes || Math.round(etaSec / 60);
 
-    if (reassureTitle) reassureTitle.textContent = `Unit ${unit} Dispatched & En Route`;
     if (el.reassure) el.reassure.classList.add("is-visible");
     if (el.liveActions) el.liveActions.classList.add("is-active");
 
-    const etaSec = parseInt(data.eta_seconds, 10) || (parseInt(data.eta_minutes, 10) * 60) || 480;
-    state.etaSeconds = etaSec;
-    startSynchronizedEtaTicker();
-
-    const mins = data.eta_minutes || Math.round(etaSec / 60);
-    say("dispatch", `Unit ${unit} has confirmed dispatch and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
-    if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
+    if (data.status === "acknowledged") {
+      // Crew accepted and rolling: start live countdown ticker
+      state.dispatched = true;
+      state.acknowledged = true;
+      state.etaSeconds = etaSec;
+      if (reassureTitle) reassureTitle.textContent = `Unit ${unit} En Route & Rolling`;
+      startSynchronizedEtaTicker();
+      say("dispatch", `Unit ${unit} crew confirmed dispatch and is rolling to your location. Estimated arrival: ${mins} minutes. Responders are on the road.`);
+      if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
+    } else {
+      // Unit assigned by command: awaiting crew departure confirmation
+      if (state.acknowledged) return; // avoid downgrading if already acknowledged
+      state.dispatched = true;
+      state.etaSeconds = etaSec;
+      if (reassureTitle) reassureTitle.textContent = `Unit ${unit} Alerted · Pending Departure`;
+      if (el.eta) el.eta.textContent = `${mins} min (Standby)`;
+      if (state.etaInterval) {
+        clearInterval(state.etaInterval);
+        state.etaInterval = null;
+      }
+      say("dispatch", `Unit ${unit} has been assigned to your incident. Standing by for crew departure confirmation.`);
+      if (navigator.vibrate) navigator.vibrate(60);
+    }
   };
   sock.on("civilian:dispatch_confirmed", onDispatchConfirmed);
   sock.on("responder:assigned", onDispatchConfirmed);

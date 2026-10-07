@@ -200,12 +200,19 @@ def incidents_api():
             data["severity_level"] = triage["priority_label"]
         incident = create_incident(data)
         # Notify connected dispatchers
-        socketio.emit("incident:new", incident, room="dispatchers")
+        sock_inc = dict(incident)
+        sock_inc["hazards"] = data.get("scene_hazards", [])
+        sock_inc["scene_hazards"] = data.get("scene_hazards", [])
+        socketio.emit("incident:new", sock_inc, room="dispatchers")
         return jsonify(incident), 201
     if not has_operator_token():
         return jsonify({"error": "Valid operator credentials required"}), 401
     status = request.args.get("status")
     incidents = get_incidents(status=status)
+    for inc in incidents:
+        h_rows = get_scene_hazards(inc["incident_uuid"])
+        inc["hazards"] = [h["hazard_type"] for h in h_rows]
+        inc["scene_hazards"] = inc["hazards"]
     return jsonify(incidents)
 
 
@@ -219,9 +226,13 @@ def incident_detail_api(incident_uuid):
         
     updates = get_incident_updates(incident_uuid)
     hazards = get_scene_hazards(incident_uuid)
+    h_types = [h["hazard_type"] for h in hazards]
+    incident_dict = dict(incident)
+    incident_dict["hazards"] = h_types
+    incident_dict["scene_hazards"] = h_types
     
     return jsonify({
-        "incident": incident,
+        "incident": incident_dict,
         "updates": updates,
         "hazards": hazards
     })
@@ -324,7 +335,6 @@ def call_bridge_api(incident_uuid):
     socketio.emit("call_bridge:event", payload, room="dispatchers")
     socketio.emit("call_bridge:event", payload, room="responders")
     socketio.emit("call_bridge:event", payload, room="civilians")
-    socketio.emit("call_bridge:event", payload, broadcast=True)
     return jsonify({"status": "success", "active": is_active, "incident_uuid": incident_uuid})
 
 
@@ -354,6 +364,39 @@ def responder_route_change_api():
     if incident_uuid:
         socketio.emit("responder:route_change", payload, room=f"incident_{incident_uuid}")
     return jsonify({"status": "success", "new_route": new_route, "incident_uuid": incident_uuid})
+
+
+@app.route("/api/responder/message", methods=["POST"])
+def responder_message_api():
+    """Ingests tactical communication and replies sent by the dispatched responder crew back to Command."""
+    data = json_object()
+    incident_uuid = data.get("incident_uuid")
+    message = str(data.get("message") or "").strip()
+    unit_code = str(data.get("unit_code") or "AMB-01").strip()
+
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    if incident_uuid:
+        add_incident_update(
+            incident_uuid=incident_uuid,
+            source="responder",
+            update_type="message",
+            content=f"[{unit_code}] {message}"
+        )
+
+    payload = {
+        "incident_uuid": incident_uuid,
+        "unit_code": unit_code,
+        "sender": f"Unit {unit_code}",
+        "message": message,
+        "timestamp": time.time()
+    }
+    socketio.emit("responder:message", payload, room="dispatchers")
+    socketio.emit("responder:message", payload, room="responders")
+    if incident_uuid:
+        socketio.emit("responder:message", payload, room=f"incident_{incident_uuid}")
+    return jsonify({"status": "success", "data": payload})
 
 
 @app.route("/api/incidents/<incident_uuid>/debrief", methods=["GET"])
@@ -429,7 +472,6 @@ def assign_responder_api():
     socketio.emit("responder:assigned", payload, room="responders")
     socketio.emit("responder:assigned", payload, room=f"incident_{incident_uuid}")
     socketio.emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("civilian:dispatch_confirmed", payload, room="civilians")
     socketio.emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
 
     return jsonify({
@@ -540,8 +582,7 @@ def acknowledge_brief_api(incident_uuid):
     socketio.emit("responder:acknowledged", payload, room="dispatchers")
     socketio.emit("responder:acknowledged", payload, room=f"incident_{incident_uuid}")
     socketio.emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
-    socketio.emit("civilian:dispatch_confirmed", payload, room="civilians")
-    return jsonify({"status": "acknowledged", "data": payload})
+    return jsonify({"status": "acknowledged", "eta_minutes": payload["eta_minutes"], "eta_seconds": payload["eta_seconds"], "data": payload})
 
 
 @app.route("/api/responder/status", methods=["POST"])
@@ -923,7 +964,12 @@ def civilian_chat_api():
         )
 
     # 6. Real-time WebSocket Dispatch Broadcast
+    scene_hazards_list = [h["hazard_type"] if isinstance(h, dict) else h for h in get_scene_hazards(incident_uuid)]
+    if not scene_hazards_list:
+        scene_hazards_list = extraction.get("scene_hazards", [])
     socket_payload = dict(incident)
+    socket_payload["hazards"] = scene_hazards_list
+    socket_payload["scene_hazards"] = scene_hazards_list
     socketio.emit("incident:new" if is_new else "incident:update", socket_payload, room="dispatchers")
 
     chat_payload = {
@@ -934,7 +980,8 @@ def civilian_chat_api():
         "casualties_count": int(extraction.get("casualties_count") or incident.get("casualties_count") or 1),
         "rsi_score": triage.get("rsi_score"),
         "triage_tier": triage.get("triage_tier"),
-        "scene_hazards": extraction.get("scene_hazards", []),
+        "scene_hazards": scene_hazards_list,
+        "hazards": scene_hazards_list,
         "timestamp": time.time()
     }
     socketio.emit("incident:chat_turn", chat_payload, room="dispatchers")

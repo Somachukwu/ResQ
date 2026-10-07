@@ -355,8 +355,33 @@ async function fetchOptimalHospital(lat, lng, incidentType, rsi) {
 loadDynamicIncident();
 
 /* ---------------- socket event listener ---------------- */
+let resqSocket = null;
+
+function addCommandDirective(who, text, isMe = false) {
+  const list = $("#commandDirectivesList");
+  if (!list) return;
+  const placeholder = list.querySelector(".intel-text");
+  if (placeholder && placeholder.textContent.includes("Awaiting tactical instructions")) {
+    list.innerHTML = "";
+  }
+  const item = document.createElement("div");
+  item.className = "intel-line";
+  item.style.cssText = `background:${isMe ? "rgba(34,197,94,0.08)" : "rgba(20,184,166,0.08)"};padding:6px 10px;border-radius:6px;border-left:3px solid ${isMe ? "#22c55e" : "var(--teal,#14b8a6)"};margin-bottom:4px;`;
+  const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  item.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+      <span class="intel-who" style="font-weight:600;font-size:11px;color:${isMe ? "#22c55e" : "var(--teal,#14b8a6)"};">${who}</span>
+      <span style="font-size:10px;color:var(--text-3);">${timeStr}</span>
+    </div>
+    <p class="intel-text" style="color:var(--text);font-size:12px;margin:0;">${text}</p>
+  `;
+  list.appendChild(item);
+  list.scrollTop = list.scrollHeight;
+}
+
 if (typeof io !== "undefined") {
   const socket = io({ transports: ["websocket", "polling"] });
+  resqSocket = socket;
 
   socket.on("connect", () => {
     socket.emit("join", { room: "responders" });
@@ -412,13 +437,18 @@ if (typeof io !== "undefined") {
   });
 
   socket.on("responder:route_change", (data) => {
-    logLine("COMMAND: Route change instruction received", data.note || data.new_route || "Detour instructed");
-    const toast = document.createElement("div");
-    toast.style.cssText = "position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:14px 22px;border-radius:10px;z-index:9999;font-weight:600;max-width:90vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.35)";
-    toast.textContent = `Command Instruction: ${data.note || data.new_route}`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 8000);
+    const text = data.note || data.new_route || "Detour instructed";
+    logLine("COMMAND: Route change instruction", text);
+    addCommandDirective("Command HQ", text, false);
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  });
+
+  socket.on("responder:message", (data) => {
+    if (data.message) {
+      const isMe = data.unit_code === assignedUnitCode;
+      const sender = data.sender || (isMe ? `Unit ${assignedUnitCode}` : "Command HQ");
+      addCommandDirective(sender, data.message, isMe);
+    }
   });
 }
 
@@ -482,28 +512,131 @@ function openNavigation() {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
 }
 
-async function openCallScene() {
+let respCallTimerInterval = null;
+let respCallSeconds = 0;
+let isRespMicMuted = false;
+
+function startRespCallTimer() {
+  respCallSeconds = 0;
+  clearInterval(respCallTimerInterval);
+  const timerEl = $("#respVoiceTimer");
+  if (timerEl) timerEl.textContent = "00:00";
+  respCallTimerInterval = setInterval(() => {
+    respCallSeconds += 1;
+    const m = Math.floor(respCallSeconds / 60);
+    const s = respCallSeconds % 60;
+    if (timerEl) {
+      timerEl.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+  }, 1000);
+}
+
+function stopRespCallTimer() {
+  clearInterval(respCallTimerInterval);
+  respCallTimerInterval = null;
+}
+
+function openCallScene() {
   if (!activeIncidentUuid) {
     alert("No active mission assigned.");
     return;
   }
-  logLine("Radio bridge connecting to scene", "Establishing audio line...");
-  try {
-    const res = await fetch(`/api/incidents/${activeIncidentUuid}/call-bridge`, {
+  const modal = $("#respVoiceModal");
+  if (modal) {
+    modal.style.display = "flex";
+    modal.classList.remove("hidden");
+  }
+  startRespCallTimer();
+  logLine("Voice radio link established", "Encrypted channel open to scene bystander");
+
+  fetch(`/api/incidents/${activeIncidentUuid}/call-bridge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "responder_connect",
+      title: `Responder ${assignedUnitCode} Voice Bridge`
+    })
+  }).catch((err) => console.warn("Call scene error:", err));
+}
+
+function closeCallScene() {
+  const modal = $("#respVoiceModal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.classList.add("hidden");
+  }
+  stopRespCallTimer();
+  logLine("Voice radio link disconnected", "Audio bridge closed");
+
+  if (activeIncidentUuid) {
+    fetch(`/api/incidents/${activeIncidentUuid}/call-bridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "responder_connect",
-        title: `Responder ${assignedUnitCode} Voice Bridge`
+        action: "end",
+        title: `Responder ${assignedUnitCode} Disconnect`
       })
-    });
-    if (res.ok) {
-      logLine("Voice radio link established", "Encrypted channel open to bystander");
-      alert(`Voice link connected with caller on scene at incident ${activeIncidentUuid}. Audio open.`);
-    }
-  } catch (err) {
-    console.warn("Call scene error:", err);
+    }).catch(() => {});
   }
+}
+
+function wireRespVoiceModal() {
+  const endBtn = $("#respEndVoiceBtn");
+  if (endBtn) {
+    endBtn.addEventListener("click", closeCallScene);
+  }
+
+  const muteBtn = $("#respMuteVoiceBtn");
+  if (muteBtn) {
+    muteBtn.addEventListener("click", () => {
+      isRespMicMuted = !isRespMicMuted;
+      const label = $("#respMuteLabel");
+      if (label) label.textContent = isRespMicMuted ? "Unmute" : "Mute";
+      muteBtn.style.background = isRespMicMuted ? "rgba(239, 68, 68, 0.25)" : "var(--surface-2)";
+      muteBtn.style.borderColor = isRespMicMuted ? "#ef4444" : "var(--line)";
+    });
+  }
+}
+
+function wireTacticalComms() {
+  const form = $("#responderCommsForm");
+  const input = $("#responderCommsInput");
+
+  const sendReply = async (text) => {
+    if (!text || !text.trim()) return;
+    const msg = text.trim();
+    addCommandDirective(`Unit ${assignedUnitCode}`, msg, true);
+    logLine("Tactical reply sent to HQ", msg);
+    if (input) input.value = "";
+
+    try {
+      await fetch("/api/responder/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incident_uuid: activeIncidentUuid,
+          unit_code: assignedUnitCode,
+          message: msg
+        })
+      });
+    } catch (err) {
+      console.warn("[Responder Comms] Failed to send message:", err);
+    }
+  };
+
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      sendReply(input?.value);
+    });
+  }
+
+  $$(".btn--chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const reply = chip.dataset.reply || chip.textContent.trim();
+      sendReply(reply);
+    });
+  });
 }
 
 el.navigate?.addEventListener("click", openNavigation);
@@ -511,6 +644,9 @@ el.mobileNavBtn?.addEventListener("click", openNavigation);
 
 el.call?.addEventListener("click", openCallScene);
 el.mobileCallBtn?.addEventListener("click", openCallScene);
+
+wireRespVoiceModal();
+wireTacticalComms();
 
 /* ---------------- status log ---------------- */
 function logLine(label, detail) {

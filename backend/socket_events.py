@@ -123,7 +123,6 @@ def register_socket_events(socketio):
             emit("responder:assigned", payload, room="dispatchers")
             emit("responder:assigned", payload, room=f"incident_{incident_uuid}")
             emit("civilian:dispatch_confirmed", payload, room=f"incident_{incident_uuid}")
-            emit("civilian:dispatch_confirmed", payload, room="civilians")
             emit("responder:mission_alert", payload, room=f"responder_{unit_code}")
             print(f"[WebSocket] Assigned {unit_code} to {incident_uuid}")
 
@@ -206,4 +205,21 @@ def register_socket_events(socketio):
         incident_uuid = data.get("incident_uuid") or "default"
         emit("call_bridge:event", data, broadcast=True, include_self=False)
         print(f"[WebSocket] Call bridge event relayed: {data.get('action')} from {data.get('caller')} for {incident_uuid}")
+
+    @socketio.on("responder:message")
+    def handle_responder_message(data):
+        incident_uuid = data.get("incident_uuid")
+        unit_code = data.get("unit_code", "AMB-01")
+        message = data.get("message", "")
+        payload = {
+            "incident_uuid": incident_uuid,
+            "unit_code": unit_code,
+            "sender": f"Unit {unit_code}",
+            "message": message,
+            "timestamp": time.time()
+        }
+        emit("responder:message", payload, room="dispatchers")
+        emit("responder:message", payload, room="responders")
+        if incident_uuid:
+            emit("responder:message", payload, room=f"incident_{incident_uuid}")
 

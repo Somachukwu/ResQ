@@ -977,12 +977,16 @@ async function drainCmdIceCandidates() {
   }
 }
 
+let isCmdMicMuted = false;
+
 function showVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, endLabel = "Disconnect Audio") {
   const modal = $("#voiceCallModal");
   const target = $("#voiceCallTargetName");
   const status = $("#voiceCallStatusText");
   const timer = $("#voiceCallTimer");
   const ansBtn = $("#answerVoiceCallBtn");
+  const muteBtn = $("#muteVoiceCallBtn");
+  const wave = $("#voiceCallWave");
   const endLabelEl = $("#endVoiceCallLabel");
 
   if (modal) {
@@ -995,6 +999,15 @@ function showVoiceModalUI(title, statusText, timerText, showAnswerBtn = false, e
   if (ansBtn) {
     ansBtn.style.display = showAnswerBtn ? "inline-flex" : "none";
     ansBtn.classList.toggle("hidden", !showAnswerBtn);
+  }
+  const isConnected = !showAnswerBtn && timerText !== "Ringing..." && timerText !== "--:--";
+  if (wave) {
+    wave.style.display = isConnected ? "flex" : "none";
+    wave.classList.toggle("hidden", !isConnected);
+  }
+  if (muteBtn) {
+    muteBtn.style.display = isConnected ? "inline-flex" : "none";
+    muteBtn.classList.toggle("hidden", !isConnected);
   }
   if (endLabelEl) endLabelEl.textContent = endLabel;
 }
@@ -1023,6 +1036,19 @@ function endVoiceCallUI() {
     ansBtn.style.display = "none";
     ansBtn.classList.add("hidden");
   }
+  const muteBtn = $("#muteVoiceCallBtn");
+  if (muteBtn) {
+    muteBtn.style.display = "none";
+    muteBtn.classList.add("hidden");
+  }
+  const wave = $("#voiceCallWave");
+  if (wave) {
+    wave.style.display = "none";
+    wave.classList.add("hidden");
+  }
+  isCmdMicMuted = false;
+  const muteLabel = $("#muteVoiceLabel");
+  if (muteLabel) muteLabel.textContent = "Mute";
   if (voiceCallTimerInterval) {
     clearInterval(voiceCallTimerInterval);
     voiceCallTimerInterval = null;
@@ -1361,6 +1387,20 @@ function wireComms() {
     endCallBtn.addEventListener("click", handleEndCall);
   }
 
+  const muteCallBtn = $("#muteVoiceCallBtn");
+  if (muteCallBtn) {
+    muteCallBtn.addEventListener("click", () => {
+      isCmdMicMuted = !isCmdMicMuted;
+      if (cmdLocalStream) {
+        cmdLocalStream.getAudioTracks().forEach(t => { t.enabled = !isCmdMicMuted; });
+      }
+      const muteLabel = $("#muteVoiceLabel");
+      if (muteLabel) muteLabel.textContent = isCmdMicMuted ? "Unmute" : "Mute";
+      muteCallBtn.style.background = isCmdMicMuted ? "rgba(239, 68, 68, 0.25)" : "var(--surface-2)";
+      muteCallBtn.style.borderColor = isCmdMicMuted ? "#ef4444" : "var(--line)";
+    });
+  }
+
   // Route Change Detour Modal wiring
   const routeBtn = $("#routeChangeBtn");
   const routeModal = $("#routeChangeModal");
@@ -1514,6 +1554,12 @@ function simulate() {
   tickElapsed();
 }
 
+function formatHazardName(h) {
+  if (!h) return "";
+  const cleaned = String(h).replace(/_/g, " ").trim();
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 /* ---------------- real-time websocket integration ---------------- */
 let resqSocket = null;
 if (window.ResQSocket) {
@@ -1529,7 +1575,7 @@ if (window.ResQSocket) {
       place: inc.location_name || `${Number(inc.lat).toFixed(4)}, ${Number(inc.lng).toFixed(4)}`,
       victims: Number(inc.casualties_count || 1),
       injuries: inc.title,
-      hazards: [],
+      hazards: (inc.hazards || inc.scene_hazards || []).map(formatHazardName),
       lat: Number(inc.lat),
       lng: Number(inc.lng),
       assigned_unit: inc.assigned_responder_id || null,
@@ -1568,6 +1614,15 @@ if (window.ResQSocket) {
     if (inc && data.casualties_count != null) {
       inc.victims = Number(data.casualties_count);
     }
+    const turnHazards = (data.scene_hazards || data.hazards || []).map(formatHazardName);
+    if (turnHazards.length > 0) {
+      if (inc) {
+        turnHazards.forEach(h => { if (!inc.hazards.includes(h)) inc.hazards.push(h); });
+      }
+      if (selected && selected.id === turnId) {
+        turnHazards.forEach(h => { if (!selected.hazards.includes(h)) selected.hazards.push(h); });
+      }
+    }
     if (selected && selected.id === turnId) {
       if (data.casualties_count != null) {
         selected.victims = Number(data.casualties_count);
@@ -1587,6 +1642,36 @@ if (window.ResQSocket) {
     renderComms();
   });
 
+  resqSocket.on("hazard:flagged", (data) => {
+    console.log("[Dispatcher] Live hazard flagged:", data);
+    const incId = data.incident_uuid;
+    const inc = INCIDENTS.find(i => i.id === incId);
+    const newHazards = (data.vision_result?.hazards_detected || []).map(formatHazardName);
+    if (inc) {
+      newHazards.forEach(h => { if (!inc.hazards.includes(h)) inc.hazards.push(h); });
+    }
+    if (selected && selected.id === incId) {
+      newHazards.forEach(h => { if (!selected.hazards.includes(h)) selected.hazards.push(h); });
+      renderMissionConsole(selected);
+    }
+    renderQueue();
+  });
+
+  resqSocket.on("responder:message", (data) => {
+    console.log("[Dispatcher] Incoming message from responder crew:", data);
+    const unitText = data.sender || (data.unit_code ? `Unit ${data.unit_code}` : "Responder Crew");
+    COMMS.responder.push({ who: unitText, text: data.message });
+    renderComms();
+    phoneSound.playBeep();
+    if (channel !== "responder") {
+      const chanResp = $("#channelRespBtn");
+      if (chanResp) {
+        chanResp.style.borderColor = "var(--teal)";
+        chanResp.style.boxShadow = "0 0 10px rgba(45,212,191,0.5)";
+      }
+    }
+  });
+
   resqSocket.on("dispatcher:message", (data) => {
     if (data.sender !== "Commander") {
       COMMS.civilian.push({ who: data.sender || "Commander", text: data.message });
@@ -1602,6 +1687,13 @@ if (window.ResQSocket) {
       if (data.severity_level) inc.triage = toTriage(data.severity_level);
       if (data.location_name) inc.place = data.location_name;
       if (data.assigned_responder_id) inc.assigned_unit = data.assigned_responder_id;
+      if (data.hazards || data.scene_hazards) {
+        const upHazards = (data.hazards || data.scene_hazards).map(formatHazardName);
+        upHazards.forEach(h => { if (!inc.hazards.includes(h)) inc.hazards.push(h); });
+        if (selected && selected.id === inc.id) {
+          upHazards.forEach(h => { if (!selected.hazards.includes(h)) selected.hazards.push(h); });
+        }
+      }
       if (selected && selected.id === inc.id) {
         renderMissionConsole(selected);
       }
@@ -2015,7 +2107,9 @@ async function loadOperationalState() {
   INCIDENTS.splice(0, INCIDENTS.length, ...incidents.map(inc => ({
     id: inc.incident_uuid, rsi: Number(inc.severity_score || 1), triage: toTriage(inc.severity_level),
     title: inc.title, place: inc.location_name || "Location pending", victims: Number(inc.casualties_count || 1),
-    injuries: inc.type || "Emergency incident", hazards: [], lat: Number(inc.lat), lng: Number(inc.lng),
+    injuries: inc.type || "Emergency incident",
+    hazards: (inc.hazards || inc.scene_hazards || []).map(formatHazardName),
+    lat: Number(inc.lat), lng: Number(inc.lng),
     type: inc.type, assigned_unit: inc.assigned_responder_id, started: Date.parse(inc.created_at) || Date.now()
   })));
   UNITS.splice(0, UNITS.length, ...responders.map(unit => ({

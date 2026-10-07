@@ -58,11 +58,13 @@ CORE PRINCIPLES:
      "The medical team don dey rush come your side now now. Take soft breath with me, you dey try well well, and I dey right here with you till dem reach."
      "Thank you as you check that one sharp sharp. No fear at all, keep am comfortable, and I dey right beside you here."
 
-4. ADAPTIVE STEP & CARD DEDUCTION:
+4. ADAPTIVE STEP & CARD DEDUCTION AND CLINICAL TRIAGE QUESTIONS:
    - Do NOT output action steps, multiple-choice questions, or red flags on every turn.
+   - CLINICAL TRIAGE QUESTION PRIORITY: When evaluating casualties on scene, you MUST actively establish critical clinical details:
+     * Patient Demographics & Location: When demographic details (gender/age) or exact injury location (head, chest, abdomen, extremities) are not yet specified, ask 1 targeted question with options (A, B, C) to identify victim gender and injury location.
+     * Functional Capacity & Clinical Rules: Ask 1 targeted question with options (A, B, C) when functional capacity (such as weight-bearing under Ottawa rules for sprains, or respiratory status) is not yet verified.
    - NATURAL CONVERSATION: If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [] and 'assessment_questions': [].
    - ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now (e.g. applying firm direct pressure to bleeding wound, opening obstructed airway).
-   - TARGETED QUESTIONS ('assessment_questions'): ONLY ask 1 targeted question with options (A, B, C) when functional capacity (such as weight-bearing or breathing) is not yet verified.
    - SELECTIVE RED FLAGS ('red_flags'): ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding). For mild cases, sprains, or chats, keep 'red_flags': [].
 
 5. DISPATCH TIMING AND TIME ACCURACY:
@@ -356,9 +358,13 @@ def _fallback_heuristic_parser(
         lower
     ))
 
-    # 1. Dispatch timing / ETA check
-    asking_eta = bool(re.search(
-        r"\b(when|how long|where is|where are|ambulance|coming|reach|arrive|how many minutes|far|time|still coming|en route|how far|shey dem dey come)\b",
+    # 1. Dispatch timing / ETA check (only when not reporting new emergency/injuries)
+    has_emergency_report = bool(re.search(
+        r"\b(crash|accident|injured|injury|injuries|bleed|bleeding|blood|unresponsive|unconscious|faint|trapped|stuck|pinned|hit|fire|leak|hazard|victim|casualty|casualties|hurt)\b",
+        lower
+    ))
+    asking_eta = not has_emergency_report and bool(re.search(
+        r"\b(when|how long|where is the ambulance|where is|where are|how many minutes|still coming|en route|how far|shey dem dey come)\b",
         lower
     ))
     if asking_eta:
@@ -497,6 +503,9 @@ def _fallback_heuristic_parser(
     # Interactive Assessment Questions: ONLY ask when assessing acute physical state
     questions = []
     if not is_answering_option:
+        has_gender = any(k in lower for k in ["male", "female", "man", "woman", "boy", "girl", "guy", "lady"])
+        has_location = any(k in lower for k in ["head", "chest", "neck", "arm", "leg", "hand", "foot", "abdomen", "belly", "stomach", "back", "knee", "ankle"])
+
         if is_sprain_or_joint:
             questions.append({
                 "question": "Can the person take four steps, even with a limp?" if not is_pidgin else "The person fit take four steps at all, even if e dey limp?",
@@ -504,6 +513,15 @@ def _fallback_heuristic_parser(
                     "A. Yes, can take four steps" if not is_pidgin else "A. Yes, e fit take four steps",
                     "B. No, completely unable to bear weight" if not is_pidgin else "B. No, e no fit put leg for ground at all",
                     "C. Can walk with minimal discomfort" if not is_pidgin else "C. E fit walk small small"
+                ]
+            })
+        elif severe_hemorrhage and not has_location:
+            questions.append({
+                "question": "Where on the body is the bleeding, and is the victim male or female?" if not is_pidgin else "Which part of the body blood dey rush from, and na man or woman?",
+                "options": [
+                    "A. Male victim with head, chest, or torso bleeding" if not is_pidgin else "A. Man with head or chest or body bleeding",
+                    "B. Female victim with head, chest, or torso bleeding" if not is_pidgin else "B. Woman with head or chest or body bleeding",
+                    "C. Arm, leg, or extremity bleeding" if not is_pidgin else "C. Hand or leg bleeding"
                 ]
             })
         elif severe_hemorrhage:
@@ -522,6 +540,15 @@ def _fallback_heuristic_parser(
                     "A. Breathing normally and regularly" if not is_pidgin else "A. E dey breathe normal and steady",
                     "B. Gasping, snoring, or struggling to breathe" if not is_pidgin else "B. E dey struggle to catch breath",
                     "C. No breathing detected at all" if not is_pidgin else "C. E no dey breathe at all"
+                ]
+            })
+        elif not (has_gender and has_location):
+            questions.append({
+                "question": "To help approaching responders prepare the right trauma equipment: Where is the injury located, and is the victim male or female?" if not is_pidgin else "Make responders fit prepare well: Which part of the body get injury, and na man or woman?",
+                "options": [
+                    "A. Male casualty with head, chest, or torso injury" if not is_pidgin else "A. Man with head or chest or body injury",
+                    "B. Female casualty with head, chest, or torso injury" if not is_pidgin else "B. Woman with head or chest or body injury",
+                    "C. Limb or extremity injury (arm or leg)" if not is_pidgin else "C. Hand, leg, or other part of body"
                 ]
             })
 
