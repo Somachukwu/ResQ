@@ -85,32 +85,15 @@ All pages feature a coordinated Light / Dark mode toggle switch with smooth toke
 
 ---
 
-## ⚡ Quick Start
+## 🌐 Live Hosted Web Platform
 
-### 1. Set Up Virtual Environment & Dependencies
-```bash
-# Activate existing virtual environment (Windows)
-.\venv\Scripts\activate
+ResQ is deployed and fully accessible online with zero local setup or installation required:
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env` and configure your OpenRouteService API key:
-```env
-ORS_API_KEY=your_openrouteservice_key_here
-```
-
-### 3. Run the Application
-```bash
-python app.py
-```
-Open your browser and navigate to:
-* **Central Hub**: `http://localhost:5000/`
-* **Civilian Portal**: `http://localhost:5000/civilian`
-* **Dispatcher Command**: `http://localhost:5000/dispatcher`
-* **Responder Brief**: `http://localhost:5000/responder`
+* **Central Navigation Hub:** [https://somachukwu.github.io/ResQ/](https://somachukwu.github.io/ResQ/)
+* **Civilian Safety Portal:** [https://somachukwu.github.io/ResQ/civilian/](https://somachukwu.github.io/ResQ/civilian/)
+* **Dispatcher Command Center:** [https://somachukwu.github.io/ResQ/dispatcher/](https://somachukwu.github.io/ResQ/dispatcher/)
+* **Field Responder Heads Up HUD:** [https://somachukwu.github.io/ResQ/responder/](https://somachukwu.github.io/ResQ/responder/)
+* **Cloud API Gateway:** `https://resq-backend-oj6j.onrender.com`
 
 ---
 
