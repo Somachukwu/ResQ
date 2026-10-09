@@ -3,6 +3,8 @@
 > **IEEE Response Quest Challenge 2026** · Enugu State, Nigeria · $100,000 Prize Track  
 > *Every second between emergency detection and trauma admission decides human survival.*
 
+📖 **[Read the Full Technical Dossier & Judges Submission Manual (PROJECT_DOCUMENTATION.md)](PROJECT_DOCUMENTATION.md)**
+
 ---
 
 ## 🚀 Overview
