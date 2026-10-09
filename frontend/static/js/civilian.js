@@ -94,7 +94,7 @@ export function startSession(e) {
 
   say(
     "resq",
-    "I am right here with you. Describe what you see, or choose one of the quick options below. Your location is being transmitted directly to the Emergency Command Center in Enugu."
+    "ResQ Clinical Guide active. Describe the situation or select a quick option below. Your location is being transmitted directly to Emergency Command."
   );
   try {
     requestLocation();
@@ -186,7 +186,7 @@ function respond(text) {
       state.chatHistory.push({ role: "model", text: data.reassurance_message });
     }
 
-    const replyText = data.reassurance_message || "I am right here with you. Take a slow, gentle breath.";
+    const replyText = data.reassurance_message || "Emergency responders have been alerted. Please follow the guidance steps below.";
     say("resq", replyText);
 
     const steps = (data.first_aid_steps && Array.isArray(data.first_aid_steps) && data.first_aid_steps.length > 0)
@@ -725,7 +725,26 @@ const phoneSound = (() => {
     interval = setInterval(doubleRing, 2600);
   }
 
-  return { playBeep, playIncomingRing, stop };
+  function playPing() {
+    try {
+      const ac = getCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.08, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      g.connect(ac.destination);
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.connect(g);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    } catch (_) {}
+  }
+
+  return { playBeep, playIncomingRing, playPing, stop, getCtx };
 })();
 
 /* ---------------- WebRTC Voice Call ---------------- */
@@ -925,7 +944,9 @@ async function getSafeAudioStream() {
     const osc = _fallbackCivAudioCtx.createOscillator();
     const dst = _fallbackCivAudioCtx.createMediaStreamDestination();
     const gain = _fallbackCivAudioCtx.createGain();
-    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0.06, _fallbackCivAudioCtx.currentTime);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(380, _fallbackCivAudioCtx.currentTime);
     osc.connect(gain);
     gain.connect(dst);
     osc.start();
@@ -933,6 +954,32 @@ async function getSafeAudioStream() {
   } catch (synthErr) {
     console.warn("[WebRTC-CIV] Fallback audio creation error:", synthErr);
     return new MediaStream();
+  }
+}
+
+function playInboundRemoteAudio(stream, elementId = "civRemoteAudio") {
+  let remoteAudio = document.getElementById(elementId);
+  if (!remoteAudio) {
+    remoteAudio = document.createElement("audio");
+    remoteAudio.id = elementId;
+    remoteAudio.autoplay = true;
+    remoteAudio.playsInline = true;
+    remoteAudio.muted = false;
+    document.body.appendChild(remoteAudio);
+  }
+  remoteAudio.srcObject = stream;
+  remoteAudio.play().catch(e => console.warn("[WebRTC-CIV] Audio play error:", e));
+
+  try {
+    const ac = phoneSound.getCtx();
+    if (ac) {
+      if (ac.state === "suspended") ac.resume().catch(() => {});
+      const source = ac.createMediaStreamSource(stream);
+      source.connect(ac.destination);
+      console.log("[WebRTC-CIV] Successfully routed incoming remote audio stream to Web Audio destination");
+    }
+  } catch (acErr) {
+    console.warn("[WebRTC-CIV] Audio routing fallback error:", acErr);
   }
 }
 
@@ -982,23 +1029,8 @@ async function answerIncomingCall() {
   civLocalStream.getTracks().forEach((track) => civPeerConnection.addTrack(track, civLocalStream));
 
   civPeerConnection.ontrack = (event) => {
-    let audio = document.getElementById("civRemoteAudio");
-    if (!audio) {
-      audio = document.createElement("audio");
-      audio.id = "civRemoteAudio";
-      audio.autoplay = true;
-      audio.playsInline = true;
-      audio.muted = false;
-      document.body.appendChild(audio);
-    }
-    if (event.streams && event.streams[0]) {
-      audio.srcObject = event.streams[0];
-    } else {
-      const inboundStream = new MediaStream();
-      inboundStream.addTrack(event.track);
-      audio.srcObject = inboundStream;
-    }
-    audio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
+    const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+    playInboundRemoteAudio(stream, "civRemoteAudio");
   };
 
   civPeerConnection.onicecandidate = (event) => {
@@ -1076,23 +1108,8 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
   civLocalStream.getTracks().forEach((track) => civPeerConnection.addTrack(track, civLocalStream));
 
   civPeerConnection.ontrack = (event) => {
-    let remoteAudio = document.getElementById("civRemoteAudio");
-    if (!remoteAudio) {
-      remoteAudio = document.createElement("audio");
-      remoteAudio.id = "civRemoteAudio";
-      remoteAudio.autoplay = true;
-      remoteAudio.playsInline = true;
-      remoteAudio.muted = false;
-      document.body.appendChild(remoteAudio);
-    }
-    if (event.streams && event.streams[0]) {
-      remoteAudio.srcObject = event.streams[0];
-    } else {
-      const inboundStream = new MediaStream();
-      inboundStream.addTrack(event.track);
-      remoteAudio.srcObject = inboundStream;
-    }
-    remoteAudio.play().catch((e) => console.warn("[WebRTC] Audio play error:", e));
+    const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+    playInboundRemoteAudio(stream, "civRemoteAudio");
   };
 
   civPeerConnection.onicecandidate = (event) => {
@@ -1286,7 +1303,7 @@ function initCivilianSocket() {
       state.incidentUuid = data.incident_uuid;
       sock.emit("join", { room: `incident_${state.incidentUuid}` });
     }
-    if (!data.active) {
+    if (!data.active || data.action === "hangup" || data.action === "end") {
       if (Date.now() - lastCivAnswerTimestamp < 1200) {
         console.log("[WebRTC-CIV] Ignored inactive event arriving right after call answered.");
         return;
@@ -1295,7 +1312,8 @@ function initCivilianSocket() {
       endCivVoiceModalUI();
       return;
     }
-    if (data.caller === "command" || data.caller === "dispatcher") {
+    const isCallAction = data.action === "call" || data.action === "start" || !data.action;
+    if ((data.caller === "command" || data.caller === "dispatcher") && isCallAction) {
       if (data.incident_uuid && !civPendingOffer) {
         civPendingOffer = { incident_uuid: data.incident_uuid };
       }

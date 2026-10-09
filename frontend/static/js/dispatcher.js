@@ -537,6 +537,9 @@ function select(id) {
     updateSelectedIncidentCircle(selected.lat, selected.lng);
   }
   renderMissionConsole(selected);
+  if (selected && selected.id) {
+    loadIncidentConversation(selected.id);
+  }
 
   if (window.innerWidth <= 860) {
     setMobileView("console");
@@ -554,6 +557,9 @@ function focusIncident(inc) {
     updateSelectedIncidentCircle(inc.lat, inc.lng);
   }
   renderMissionConsole(inc);
+  if (inc && inc.id) {
+    loadIncidentConversation(inc.id);
+  }
   if (window.innerWidth <= 860) {
     setMobileView("console");
   }
@@ -800,6 +806,38 @@ const COMMS = {
 };
 let channel = "civilian";
 
+async function loadIncidentConversation(incidentId) {
+  if (!incidentId) return;
+  try {
+    const res = await fetch(`/api/incidents/${incidentId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const updates = data.updates || [];
+    COMMS.civilian = [];
+    COMMS.responder = [];
+    for (const u of updates) {
+      const text = u.content || "";
+      if (u.source === "civilian") {
+        COMMS.civilian.push({ who: "Caller on Scene", text, me: false });
+      } else if (u.source === "ai_system") {
+        COMMS.civilian.push({ who: "ResQ Guidance", text, me: false });
+      } else if (u.source === "dispatcher") {
+        if (u.update_type === "comms") {
+          COMMS.civilian.push({ who: "Commander", text, me: true });
+        } else {
+          COMMS.responder.push({ who: "Commander", text, me: true });
+        }
+      } else if (u.source === "responder") {
+        const unitName = u.metadata?.unit_code ? `Unit ${u.metadata.unit_code}` : "Responder Crew";
+        COMMS.responder.push({ who: unitName, text, me: false });
+      }
+    }
+    renderComms();
+  } catch (err) {
+    console.warn("[Dispatcher] Failed to load incident conversation history:", err);
+  }
+}
+
 function renderComms() {
   const commsLog = $("#commsLog");
   if (!commsLog) return;
@@ -854,6 +892,25 @@ const phoneSound = (() => {
       if (osc1) { osc1.stop(); osc1.disconnect(); osc1 = null; }
       if (osc2) { osc2.stop(); osc2.disconnect(); osc2 = null; }
       if (gain) { gain.disconnect(); gain = null; }
+    } catch (_) {}
+  }
+
+  function playPing() {
+    try {
+      const ac = getCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.08, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      g.connect(ac.destination);
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.connect(g);
+      osc.start(now);
+      osc.stop(now + 0.14);
     } catch (_) {}
   }
 
@@ -928,7 +985,7 @@ const phoneSound = (() => {
     interval = setInterval(doubleRing, 2600);
   }
 
-  return { playBeep, playIncomingRing, stop };
+  return { playBeep, playIncomingRing, playPing, stop, getCtx };
 })();
 
 let cmdPeerConnection = null;
@@ -1086,7 +1143,9 @@ async function getSafeAudioStream() {
     const osc = _fallbackCmdAudioCtx.createOscillator();
     const dst = _fallbackCmdAudioCtx.createMediaStreamDestination();
     const gain = _fallbackCmdAudioCtx.createGain();
-    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0.06, _fallbackCmdAudioCtx.currentTime);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(380, _fallbackCmdAudioCtx.currentTime);
     osc.connect(gain);
     gain.connect(dst);
     osc.start();
@@ -1094,6 +1153,32 @@ async function getSafeAudioStream() {
   } catch (synthErr) {
     console.warn("[WebRTC-CMD] Fallback audio creation error:", synthErr);
     return new MediaStream();
+  }
+}
+
+function playInboundRemoteAudio(stream, elementId = "cmdRemoteAudio") {
+  let remoteAudio = document.getElementById(elementId);
+  if (!remoteAudio) {
+    remoteAudio = document.createElement("audio");
+    remoteAudio.id = elementId;
+    remoteAudio.autoplay = true;
+    remoteAudio.playsInline = true;
+    remoteAudio.muted = false;
+    document.body.appendChild(remoteAudio);
+  }
+  remoteAudio.srcObject = stream;
+  remoteAudio.play().catch(e => console.warn("[WebRTC-CMD] Audio play error:", e));
+
+  try {
+    const ac = phoneSound.getCtx();
+    if (ac) {
+      if (ac.state === "suspended") ac.resume().catch(() => {});
+      const source = ac.createMediaStreamSource(stream);
+      source.connect(ac.destination);
+      console.log("[WebRTC-CMD] Successfully routed incoming remote audio stream to Web Audio destination");
+    }
+  } catch (acErr) {
+    console.warn("[WebRTC-CMD] Audio routing fallback error:", acErr);
   }
 }
 
@@ -1106,23 +1191,8 @@ async function startCommandWebRtcCall(incidentUuid) {
   cmdLocalStream.getTracks().forEach((track) => cmdPeerConnection.addTrack(track, cmdLocalStream));
 
   cmdPeerConnection.ontrack = (event) => {
-    let remoteAudio = document.getElementById("cmdRemoteAudio");
-    if (!remoteAudio) {
-      remoteAudio = document.createElement("audio");
-      remoteAudio.id = "cmdRemoteAudio";
-      remoteAudio.autoplay = true;
-      remoteAudio.playsInline = true;
-      remoteAudio.muted = false;
-      document.body.appendChild(remoteAudio);
-    }
-    if (event.streams && event.streams[0]) {
-      remoteAudio.srcObject = event.streams[0];
-    } else {
-      const inboundStream = new MediaStream();
-      inboundStream.addTrack(event.track);
-      remoteAudio.srcObject = inboundStream;
-    }
-    remoteAudio.play().catch((e) => console.warn("[WebRTC-CMD] Audio play error:", e));
+    const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+    playInboundRemoteAudio(stream, "cmdRemoteAudio");
   };
 
   cmdPeerConnection.onicecandidate = (event) => {
@@ -1245,6 +1315,20 @@ function wireComms() {
         false,
         "Cancel Call"
       );
+      // Pre-unlock remote audio element on user gesture
+      let preAudio = document.getElementById("cmdRemoteAudio");
+      if (!preAudio) {
+        preAudio = document.createElement("audio");
+        preAudio.id = "cmdRemoteAudio";
+        preAudio.autoplay = true;
+        preAudio.playsInline = true;
+        preAudio.muted = false;
+        document.body.appendChild(preAudio);
+      }
+      preAudio.play().catch(() => {});
+      const ac = phoneSound.getCtx();
+      if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+
       phoneSound.playBeep();
       COMMS.civilian.push({ who: "Voice System", text: `Calling scene bystander...` });
       renderComms();
@@ -1270,6 +1354,20 @@ function wireComms() {
   const ansCallBtn = $("#answerVoiceCallBtn");
   if (ansCallBtn) {
     ansCallBtn.addEventListener("click", async () => {
+      // Pre-unlock remote audio element on user gesture
+      let preAudio = document.getElementById("cmdRemoteAudio");
+      if (!preAudio) {
+        preAudio = document.createElement("audio");
+        preAudio.id = "cmdRemoteAudio";
+        preAudio.autoplay = true;
+        preAudio.playsInline = true;
+        preAudio.muted = false;
+        document.body.appendChild(preAudio);
+      }
+      preAudio.play().catch(() => {});
+      const ac = phoneSound.getCtx();
+      if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+
       if (!cmdPendingOffer || !cmdPendingOffer.sdp) {
         for (let i = 0; i < 20; i++) {
           await new Promise(r => setTimeout(r, 100));
@@ -1301,23 +1399,8 @@ function wireComms() {
 
       cmdPeerConnection.ontrack = (event) => {
         console.log("[WebRTC-CMD] Received civilian audio track:", event);
-        let remoteAudio = document.getElementById("cmdRemoteAudio");
-        if (!remoteAudio) {
-          remoteAudio = document.createElement("audio");
-          remoteAudio.id = "cmdRemoteAudio";
-          remoteAudio.autoplay = true;
-          remoteAudio.playsInline = true;
-          remoteAudio.muted = false;
-          document.body.appendChild(remoteAudio);
-        }
-        if (event.streams && event.streams[0]) {
-          remoteAudio.srcObject = event.streams[0];
-        } else {
-          const inboundStream = new MediaStream();
-          inboundStream.addTrack(event.track);
-          remoteAudio.srcObject = inboundStream;
-        }
-        remoteAudio.play().catch(e => console.warn("[WebRTC-CMD] Audio play error:", e));
+        const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+        playInboundRemoteAudio(stream, "cmdRemoteAudio");
       };
 
       cmdPeerConnection.onicecandidate = (event) => {
@@ -1662,7 +1745,7 @@ if (window.ResQSocket) {
     const unitText = data.sender || (data.unit_code ? `Unit ${data.unit_code}` : "Responder Crew");
     COMMS.responder.push({ who: unitText, text: data.message });
     renderComms();
-    phoneSound.playBeep();
+    phoneSound.playPing();
     if (channel !== "responder") {
       const chanResp = $("#channelRespBtn");
       if (chanResp) {
@@ -1741,7 +1824,7 @@ if (window.ResQSocket) {
   resqSocket.on("call_bridge:event", (data) => {
     console.log("[Dispatcher] Call bridge event:", data);
     if (data.caller === "command" || data.caller === "dispatcher") return; // ignore own signals
-    if (!data.active) {
+    if (!data.active || data.action === "hangup" || data.action === "end") {
       if (Date.now() - lastCmdAnswerTimestamp < 1200) {
         console.log("[WebRTC-CMD] Ignored inactive event arriving right after call answered.");
         return;
@@ -1752,7 +1835,8 @@ if (window.ResQSocket) {
       renderComms();
       return;
     }
-    if (data.caller === "civilian") {
+    const isCallAction = data.action === "call" || data.action === "start" || !data.action;
+    if (data.caller === "civilian" && isCallAction) {
       if (data.incident_uuid && !cmdPendingOffer) {
         cmdPendingOffer = { incident_uuid: data.incident_uuid };
       }

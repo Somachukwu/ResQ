@@ -46,26 +46,24 @@ CORE PRINCIPLES:
    - If the user communicates in Nigerian Pidgin (such as 'Abeg help me', 'Driver no dey talk', 'Blood dey rush well well', 'Wetin I go do?', 'How far the ambulance?', 'Person don fall', 'E dey breathe small small', 'Shey dem dey come?'), you MUST immediately adapt and reply in natural, warm, comforting Nigerian Pidgin.
    - If the user switches back to English, smoothly switch back to English. Dynamically match the caller's language turn by turn to keep them comfortable and calm during crisis.
 
-3. CONCISE, CALMING REASSURANCE (reassurance_message):
-   - Keep your message short, comforting, and emotionally grounding (1 to 2 short sentences maximum).
+3. PURPOSEFUL, BALANCED REASSURANCE (reassurance_message):
+   - Keep your message short, comforting, and focused (1 to 2 short sentences maximum).
    - Do NOT lecture the user about medical pathology or clinical mechanisms in the chat.
-   - Just focus on keeping the caller calm, grounded, and reassured that they are not alone.
-   - NEVER use robotic phrases like "Keep doing exactly what you are doing".
-   - Examples of good English reassurance:
-     "Help is actively on the way to your location. Take a slow, gentle breath with me, you are doing well, and I will stay right beside you until the medical team arrives."
-     "Thank you for checking that so quickly. Take a deep breath, keep him comfortable, and I am right here with you."
-   - Examples of good Nigerian Pidgin reassurance:
-     "The medical team don dey rush come your side now now. Take soft breath with me, you dey try well well, and I dey right here with you till dem reach."
-     "Thank you as you check that one sharp sharp. No fear at all, keep am comfortable, and I dey right beside you here."
+   - DO NOT repeatedly end every message with 'I am right here with you' or its variations. Use emotional grounding phrases thoughtfully and selectively (such as when the caller expresses acute panic, fear, or crying).
+   - For regular updates and subsequent turns, provide confident, direct, professional guidance without repeating reassurance clichés.
+   - NEVER use robotic phrases like 'Keep doing exactly what you are doing'.
 
-4. ADAPTIVE STEP & CARD DEDUCTION AND CLINICAL TRIAGE QUESTIONS:
-   - Do NOT output action steps, multiple-choice questions, or red flags on every turn.
-   - CLINICAL TRIAGE QUESTION PRIORITY: When evaluating casualties on scene, you MUST actively establish critical clinical details:
-     * Patient Demographics & Location: When demographic details (gender/age) or exact injury location (head, chest, abdomen, extremities) are not yet specified, ask 1 targeted question with options (A, B, C) to identify victim gender and injury location.
-     * Functional Capacity & Clinical Rules: Ask 1 targeted question with options (A, B, C) when functional capacity (such as weight-bearing under Ottawa rules for sprains, or respiratory status) is not yet verified.
-   - NATURAL CONVERSATION: If the caller is anxious, frightened, panicking, asking when help will arrive, sharing a general update, or simply conversing, keep 'first_aid_steps': [] and 'assessment_questions': [].
-   - ACTION STEPS ('first_aid_steps'): ONLY include action steps when there are concrete, new physical actions the bystander must perform right now (e.g. applying firm direct pressure to bleeding wound, opening obstructed airway).
-   - SELECTIVE RED FLAGS ('red_flags'): ONLY include red flags when there is an immediate, acute threat to life (such as cessation of breathing or massive uncontrolled arterial bleeding). For mild cases, sprains, or chats, keep 'red_flags': [].
+4. INTELLIGENT TWO-PHASE TRIAGE FLOW:
+   - Phase 1 (Ascertaining Details): When the caller initially reports an accident, crash, bleeding, or flood, intelligently ascertain critical missing details if not already provided:
+     * Patient Demographics & Location: Ask 1 targeted question with options (A, B, C) to identify victim gender and exact wound location (e.g. head, chest, torso, extremities).
+     * Bleeding Severity & Flood Depth: Inquire whether bleeding is heavy or spurting, or for water incidents, ascertain flood depth (ankle, knee, waist, or submerged vehicle).
+     * Functional Capacity & Ottawa Rules: For ankle or joint trauma when weight-bearing is not yet established, ask 1 targeted question with options (A, B, C) assessing whether the casualty can take four steps.
+   - Phase 2 (Actionable First Aid & Life-Saving Guidance): Once details are ascertained (or the caller answers your question):
+     * The very next reply MUST immediately tell the bystander concrete life-saving actions to perform (e.g. firm direct pressure with clean cloth, recovery position, elevating sprains under Ottawa rules, or flood evacuation).
+     * Do NOT ask the same assessment question again once answered.
+   - NATURAL CONVERSATION: If the caller is panicking, frightened, or asking when help will arrive, address their emotional state or give accurate ETA without demanding clinical answers.
+   - ACTION STEPS ('first_aid_steps'): Concrete, prioritized physical actions the bystander must perform right now.
+   - SELECTIVE RED FLAGS ('red_flags'): ONLY include red flags when there is an immediate, acute threat to life. For mild cases or chats, keep 'red_flags': [].
 
 5. DISPATCH TIMING AND TIME ACCURACY:
    - When the user asks about responders arriving, how long it will take, or where the ambulance is, strictly follow the CURRENT DISPATCH TIMING CONTEXT provided below.
@@ -296,6 +294,52 @@ def _validate_schema(data: Dict[str, Any], raw_text: str) -> Dict[str, Any]:
                     "options": [str(opt) for opt in q["options"] if opt]
                 })
 
+    lower_raw = raw_text.lower()
+    if not valid_questions:
+        if any(k in lower_raw for k in ["ankle", "sprain", "twisted", "joint"]) and not any(k in lower_raw for k in ["four step", "bear weight", "can walk", "cannot walk"]):
+            valid_questions.append({
+                "question": "Can the person take four steps, even with a limp?",
+                "options": [
+                    "A. Yes, can take four steps",
+                    "B. No, completely unable to bear weight",
+                    "C. Can walk with minimal discomfort"
+                ]
+            })
+        elif any(k in lower_raw for k in ["blood", "bleeding", "cut", "wound", "hemorrhage"]) and not any(k in lower_raw for k in ["male", "female", "man", "woman", "head", "chest", "arm", "leg"]):
+            valid_questions.append({
+                "question": "Where on the body is the bleeding, and is the victim male or female?",
+                "options": [
+                    "A. Male victim with head, chest, or torso bleeding",
+                    "B. Female victim with head, chest, or torso bleeding",
+                    "C. Arm, leg, or extremity bleeding"
+                ]
+            })
+        elif any(k in lower_raw for k in ["flood", "water", "river", "drowning"]) and not any(k in lower_raw for k in ["ankle", "knee", "waist", "deep", "submerged"]):
+            valid_questions.append({
+                "question": "How deep is the flood water, and are people trapped inside a vehicle?",
+                "options": [
+                    "A. Ankle to knee deep water",
+                    "B. Waist deep water and rising quickly",
+                    "C. Vehicle or casualty completely submerged"
+                ]
+            })
+        elif any(k in lower_raw for k in ["crash", "accident", "hit", "collision", "fall", "injury"]) and not any(k in lower_raw for k in ["male", "female", "man", "woman", "head", "chest", "leg", "arm"]):
+            valid_questions.append({
+                "question": "To help approaching responders prepare the right trauma equipment: Where is the injury located, and is the victim male or female?",
+                "options": [
+                    "A. Male casualty with head, chest, or torso injury",
+                    "B. Female casualty with head, chest, or torso injury",
+                    "C. Limb or extremity injury (arm or leg)"
+                ]
+            })
+
+    rf_list = [str(rf) for rf in data.get("red_flags", []) if rf]
+    if not rf_list and any(k in lower_raw for k in ["ankle", "sprain", "twisted", "joint"]):
+        rf_list = [
+            "Complete inability to bear weight or take four steps immediately",
+            "Severe bone tenderness directly over the outer or inner ankle bone"
+        ]
+
     return {
         "unresponsive": bool(data.get("unresponsive", False)),
         "severe_hemorrhage": bool(data.get("severe_hemorrhage", False)),
@@ -308,7 +352,7 @@ def _validate_schema(data: Dict[str, Any], raw_text: str) -> Dict[str, Any]:
         "reassurance_message": str(data.get("reassurance_message", "Emergency response units have been notified and are on the way. Please follow these guidance steps.")),
         "clinical_synthesis": str(data.get("clinical_synthesis", "")),
         "assessment_questions": valid_questions,
-        "red_flags": [str(rf) for rf in data.get("red_flags", []) if rf],
+        "red_flags": rf_list,
         "source": "gemini_2_flash",
         "raw_input": raw_text
     }
@@ -461,61 +505,57 @@ def _fallback_heuristic_parser(
             "raw_input": text
         }
 
-    # Protocol-constrained step-by-step guidance
-    is_answering_option = lower.startswith(("a.", "b.", "c.", "option a", "option b", "option c", "done", "finished", "thank you", "thanks"))
+    # Determine conversational phase: Turn 1 (ascertaining details) vs Turn 2 (actionable first aid guidance)
+    # Check if user is answering options or if history indicates previous question turn
+    is_answering_option = lower.startswith(("a.", "b.", "c.", "option a", "option b", "option c", "done", "finished", "thank you", "thanks", "yes", "no", "ok", "okay"))
+    has_prior_turn = bool(history and len(history) >= 2)
+
+    has_gender_now = any(k in lower for k in ["male", "female", "man", "woman", "boy", "girl", "guy", "lady"])
+    has_gender_history = any(
+        any(k in h.get("text", "").lower() for k in ["male", "female", "man", "woman", "boy", "girl", "guy", "lady"])
+        for h in (history or []) if h.get("role") == "user"
+    )
+    has_gender = has_gender_now or has_gender_history
+
+    has_location_now = any(k in lower for k in ["head", "chest", "neck", "arm", "leg", "hand", "foot", "abdomen", "belly", "stomach", "back", "knee", "ankle", "torso", "thigh"])
+    has_location_history = any(
+        any(k in h.get("text", "").lower() for k in ["head", "chest", "neck", "arm", "leg", "hand", "foot", "abdomen", "belly", "stomach", "back", "knee", "ankle", "torso", "thigh"])
+        for h in (history or []) if h.get("role") == "user"
+    )
+    has_location = has_location_now or has_location_history
+
+    has_flood_depth_now = any(k in lower for k in ["ankle", "knee", "waist", "deep", "submerged", "roof", "swimming", "floating"])
+    has_flood_depth_history = any(
+        any(k in h.get("text", "").lower() for k in ["ankle", "knee", "waist", "deep", "submerged", "roof", "swimming", "floating"])
+        for h in (history or []) if h.get("role") == "user"
+    )
+    has_flood_depth = has_flood_depth_now or has_flood_depth_history
+    has_answered_ottawa = any(k in lower for k in ["four step", "bear weight", "can walk", "cannot walk", "able to walk", "unable to walk"])
+
+    if is_sprain_or_joint:
+        is_turn_two = is_answering_option or has_answered_ottawa
+    else:
+        is_turn_two = is_answering_option or (has_gender and has_location) or (has_flood_depth and "flood_water" in hazards)
 
     steps = []
-    if not is_answering_option:
-        if unresponsive and airway_compromise:
-            steps.append("Immediately check mouth for blockages. Gently tilt the head backward and lift the chin to open the airway.")
-            steps.append("If not breathing at all, begin chest compressions: push hard and fast in the center of the chest (100 to 120 per minute).")
-        elif unresponsive and not airway_compromise:
-            steps.append("Do NOT shake the person. Check breathing by watching the chest rise and fall.")
-            steps.append("If breathing normally, roll gently onto their side into the recovery position to keep the airway clear.")
-            steps.append("Keep the neck straight. Do not place pillows under the head if spinal injury is suspected.")
-
-        if severe_hemorrhage:
-            steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
-            steps.append("Do NOT remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant pressure.")
-
-        if is_sprain_or_joint:
-            steps.append("Protection and Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
-            steps.append("Ice and Compression: Apply a cold pack wrapped in cloth for 15 to 20 minutes, and wrap with comfortable elastic support.")
-            steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
-
-        if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
-            steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all cigarettes and avoid spark sources.")
-
-        if not steps:
-            steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
-            steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
+    questions = []
 
     # Contextual Clinical Synthesis for responder records
     if is_sprain_or_joint:
-        synthesis = "Reported symptoms indicate an acute lower-extremity ligamentous or soft-tissue injury. Ottawa rules apply."
+        synthesis = "Reported symptoms indicate an acute lower extremity ligamentous or soft tissue injury. Ottawa rules apply."
     elif severe_hemorrhage:
         synthesis = "Active vascular hemorrhage reported. Direct mechanical pressure required."
     elif unresponsive:
         synthesis = "Altered mental status or unconsciousness detected. Airway management is prioritized."
+    elif "flood_water" in hazards:
+        synthesis = "Urban flood event with rising water. Evacuation and hypothermia prevention prioritized."
     else:
-        synthesis = "Emergency triage assessment in progress. Continuous monitoring."
+        synthesis = "Emergency triage assessment in progress. Continuous vital signs monitoring."
 
-    # Interactive Assessment Questions: ONLY ask when assessing acute physical state
-    questions = []
-    if not is_answering_option:
-        has_gender = any(k in lower for k in ["male", "female", "man", "woman", "boy", "girl", "guy", "lady"])
-        has_location = any(k in lower for k in ["head", "chest", "neck", "arm", "leg", "hand", "foot", "abdomen", "belly", "stomach", "back", "knee", "ankle"])
-
-        if is_sprain_or_joint:
-            questions.append({
-                "question": "Can the person take four steps, even with a limp?" if not is_pidgin else "The person fit take four steps at all, even if e dey limp?",
-                "options": [
-                    "A. Yes, can take four steps" if not is_pidgin else "A. Yes, e fit take four steps",
-                    "B. No, completely unable to bear weight" if not is_pidgin else "B. No, e no fit put leg for ground at all",
-                    "C. Can walk with minimal discomfort" if not is_pidgin else "C. E fit walk small small"
-                ]
-            })
-        elif severe_hemorrhage and not has_location:
+    if not is_turn_two:
+        # Phase 1: Intelligently ascertain details while delivering immediate safety advice
+        if severe_hemorrhage:
+            steps.append("Find a clean cloth or towel and press down directly and firmly on the bleeding wound with both hands.")
             questions.append({
                 "question": "Where on the body is the bleeding, and is the victim male or female?" if not is_pidgin else "Which part of the body blood dey rush from, and na man or woman?",
                 "options": [
@@ -524,16 +564,29 @@ def _fallback_heuristic_parser(
                     "C. Arm, leg, or extremity bleeding" if not is_pidgin else "C. Hand or leg bleeding"
                 ]
             })
-        elif severe_hemorrhage:
+        elif "flood_water" in hazards and not has_flood_depth:
+            steps.append("Move all casualties toward higher ground immediately and avoid walking through moving water.")
             questions.append({
-                "question": "Is the bleeding controlled by continuous direct pressure?" if not is_pidgin else "The blood dey reduce as you press am?",
+                "question": "How deep is the flood water, and are people trapped inside a vehicle?" if not is_pidgin else "How deep the flood water reach, and person dey trapped inside motor?",
                 "options": [
-                    "A. Bleeding is slowing down or stopped" if not is_pidgin else "A. Blood don dey slow down or e don stop",
-                    "B. Bleeding continues to soak through cloths" if not is_pidgin else "B. Blood still dey soak through the cloth",
-                    "C. Blood is spurting rhythmically" if not is_pidgin else "C. Blood dey rush out like tap"
+                    "A. Ankle to knee deep water" if not is_pidgin else "A. Water reach ankle or knee",
+                    "B. Waist deep water and rising quickly" if not is_pidgin else "B. Water reach waist and e dey rise fast",
+                    "C. Vehicle or casualty completely submerged" if not is_pidgin else "C. Motor or person sink inside water"
                 ]
             })
-        elif unresponsive:
+        elif is_sprain_or_joint:
+            steps.append("Protection and Rest: Stop all weight bearing immediately to protect injured ligaments.")
+            questions.append({
+                "question": "Can the person take four steps, even with a limp?" if not is_pidgin else "The person fit take four steps at all, even if e dey limp?",
+                "options": [
+                    "A. Yes, can take four steps" if not is_pidgin else "A. Yes, e fit take four steps",
+                    "B. No, completely unable to bear weight" if not is_pidgin else "B. No, e no fit put leg for ground at all",
+                    "C. Can walk with minimal discomfort" if not is_pidgin else "C. E fit walk small small"
+                ]
+            })
+        elif unresponsive and airway_compromise:
+            steps.append("Immediately check mouth for blockages. Gently tilt the head backward and lift the chin to open the airway.")
+            steps.append("If not breathing at all, begin chest compressions: push hard and fast in the center of the chest (100 to 120 per minute).")
             questions.append({
                 "question": "Is the casualty breathing normally and continuously?" if not is_pidgin else "The person dey breathe normal and continuous?",
                 "options": [
@@ -542,7 +595,19 @@ def _fallback_heuristic_parser(
                     "C. No breathing detected at all" if not is_pidgin else "C. E no dey breathe at all"
                 ]
             })
-        elif not (has_gender and has_location):
+        elif unresponsive:
+            steps.append("Do not shake the casualty. Check breathing continuously by watching the chest rise and fall.")
+            steps.append("Roll gently onto their side into the recovery position to keep the airway clear.")
+            questions.append({
+                "question": "Is the casualty breathing normally and continuously?" if not is_pidgin else "The person dey breathe normal and continuous?",
+                "options": [
+                    "A. Breathing normally and regularly" if not is_pidgin else "A. E dey breathe normal and steady",
+                    "B. Gasping, snoring, or struggling to breathe" if not is_pidgin else "B. E dey struggle to catch breath",
+                    "C. No breathing detected at all" if not is_pidgin else "C. E no dey breathe at all"
+                ]
+            })
+        else:
+            steps.append("Keep the casualty calm, warm, and still. Do not move them unless there is immediate fire danger.")
             questions.append({
                 "question": "To help approaching responders prepare the right trauma equipment: Where is the injury located, and is the victim male or female?" if not is_pidgin else "Make responders fit prepare well: Which part of the body get injury, and na man or woman?",
                 "options": [
@@ -552,43 +617,72 @@ def _fallback_heuristic_parser(
                 ]
             })
 
+        if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
+            steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Extinguish all flame sources.")
+
+        # Reassurance for Turn 1: Professional, alert confirmation, no repetitive clichés
+        reassurance = "Emergency responders don get your alert. Abeg confirm this quick question make the medical team carry the correct tools." if is_pidgin else "Emergency responders have been alerted to your area. Please confirm these quick details so the crew can prepare the right trauma equipment."
+
+    else:
+        # Phase 2: Details ascertained. Deliver comprehensive, prioritized first aid or evacuation instructions!
+        if unresponsive and airway_compromise:
+            steps.append("Immediately check mouth for blockages. Gently tilt the head backward and lift the chin to open the airway.")
+            steps.append("If not breathing at all, begin chest compressions: push hard and fast in the center of the chest (100 to 120 per minute).")
+        elif unresponsive and not airway_compromise:
+            steps.append("Do not shake the person. Check breathing by watching the chest rise and fall.")
+            steps.append("If breathing normally, roll gently onto their side into the recovery position to keep the airway clear.")
+            steps.append("Keep the neck straight. Do not place pillows under the head if spinal injury is suspected.")
+
+        if severe_hemorrhage:
+            steps.append("Find a clean cloth, towel, or shirt. Press down directly and firmly on the bleeding wound with both hands.")
+            steps.append("Do not remove the cloth even if it soaks through. Add more layers of cloth on top and maintain constant firm pressure.")
+            steps.append("If bleeding is on an arm or leg with no suspected fracture, elevate the limb above heart level.")
+
+        if "flood_water" in hazards:
+            steps.append("Move all casualties immediately to high ground or the upper level of a sturdy structure.")
+            steps.append("Never attempt to walk or drive through flowing water.")
+            steps.append("Wrap victims in dry blankets or clothing to prevent hypothermia.")
+
+        if is_sprain_or_joint:
+            steps.append("Protection and Rest: Stop all running or heavy loading immediately to prevent tearing compromised ligaments.")
+            steps.append("Cold and Compression: Apply a cold pack wrapped in cloth for 15 to 20 minutes, and wrap with comfortable elastic support.")
+            steps.append("Elevation: Raise the injured limb above heart level when seated or lying down to reduce acute swelling.")
+
+        if any(h in hazards for h in ["fuel_leak", "vehicle_fire"]):
+            steps.append("SCENE SAFETY WARNING: Fuel or fire danger detected. Move bystanders back at least 25 meters. Strictly extinguish all flame sources.")
+
+        if not steps:
+            steps.append("Keep the casualty calm, warm, and still. Do not offer food, water, or medication.")
+            steps.append("Continuously monitor consciousness and breathing until the response team arrives.")
+
+        # Reassurance for Turn 2: Direct, focused action instructions, no repetitive clichés
+        if severe_hemorrhage:
+            reassurance = "Responders dey rush come your side now now. Hold that pressure tight with two hands as you follow these steps." if is_pidgin else "Emergency responders are speeding to your location. Maintain firm two hand pressure on the wound and follow these immediate steps."
+        elif unresponsive:
+            reassurance = "Responders dey road dey come. Keep the throat open and watch the chest as you follow these steps." if is_pidgin else "Emergency responders are en route. Keep their airway open and monitor breathing closely following these steps."
+        elif is_sprain_or_joint:
+            reassurance = "Responders don get your update. Rest that leg and lift am up as you follow these steps." if is_pidgin else "Emergency responders have your update. Keep the joint rested and elevated following these recovery steps."
+        elif "flood_water" in hazards:
+            reassurance = "Responders dey come. Move go high ground quick quick and follow these safety steps." if is_pidgin else "Emergency responders have been dispatched. Move to high ground immediately and follow these safety steps."
+        else:
+            reassurance = "Responders dey come your side now now. Follow these life saving steps immediately to help the person." if is_pidgin else "Emergency responders are actively en route. Follow these life saving steps immediately to stabilize the victim."
+
     # Red Flag Warning Signs
     red_flags = []
-    if not is_answering_option:
-        if is_sprain_or_joint:
-            red_flags = [
-                "Complete inability to bear weight or take four steps immediately",
-                "Severe bone tenderness directly over the outer or inner ankle bone"
-            ]
-        elif severe_hemorrhage:
-            red_flags = [
-                "Continuous arterial spurting despite firm two-hand direct pressure",
-                "Signs of hypovolemic shock: pale cold skin, confusion, or rapid shallow breathing"
-            ]
-        elif unresponsive and airway_compromise:
-            red_flags = [
-                "Cessation of breathing or irregular agonal breathing"
-            ]
-
-    # Reassurance message adapting dynamically to English or Nigerian Pidgin with zero dashes
-    if is_answering_option:
-        if is_sprain_or_joint:
-            reassurance = "Thank you as you check that one. Keep that joint rested, comfortable, and lift am up small, I dey right here with you till help reach." if is_pidgin else "Thank you for checking that. Keep the joint rested, comfortable, and elevated, and I will stay right here with you until help arrives."
-        elif severe_hemorrhage:
-            reassurance = "Thank you as you hold that pressure. Press down tight with two hands, take deep breath, I dey with you." if is_pidgin else "Thank you for holding that pressure. Keep both hands pressed firmly in place, take a deep breath, and I am right here with you."
-        elif unresponsive:
-            reassurance = "Thank you as you stay close to am. Dey watch the chest make sure say e dey breathe, I dey beside you till the ambulance reach." if is_pidgin else "Thank you for staying close. Keep watching their chest gently rise and fall, and I will stay right beside you until the crew arrives."
-        else:
-            reassurance = "You dey try well well. Take soft, gentle breath with me, I dey right here with you till help arrive." if is_pidgin else "You are doing well. Take a slow, gentle breath, and I will stay right here with you until help arrives."
-    else:
-        if is_sprain_or_joint:
-            reassurance = "Emergency team don dey come your location now now. Take soft breath, keep that leg rested and lift am up, I dey right here with you." if is_pidgin else "Emergency responders have been notified and are actively on the way. Take a slow breath, keep that leg rested and elevated, and I am right here with you."
-        elif severe_hemorrhage:
-            reassurance = "Emergency responders dey speed come your side now now. Stay close to am, hold that pressure tight tight, and I dey with you every second." if is_pidgin else "Emergency responders are speeding toward your location. Stay right beside them, maintain steady pressure, and I will stay with you every second."
-        elif unresponsive:
-            reassurance = "Emergency responders dey road dey come your side. Calam down and make sure say e throat open, I go guide you till dem reach." if is_pidgin else "Emergency responders are on the way to you. Stay calm and keep their airway open, and I will guide you through every moment until they arrive."
-        else:
-            reassurance = "Emergency responders don dey come your side. Take soft, gentle breath with me, you no dey alone, and I dey right here with you." if is_pidgin else "Emergency responders have been notified and are on the way. Take a slow, gentle breath with me, you are not alone, and I am right here with you."
+    if is_sprain_or_joint:
+        red_flags = [
+            "Complete inability to bear weight or take four steps immediately",
+            "Severe bone tenderness directly over the outer or inner ankle bone"
+        ]
+    elif severe_hemorrhage:
+        red_flags = [
+            "Continuous arterial spurting despite firm two hand direct pressure",
+            "Signs of shock: pale cold skin, confusion, or rapid shallow breathing"
+        ]
+    elif unresponsive and airway_compromise:
+        red_flags = [
+            "Cessation of breathing or irregular agonal breathing"
+        ]
 
     return {
         "unresponsive": unresponsive,
