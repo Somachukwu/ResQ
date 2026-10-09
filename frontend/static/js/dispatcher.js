@@ -985,7 +985,27 @@ const phoneSound = (() => {
     interval = setInterval(doubleRing, 2600);
   }
 
-  return { playBeep, playIncomingRing, playPing, stop, getCtx };
+  function playChirp() {
+    try {
+      const ac = getCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.15, now + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      g.connect(ac.destination);
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+      osc.connect(g);
+      osc.start(now);
+      osc.stop(now + 0.28);
+    } catch (_) {}
+  }
+
+  return { playBeep, playIncomingRing, playPing, playChirp, stop, getCtx };
 })();
 
 let cmdPeerConnection = null;
@@ -1011,9 +1031,14 @@ async function handleCmdIceCandidate(candidate) {
   if (!candInit) return;
   if (cmdPeerConnection && cmdPeerConnection.remoteDescription && cmdPeerConnection.remoteDescription.type) {
     try {
-      await cmdPeerConnection.addIceCandidate(candInit);
+      const rtcCand = (candInit instanceof RTCIceCandidate) ? candInit : new RTCIceCandidate(candInit);
+      await cmdPeerConnection.addIceCandidate(rtcCand);
     } catch (err) {
-      console.warn("[WebRTC-CMD] addIceCandidate error:", err);
+      try {
+        await cmdPeerConnection.addIceCandidate(candInit);
+      } catch (err2) {
+        console.warn("[WebRTC-CMD] addIceCandidate error:", err2);
+      }
     }
   } else {
     cmdPendingIceCandidates.push(candInit);
@@ -1026,9 +1051,14 @@ async function drainCmdIceCandidates() {
     const cand = cmdPendingIceCandidates.shift();
     if (cand) {
       try {
-        await cmdPeerConnection.addIceCandidate(cand);
+        const rtcCand = (cand instanceof RTCIceCandidate) ? cand : new RTCIceCandidate(cand);
+        await cmdPeerConnection.addIceCandidate(rtcCand);
       } catch (err) {
-        console.warn("[WebRTC-CMD] Error adding buffered ICE candidate:", err);
+        try {
+          await cmdPeerConnection.addIceCandidate(cand);
+        } catch (err2) {
+          console.warn("[WebRTC-CMD] Error adding buffered ICE candidate:", err2);
+        }
       }
     }
   }
@@ -1122,41 +1152,99 @@ function endDispatcherWebRtc() {
     cmdLocalStream.getTracks().forEach((t) => t.stop());
     cmdLocalStream = null;
   }
+  if (_cmdCarrierOsc) {
+    try { _cmdCarrierOsc.stop(); _cmdCarrierOsc.disconnect(); } catch (_) {}
+    _cmdCarrierOsc = null;
+  }
+  if (window._cmdRemoteAudioSource) {
+    try { window._cmdRemoteAudioSource.disconnect(); } catch (_) {}
+    window._cmdRemoteAudioSource = null;
+  }
   cmdPendingOffer = null;
   cmdPendingIceCandidates = [];
   const remoteAudio = document.getElementById("cmdRemoteAudio");
-  if (remoteAudio) remoteAudio.remove();
+  if (remoteAudio) {
+    try { remoteAudio.pause(); } catch (_) {}
+    remoteAudio.srcObject = null;
+  }
 }
 
+let _cmdCarrierOsc = null;
+
 async function getSafeAudioStream() {
+  if (_cmdCarrierOsc) {
+    try { _cmdCarrierOsc.stop(); _cmdCarrierOsc.disconnect(); } catch (_) {}
+    _cmdCarrierOsc = null;
+  }
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let ac = null;
+  if (AudioCtx) {
+    try {
+      ac = phoneSound.getCtx() || new AudioCtx();
+      if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+    } catch (_) {}
+  }
+
+  let realStream = null;
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      console.warn("[WebRTC-CMD] Microphone capture unavailable, using fallback audio stream:", err);
+      realStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } catch (e1) {
+      console.warn("[WebRTC-CMD] Unconstrained mic request failed, trying standard audio:", e1);
+      try {
+        realStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e2) {
+        console.warn("[WebRTC-CMD] Physical microphone capture unavailable:", e2);
+      }
     }
   }
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!_fallbackCmdAudioCtx) _fallbackCmdAudioCtx = new AudioCtx();
-    if (_fallbackCmdAudioCtx.state === "suspended") _fallbackCmdAudioCtx.resume().catch(() => {});
-    const osc = _fallbackCmdAudioCtx.createOscillator();
-    const dst = _fallbackCmdAudioCtx.createMediaStreamDestination();
-    const gain = _fallbackCmdAudioCtx.createGain();
-    gain.gain.setValueAtTime(0.06, _fallbackCmdAudioCtx.currentTime);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(380, _fallbackCmdAudioCtx.currentTime);
-    osc.connect(gain);
-    gain.connect(dst);
-    osc.start();
-    return dst.stream;
-  } catch (synthErr) {
-    console.warn("[WebRTC-CMD] Fallback audio creation error:", synthErr);
-    return new MediaStream();
+
+  if (ac) {
+    try {
+      const dst = ac.createMediaStreamDestination();
+      const osc = ac.createOscillator();
+      const oscGain = ac.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(340, ac.currentTime);
+      oscGain.gain.setValueAtTime(0.04, ac.currentTime);
+      osc.connect(oscGain);
+      oscGain.connect(dst);
+      osc.start();
+      _cmdCarrierOsc = osc;
+
+      if (realStream && realStream.getAudioTracks().length > 0) {
+        try {
+          const micSource = ac.createMediaStreamSource(realStream);
+          const micGain = ac.createGain();
+          micGain.gain.setValueAtTime(1.0, ac.currentTime);
+          micSource.connect(micGain);
+          micGain.connect(dst);
+        } catch (mixErr) {
+          console.warn("[WebRTC-CMD] Error mixing physical mic into Web Audio graph:", mixErr);
+          return realStream;
+        }
+      }
+      return dst.stream;
+    } catch (synthErr) {
+      console.warn("[WebRTC-CMD] Web Audio synthesis error:", synthErr);
+      if (realStream) return realStream;
+    }
   }
+
+  if (realStream) return realStream;
+  return new MediaStream();
 }
 
 function playInboundRemoteAudio(stream, elementId = "cmdRemoteAudio") {
+  try {
+    phoneSound.playChirp();
+  } catch (_) {}
   let remoteAudio = document.getElementById(elementId);
   if (!remoteAudio) {
     remoteAudio = document.createElement("audio");
@@ -1164,6 +1252,7 @@ function playInboundRemoteAudio(stream, elementId = "cmdRemoteAudio") {
     remoteAudio.autoplay = true;
     remoteAudio.playsInline = true;
     remoteAudio.muted = false;
+    remoteAudio.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0.01;pointer-events:none;";
     document.body.appendChild(remoteAudio);
   }
   remoteAudio.srcObject = stream;
@@ -1174,6 +1263,7 @@ function playInboundRemoteAudio(stream, elementId = "cmdRemoteAudio") {
     if (ac) {
       if (ac.state === "suspended") ac.resume().catch(() => {});
       const source = ac.createMediaStreamSource(stream);
+      window._cmdRemoteAudioSource = source;
       source.connect(ac.destination);
       console.log("[WebRTC-CMD] Successfully routed incoming remote audio stream to Web Audio destination");
     }

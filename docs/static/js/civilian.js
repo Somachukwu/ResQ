@@ -733,7 +733,7 @@ const phoneSound = (() => {
       const g = ac.createGain();
       g.gain.setValueAtTime(0, now);
       g.gain.linearRampToValueAtTime(0.08, now + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      g.exponentialRampToValueAtTime(0.001, now + 0.12);
       g.connect(ac.destination);
       const osc = ac.createOscillator();
       osc.type = "sine";
@@ -744,7 +744,27 @@ const phoneSound = (() => {
     } catch (_) {}
   }
 
-  return { playBeep, playIncomingRing, playPing, stop, getCtx };
+  function playChirp() {
+    try {
+      const ac = getCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.15, now + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      g.connect(ac.destination);
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+      osc.connect(g);
+      osc.start(now);
+      osc.stop(now + 0.28);
+    } catch (_) {}
+  }
+
+  return { playBeep, playIncomingRing, playPing, playChirp, stop, getCtx };
 })();
 
 /* ---------------- WebRTC Voice Call ---------------- */
@@ -771,9 +791,14 @@ async function handleCivIceCandidate(candidate) {
   if (!candInit) return;
   if (civPeerConnection && civPeerConnection.remoteDescription && civPeerConnection.remoteDescription.type) {
     try {
-      await civPeerConnection.addIceCandidate(candInit);
+      const rtcCand = (candInit instanceof RTCIceCandidate) ? candInit : new RTCIceCandidate(candInit);
+      await civPeerConnection.addIceCandidate(rtcCand);
     } catch (err) {
-      console.warn("[WebRTC] addIceCandidate error:", err);
+      try {
+        await civPeerConnection.addIceCandidate(candInit);
+      } catch (err2) {
+        console.warn("[WebRTC] addIceCandidate error:", err2);
+      }
     }
   } else {
     civPendingIceCandidates.push(candInit);
@@ -786,9 +811,14 @@ async function drainCivIceCandidates() {
     const cand = civPendingIceCandidates.shift();
     if (cand) {
       try {
-        await civPeerConnection.addIceCandidate(cand);
+        const rtcCand = (cand instanceof RTCIceCandidate) ? cand : new RTCIceCandidate(cand);
+        await civPeerConnection.addIceCandidate(rtcCand);
       } catch (err) {
-        console.warn("[WebRTC] Error adding buffered ICE candidate:", err);
+        try {
+          await civPeerConnection.addIceCandidate(cand);
+        } catch (err2) {
+          console.warn("[WebRTC] Error adding buffered ICE candidate:", err2);
+        }
       }
     }
   }
@@ -929,35 +959,82 @@ function showVoiceBridgeModal(statusText, mode = "active") {
   }
 }
 
+let _civCarrierOsc = null;
+
 async function getSafeAudioStream() {
+  if (_civCarrierOsc) {
+    try { _civCarrierOsc.stop(); _civCarrierOsc.disconnect(); } catch (_) {}
+    _civCarrierOsc = null;
+  }
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let ac = null;
+  if (AudioCtx) {
+    try {
+      ac = phoneSound.getCtx() || new AudioCtx();
+      if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+    } catch (_) {}
+  }
+
+  let realStream = null;
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      console.warn("[WebRTC-CIV] Microphone capture unavailable, using fallback audio stream:", err);
+      realStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } catch (e1) {
+      console.warn("[WebRTC-CIV] Unconstrained mic request failed, trying standard audio:", e1);
+      try {
+        realStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e2) {
+        console.warn("[WebRTC-CIV] Physical microphone unavailable:", e2);
+      }
     }
   }
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!_fallbackCivAudioCtx) _fallbackCivAudioCtx = new AudioCtx();
-    if (_fallbackCivAudioCtx.state === "suspended") _fallbackCivAudioCtx.resume().catch(() => {});
-    const osc = _fallbackCivAudioCtx.createOscillator();
-    const dst = _fallbackCivAudioCtx.createMediaStreamDestination();
-    const gain = _fallbackCivAudioCtx.createGain();
-    gain.gain.setValueAtTime(0.06, _fallbackCivAudioCtx.currentTime);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(380, _fallbackCivAudioCtx.currentTime);
-    osc.connect(gain);
-    gain.connect(dst);
-    osc.start();
-    return dst.stream;
-  } catch (synthErr) {
-    console.warn("[WebRTC-CIV] Fallback audio creation error:", synthErr);
-    return new MediaStream();
+
+  if (ac) {
+    try {
+      const dst = ac.createMediaStreamDestination();
+      const osc = ac.createOscillator();
+      const oscGain = ac.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(340, ac.currentTime);
+      oscGain.gain.setValueAtTime(0.04, ac.currentTime);
+      osc.connect(oscGain);
+      oscGain.connect(dst);
+      osc.start();
+      _civCarrierOsc = osc;
+
+      if (realStream && realStream.getAudioTracks().length > 0) {
+        try {
+          const micSource = ac.createMediaStreamSource(realStream);
+          const micGain = ac.createGain();
+          micGain.gain.setValueAtTime(1.0, ac.currentTime);
+          micSource.connect(micGain);
+          micGain.connect(dst);
+        } catch (mixErr) {
+          console.warn("[WebRTC-CIV] Error mixing physical mic into Web Audio graph:", mixErr);
+          return realStream;
+        }
+      }
+      return dst.stream;
+    } catch (synthErr) {
+      console.warn("[WebRTC-CIV] Web Audio synthesis error:", synthErr);
+      if (realStream) return realStream;
+    }
   }
+
+  if (realStream) return realStream;
+  return new MediaStream();
 }
 
 function playInboundRemoteAudio(stream, elementId = "civRemoteAudio") {
+  try {
+    phoneSound.playChirp();
+  } catch (_) {}
   let remoteAudio = document.getElementById(elementId);
   if (!remoteAudio) {
     remoteAudio = document.createElement("audio");
@@ -965,6 +1042,7 @@ function playInboundRemoteAudio(stream, elementId = "civRemoteAudio") {
     remoteAudio.autoplay = true;
     remoteAudio.playsInline = true;
     remoteAudio.muted = false;
+    remoteAudio.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0.01;pointer-events:none;";
     document.body.appendChild(remoteAudio);
   }
   remoteAudio.srcObject = stream;
@@ -975,6 +1053,7 @@ function playInboundRemoteAudio(stream, elementId = "civRemoteAudio") {
     if (ac) {
       if (ac.state === "suspended") ac.resume().catch(() => {});
       const source = ac.createMediaStreamSource(stream);
+      window._civRemoteAudioSource = source;
       source.connect(ac.destination);
       console.log("[WebRTC-CIV] Successfully routed incoming remote audio stream to Web Audio destination");
     }
@@ -1175,10 +1254,21 @@ function endWebRtcCall() {
     civLocalStream.getTracks().forEach((t) => t.stop());
     civLocalStream = null;
   }
+  if (_civCarrierOsc) {
+    try { _civCarrierOsc.stop(); _civCarrierOsc.disconnect(); } catch (_) {}
+    _civCarrierOsc = null;
+  }
+  if (window._civRemoteAudioSource) {
+    try { window._civRemoteAudioSource.disconnect(); } catch (_) {}
+    window._civRemoteAudioSource = null;
+  }
   civPendingOffer = null;
   civPendingIceCandidates = [];
   const remoteAudio = document.getElementById("civRemoteAudio");
-  if (remoteAudio) remoteAudio.remove();
+  if (remoteAudio) {
+    try { remoteAudio.pause(); } catch (_) {}
+    remoteAudio.srcObject = null;
+  }
 
   if (state.incidentUuid) {
     fetch(`/api/incidents/${state.incidentUuid}/call-bridge`, {
