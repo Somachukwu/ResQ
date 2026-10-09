@@ -20,61 +20,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const L = window.L;
 
-/* ---------------- seed operational data (Enugu corridor) ---------------- */
-const INCIDENTS = [
-  {
-    id: "RQ-2417",
-    rsi: 4.6,
-    triage: "red",
-    title: "Head-on collision, trailer and minibus",
-    place: "Enugu–Onitsha Expressway km 42 E",
-    victims: 2,
-    injuries: "Unresponsive / head trauma, arterial bleed",
-    hazards: ["Fuel spill", "Live traffic"],
-    lat: 6.3894,
-    lng: 7.2295,
-    started: Date.now() - 1000 * 132,
-  },
-  {
-    id: "RQ-2416",
-    rsi: 3.4,
-    triage: "yellow",
-    title: "Okada rider struck at junction",
-    place: "Ogui Road / Zik Avenue",
-    victims: 1,
-    injuries: "Open tibia fracture, conscious",
-    hazards: ["Crowd control"],
-    lat: 6.4402,
-    lng: 7.4936,
-    started: Date.now() - 1000 * 640,
-  },
-  {
-    id: "RQ-2415",
-    rsi: 3.9,
-    triage: "yellow",
-    title: "Flood submersion, vehicle in culvert",
-    place: "Nike Lake river crossing",
-    victims: 3,
-    injuries: "Hypothermia, near-drowning",
-    hazards: ["Water hazard"],
-    lat: 6.4756,
-    lng: 7.5648,
-    started: Date.now() - 1000 * 1520,
-  },
-  {
-    id: "RQ-2414",
-    rsi: 1.8,
-    triage: "green",
-    title: "Market fall, elderly woman",
-    place: "New Haven market, gate 3",
-    victims: 1,
-    injuries: "Wrist injury, stable",
-    hazards: [],
-    lat: 6.4381,
-    lng: 7.4802,
-    started: Date.now() - 1000 * 2400,
-  },
-];
+/* ---------------- operational data (clean for live demonstration) ---------------- */
+const INCIDENTS = [];
 
 const UNITS = [
   { id: "AMB-07", name: "Ambulance 07", type: "Advanced life support", status: "idle", lat: 6.4021, lng: 7.2711, eta: 6, caps: "ALS · Trauma kit · O₂" },
@@ -98,7 +45,7 @@ const FLOODZONES = [
 
 /* Operational state is populated from the API when available.
    Fallback seeds are preserved until live data arrives. */
-let selected = INCIDENTS[0] || null;
+let selected = null;
 let map;
 const layers = {};
 
@@ -566,7 +513,41 @@ function focusIncident(inc) {
 }
 
 function renderMissionConsole(i) {
-  if (!i) return;
+  if (!i) {
+    const briefCard = $("#missionBriefCard");
+    if (briefCard) briefCard.dataset.triage = "none";
+    const triageEl = $("#detailTriage");
+    if (triageEl) {
+      triageEl.textContent = "STANDBY";
+      triageEl.className = "badge";
+    }
+    const rsiEl = $("#detailRsi");
+    if (rsiEl) rsiEl.textContent = "RSI --";
+    const elapsedEl = $("#detailElapsed");
+    if (elapsedEl) elapsedEl.textContent = "Standby";
+    const titleEl = $("#detailTitle");
+    if (titleEl) titleEl.textContent = "Standing by for live scene report";
+    const coordsEl = $("#detailCoordsText");
+    if (coordsEl) coordsEl.textContent = "Waiting for incoming emergency report...";
+    const gmapsLink = $("#detailGoogleMapsLink");
+    if (gmapsLink) gmapsLink.style.display = "none";
+    const victimEl = $("#detailVictimCount");
+    if (victimEl) victimEl.textContent = "0";
+    const injuriesEl = $("#detailInjuries");
+    if (injuriesEl) injuriesEl.textContent = "Awaiting triage report from scene";
+    const hazardsEl = $("#detailHazards");
+    if (hazardsEl) hazardsEl.innerHTML = `<span style="font-size:10px;color:var(--text-3)">No active hazards flagged</span>`;
+    const hospNameEl = $("#detailHospital");
+    if (hospNameEl) hospNameEl.textContent = "ESUTH Parklane (Standby)";
+    const hospCapsEl = $("#detailHospitalCaps");
+    if (hospCapsEl) hospCapsEl.innerHTML = `<span class="facility-cap-tag">Level 1 trauma</span> · <span class="facility-cap-tag">ICU</span> · <span class="facility-cap-tag">Blood bank</span>`;
+    const hospEtaEl = $("#detailHospitalEta");
+    if (hospEtaEl) hospEtaEl.textContent = "-- mins · Standby";
+    return;
+  }
+
+  const gmapsLink = $("#detailGoogleMapsLink");
+  if (gmapsLink) gmapsLink.style.display = "inline";
 
   // Dynamic card triage accent (Requirement 7)
   const briefCard = $("#missionBriefCard");

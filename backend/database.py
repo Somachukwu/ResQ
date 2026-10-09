@@ -89,14 +89,6 @@ def init_db():
                 ("MED-02", "Medical SUV 02 (Physician Response)", "suv", "idle", 6.4267, 7.5122, 270.0, 0.0, 98, None),
                 ("RESCUE-01", "Emergency Rescue Crew 01", "rescue_truck", "idle", 6.4590, 7.5320, 90.0, 0.0, 100, None),
             ])
-        cursor.execute("SELECT COUNT(*) AS count FROM incidents")
-        if _count(cursor.fetchone()) == 0:
-            cursor.executemany("INSERT INTO incidents (incident_uuid, title, type, status, severity_level, severity_score, escalation_status, lat, lng, location_name, casualties_count, trapped_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", [
-                ("RQ-2417", "Mass-casualty rollover, fuel tanker proximity", "road_traffic_accident", "reported", "critical", 4.8, "escalating", 6.3894, 7.2295, "Enugu-Onitsha Expressway km 42 E", 2, 1),
-                ("RQ-2416", "Okada rider struck at junction", "road_traffic_accident", "reported", "urgent", 3.4, "steady", 6.4402, 7.4936, "Ogui Road / Zik Avenue", 1, 0),
-                ("RQ-2415", "Flood submersion, vehicle in culvert", "urban_flood", "reported", "urgent", 3.9, "steady", 6.4756, 7.5648, "Nike Lake river crossing", 3, 1),
-                ("RQ-2414", "Market fall, elderly woman", "medical", "reported", "low", 1.8, "steady", 6.4381, 7.4802, "New Haven market, gate 3", 1, 0),
-            ])
         conn.commit()
     except Exception:
         conn.rollback(); raise
