@@ -573,7 +573,6 @@ function renderMissionConsole(i) {
   const coordsEl = $("#detailCoordsText");
   if (coordsEl) coordsEl.textContent = `${i.place} (${i.lat.toFixed(4)}, ${i.lng.toFixed(4)})`;
 
-  const gmapsLink = $("#detailGoogleMapsLink");
   if (gmapsLink) {
     gmapsLink.href = `https://www.google.com/maps?q=${i.lat},${i.lng}`;
   }

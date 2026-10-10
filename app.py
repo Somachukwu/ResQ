@@ -204,6 +204,7 @@ def incidents_api():
         sock_inc["hazards"] = data.get("scene_hazards", [])
         sock_inc["scene_hazards"] = data.get("scene_hazards", [])
         socketio.emit("incident:new", sock_inc, room="dispatchers")
+        socketio.emit("incident:new", sock_inc)
         return jsonify(incident), 201
     if not has_operator_token():
         return jsonify({"error": "Valid operator credentials required"}), 401

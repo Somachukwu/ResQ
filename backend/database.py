@@ -137,6 +137,9 @@ def update_responder_telemetry(unit_code, lat, lng, heading=0.0, speed_kmh=0.0):
 
 def create_incident(data):
     incident_uuid = data.get("incident_uuid") or f"INC-{uuid.uuid4().hex[:12].upper()}"
+    existing = get_incident_by_uuid(incident_uuid)
+    if existing:
+        return existing
     conn = get_db_connection(); cursor = conn.cursor()
     try:
         cursor.execute("""INSERT INTO incidents (incident_uuid, title, type, status, severity_level, severity_score, escalation_status, lat, lng, location_name, casualties_count, trapped_count, assigned_responder_id, recommended_hospital_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""", (

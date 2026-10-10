@@ -78,7 +78,8 @@ export function startSession(e) {
     if (window._resqCivSocket) {
       window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
     }
-    fetch("/api/incidents", {
+    const incidentsEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/incidents") || "/api/incidents";
+    fetch(incidentsEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -87,7 +88,9 @@ export function startSession(e) {
         location_name: "Enugu Scene",
         lat: state.coords?.lat || 6.4520,
         lng: state.coords?.lng || 7.5100,
-        casualties_count: 1
+        casualties_count: 1,
+        severity_level: "critical",
+        severity_score: 4.5
       })
     }).catch(() => {});
   }
@@ -1167,7 +1170,8 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
     if (window._resqCivSocket) {
       window._resqCivSocket.emit("join", { room: `incident_${state.incidentUuid}` });
     }
-    fetch("/api/incidents", {
+    const incidentsEndpoint = window.RESQ_CONFIG?.getApiEndpoint("/api/incidents") || "/api/incidents";
+    fetch(incidentsEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1176,7 +1180,9 @@ async function triggerVoiceBridge(type = "civilian_to_command") {
         location_name: "Enugu Scene",
         lat: state.coords?.lat || 6.4520,
         lng: state.coords?.lng || 7.5100,
-        casualties_count: 1
+        casualties_count: 1,
+        severity_level: "critical",
+        severity_score: 4.5
       })
     }).catch(() => {});
   }

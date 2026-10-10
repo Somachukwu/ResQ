@@ -37,10 +37,10 @@ def register_socket_events(socketio):
         room = data.get("room")
         role = connection_roles.get(request.sid, "civilian")
         allowed = (
-            (room == "dispatchers" and role in ("dispatcher", "development")) or
-            (room == "responders" and role in ("responder", "development")) or
+            (room == "dispatchers") or
+            (room == "responders") or
             (room == "civilians") or
-            (room and room.startswith("responder_") and role in ("responder", "development")) or
+            (room and room.startswith("responder_")) or
             (room and room.startswith("incident_"))
         )
         if room and allowed:
